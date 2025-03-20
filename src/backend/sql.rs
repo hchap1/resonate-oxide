@@ -1,3 +1,5 @@
+use rusqlite::{Connection, Statement};
+
 pub const CREATE_SONG_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS Songs {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,3 +27,21 @@ pub const CREATE_PLAYLIST_ENTRIES_TABLE: &str = "
         FOREIGN KEY (song_id) REFERENCES Songs(id) ON DELETE CASCADE
     };
 ";
+
+pub struct Query<'a> {
+    connection: &Connection
+}
+
+impl Query<'a> {
+    pub fn new(connection: &Connection) -> Self { Self { connection } }
+    pub fn retrieve_all_songs(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs").unwrap() }
+    pub fn get_song_by_field(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE ? = ?").unwrap() }
+    pub fn get_song_by_match(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?").unwrap() }
+
+    pub fn insert_song(self) -> Statement<'a> { 
+        self.connection.prepare("
+            INSERT INTO Songs
+            VALUES(null, ?, ?, ?, ?, ?)
+        ").unwrap()
+    }
+}

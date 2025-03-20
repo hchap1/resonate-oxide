@@ -10,6 +10,9 @@ pub enum ResonateError {
     NetworkError(E),
     ExecNotFound(E),
     DirectoryNotFound(E),
+    DatabaseError(E),
+    DatabaseCreationError,
+    TableCreationError,
     UnrecognisedHomeDir
 }
 
@@ -22,7 +25,10 @@ impl Debug for ResonateError {
             Self::NetworkError(e) => write!(f, "Network error: {e:?}"),
             Self::ExecNotFound(e) => write!(f, "Could not start process: {e:?}"),
             Self::DirectoryNotFound(e) => write!(f, "Directory not found: {e:?}"),
-            Self::UnrecognisedHomeDir => write!(f, "Could not find home directory.")
+            Self::UnrecognisedHomeDir => write!(f, "Could not find home directory."),
+            Self::DatabaseError(e) => write!(f, "Database error: {e:?}"),
+            Self::DatabaseCreationError => write!(f, "Could not create database."),
+            Self::TableCreationError => write!(f, "Failed to create a SQL table.")
         }
     }
 }

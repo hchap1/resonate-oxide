@@ -34,7 +34,9 @@ pub struct Query<'a> {
 
 impl Query<'a> {
     pub fn new(connection: &Connection) -> Self { Self { connection } }
+    pub fn check_if_yt_id_exists(self) -> Statement<'a> { self.connection.prepare("SELECT 1 FROM Songs WHERE yt_id = ? LIMIT = 1").unwrap() }
     pub fn retrieve_all_songs(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs").unwrap() }
+    pub fn retrieve_all_song_yt_ids(self) -> Statement<'a> { self.connection.prepare("SELECT yt_id FROM Songs").unwrap() }
     pub fn get_song_by_field(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE ? = ?").unwrap() }
     pub fn get_song_by_match(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?").unwrap() }
 
@@ -42,6 +44,20 @@ impl Query<'a> {
         self.connection.prepare("
             INSERT INTO Songs
             VALUES(null, ?, ?, ?, ?, ?)
+        ").unwrap()
+    }
+
+    pub fn create_playlist(self) -> Statement<'a> {
+        self.connection.prepare("
+            INSERT INTO Playlists
+            VALUES(null, ?)
+        ").unwrap()
+    }
+
+    pub fn add_song_to_playlist(self) -> Statement<'a> {
+        self.connection.prepare("
+            INSERT INTO Entries
+            VALUES(?, ?)
         ").unwrap()
     }
 }

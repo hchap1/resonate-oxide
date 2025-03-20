@@ -13,7 +13,8 @@ pub enum ResonateError {
     DatabaseError(E),
     DatabaseCreationError,
     TableCreationError,
-    UnrecognisedHomeDir
+    UnrecognisedHomeDir,
+    SQLError
 }
 
 impl Debug for ResonateError {
@@ -28,7 +29,8 @@ impl Debug for ResonateError {
             Self::UnrecognisedHomeDir => write!(f, "Could not find home directory."),
             Self::DatabaseError(e) => write!(f, "Database error: {e:?}"),
             Self::DatabaseCreationError => write!(f, "Could not create database."),
-            Self::TableCreationError => write!(f, "Failed to create a SQL table.")
+            Self::TableCreationError => write!(f, "Failed to create a SQL table."),
+            Self::SQLError => write!(f, "SQL error.")
         }
     }
 }

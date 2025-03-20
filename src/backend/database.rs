@@ -1,7 +1,10 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 
+use rusqlite::ffi::sqlite3_last_insert_rowid;
 use rusqlite::Connection;
+use rusqlite::params;
 
 use crate::backend::sql::*;
 use crate::backend::error::ResonateError;
@@ -44,9 +47,44 @@ impl Database {
         Ok(db)
     }
 
-    /// Find a place for the song in the database, mutating the song to use the id.
-    /// Returns whether the song was actually inserted. May be false if already present.
-    pub fn emplace_song_and_record_id(&self, song: &mut Song) -> Result<bool, ResonateError> {
+    /// Attempt to hash every song in the database by YT-ID for uniqueness check
+    pub fn hash_all_songs(&self) -> HashSet<String> {
+        match Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {
+            row.get::<_, String>(0)
+        }) {
+            Ok(results) => results.filter_map(|potential_id| match potential_id {
+                Ok(id) => Some(id),
+                Err(_) => None
+            }),
+            Err(_) => HashSet::<String>::new()
+        }
+    }
 
+    /// Quickly check if a yt-id already exists in the database
+    pub fn is_unique(&self, yt_id: &String) -> bool {
+        match Query::new(&self.connection).check_if_yt_id_exists().query(params![yt_id]) {
+            Ok(mut rows) => if let Ok(row) = rows.next() { row.is_some() } else { false },
+            Err(_) => false
+        }
+    }
+
+    /// Find a place for the song in the database, returning whether a change was made and what id the song takes
+    pub fn emplace_song_and_record_id(&self, song: &Song) -> Result<(bool, usize), ResonateError> {
+        // If the song is already in the database, return false
+        if !self.is_unique(&song.title) { return Ok((false, 0)); }
+        let album: &String = match song.album.as_ref() {
+            Some(album) => album,
+            None => &String::new()
+        };
+        match Query::new(&self.connection).insert_song().execute(params![
+            &song.yt_id,
+            &song.title,
+            &song.artist,
+            album,
+            &song.duration.as_secs()
+        ]) {
+            Ok(_) => Ok((true, self.connection.last_insert_rowid() as usize)),
+            Err(_) => Err(ResonateError::SQLError)
+        }
     }
 }

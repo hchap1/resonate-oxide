@@ -69,9 +69,11 @@ impl Database {
     }
 
     /// Find a place for the song in the database, returning whether a change was made and what id the song takes
-    pub fn emplace_song_and_record_id(&self, song: &Song) -> Result<(bool, usize), ResonateError> {
+    /// Flag whther to check before adding. This is so that mass-creation of songs can be checked externally with a hashset for greater efficiency
+    /// Individual songs are checked without initializing a whole hashset.
+    pub fn emplace_song_and_record_id(&self, song: &Song, check: bool) -> Result<(bool, usize), ResonateError> {
         // If the song is already in the database, return false
-        if !self.is_unique(&song.title) { return Ok((false, 0)); }
+        if check { if !self.is_unique(&song.title) { return Ok((false, 0)); }}
         let album: &String = match song.album.as_ref() {
             Some(album) => album,
             None => &String::new()

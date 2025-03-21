@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 
-use rusqlite::ffi::sqlite3_last_insert_rowid;
 use rusqlite::Connection;
 use rusqlite::params;
 
@@ -52,10 +51,10 @@ impl Database {
         match Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {
             row.get::<_, String>(0)
         }) {
-            Ok(results) => results.filter_map(|potential_id| match potential_id {
+            Ok(results) => HashSet::from_iter(results.filter_map(|potential_id| match potential_id {
                 Ok(id) => Some(id),
                 Err(_) => None
-            }),
+            })),
             Err(_) => HashSet::<String>::new()
         }
     }
@@ -86,6 +85,25 @@ impl Database {
             &song.duration.as_secs()
         ]) {
             Ok(_) => Ok((true, self.connection.last_insert_rowid() as usize)),
+            Err(_) => Err(ResonateError::SQLError)
+        }
+    }
+
+    pub async fn add_song_to_playlist(&self, song_id: usize, playlist_id: usize) -> Result<bool, ResonateError> {
+        // If the song is in the playlist already, return false
+        if match Query::new(&self.connection).check_if_song_in_playlist().query(params![playlist_id, song_id]) {
+            Ok(mut rows) => if let Ok(row) = rows.next() { row.is_some() } else { false }
+            Err(_) => return Err(ResonateError::SQLError)
+        } {
+            return Ok(false);
+        }
+
+        // Add the song to the playlist
+        match Query::new(&self.connection).add_song_to_playlist().execute(params![
+            playlist_id,
+            song_id
+        ]) {
+            Ok(_) => Ok(true),
             Err(_) => Err(ResonateError::SQLError)
         }
     }

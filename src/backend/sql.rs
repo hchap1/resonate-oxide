@@ -29,12 +29,15 @@ pub const CREATE_PLAYLIST_ENTRIES_TABLE: &str = "
 ";
 
 pub struct Query<'a> {
-    connection: &Connection
+    connection: &'a Connection
 }
 
-impl Query<'a> {
-    pub fn new(connection: &Connection) -> Self { Self { connection } }
+impl<'a> Query<'a> {
+    pub fn new(connection: &'a Connection) -> Self { Self { connection } }
+
     pub fn check_if_yt_id_exists(self) -> Statement<'a> { self.connection.prepare("SELECT 1 FROM Songs WHERE yt_id = ? LIMIT = 1").unwrap() }
+    pub fn check_if_song_in_playlist(self) -> Statement<'a> { self.connection.prepare("SELECT 1 FROM Songs WHERE playlist_id = ? AND song_id = ?").unwrap() }
+
     pub fn retrieve_all_songs(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs").unwrap() }
     pub fn retrieve_all_song_yt_ids(self) -> Statement<'a> { self.connection.prepare("SELECT yt_id FROM Songs").unwrap() }
     pub fn get_song_by_field(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE ? = ?").unwrap() }

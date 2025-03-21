@@ -57,7 +57,7 @@ impl DataDir {
     pub fn get_thumbnails_ref(&self) -> &Path { self.thumbnails.as_path() }
 
     /// Attempt to install yt-dlp. If it is already installed, return the path
-    pub async fn install_dlp(&self) -> Result<PathBuf, ResonateError> {
+    pub async fn install_dlp(&mut self) -> Result<bool, ResonateError> {
 
         // Check if some yt-dlp file already exists in the dependencies
         let existing_path_option = match read_dir(self.get_dependencies_ref()) {
@@ -76,11 +76,13 @@ impl DataDir {
         };
 
         // If there is an existing executable, return the path to it
-        if let Some(path) = existing_path_option { return Ok(path.path()); }
+        if let Some(path) = existing_path_option {
+            self.dlp_path = Some(path.path());
+        }
 
         // If not, attempt to download
         match YoutubeDlFetcher::default().download(self.get_dependencies_ref()).await {
-            Ok(path) => Ok(path),
+            Ok(path) => { self.dlp_path = Some(path); Ok(true) }
             Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
         }
     }

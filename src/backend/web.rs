@@ -1,5 +1,8 @@
 use std::path::Path;
 
-pub async fn flatsearch(executable_path: &Path) -> Result<Vec<Song>> {
+use crate::backend::error::ResonateError;
+use crate::backend::music::Song;
+
+pub async fn flatsearch(executable_path: &Path) -> Result<Vec<Song>, ResonateError> {
     
 }

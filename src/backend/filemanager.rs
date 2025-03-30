@@ -1,3 +1,4 @@
+use std::io::ErrorKind;
 use std::path::Path;
 use std::path::PathBuf;
 use std::fs::read_dir;
@@ -34,27 +35,49 @@ impl DataDir {
 
         match create_dir(&music) {
             Ok(_) => (),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => (),
             Err(_) => return Err(error)
-            
         };
 
         match create_dir(&dependencies) {
             Ok(_) => (),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => (),
             Err(_) => return Err(error)
         };
 
         match create_dir(&thumbnails) {
             Ok(_) => (),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => (),
             Err(_) => return Err(error)
         };
 
-        Ok(Self { music, dependencies, thumbnails, root, dlp_path: None })
+        let mut matching_entry = match read_dir(&dependencies) {
+            Ok(entries) => entries,
+            Err(_) => return Err(ResonateError::DirectoryNotFound(Box::new(String::from("Could not read from the dependencies directory."))))
+        }.find(|entry| match entry {
+                Err(_) => false,
+                Ok(entry) => {
+                    if entry.path().to_string_lossy().to_string().contains("yt-dlp") {
+                        true
+                    } else {
+                        false
+                    }
+                }
+            });
+
+        let dlp_path = match matching_entry.take() {
+            Some(entry) => Some(entry.unwrap().path().to_path_buf()),
+            None => None
+        };
+
+        Ok(Self { music, dependencies, thumbnails, root, dlp_path })
     }
 
     pub fn get_root_ref(&self) -> &Path { self.root.as_path() }
     pub fn get_music_ref(&self) -> &Path { self.music.as_path() }
     pub fn get_dependencies_ref(&self) -> &Path { self.dependencies.as_path() }
     pub fn get_thumbnails_ref(&self) -> &Path { self.thumbnails.as_path() }
+    pub fn get_dlp_ref(&self) -> Option<&Path> { self.dlp_path.as_ref().map(|v| &**v) }
 
     /// Attempt to install yt-dlp. If it is already installed, return the path
     pub async fn install_dlp(&mut self) -> Result<bool, ResonateError> {

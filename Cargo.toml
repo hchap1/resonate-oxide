@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 directories = "6.0.0"
+iced = "0.13.1"
 rusqlite = { version = "0.34.0", features = ["bundled"] }
 tokio = { version = "1.44.1", features = ["full"] }
 youtube_dl = { version = "0.10.0", features = ["downloader-native-tls"] }

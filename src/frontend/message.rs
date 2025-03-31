@@ -2,7 +2,7 @@
 pub enum Message {
     LoadPage(PageType),
     TextInput(String),
-    SubmitSearch
+    SubmitSearch,
 }
 
 #[derive(Clone, Debug)]

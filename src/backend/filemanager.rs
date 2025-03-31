@@ -18,6 +18,14 @@ pub struct DataDir {
     dlp_path: Option<PathBuf>
 }
 
+pub struct RefPackage<'a> {
+    root: &'a Path,
+    music: &'a Path,
+    dependencies: &'a Path,
+    thumbnails: &'a Path,
+    dlp_path: Option<&'a Path>
+}
+
 impl DataDir {
     pub fn create_or_load() -> Result<Self, ResonateError> {
         let root = match ProjectDirs::from("com", "hchap1", "ResonateData") {
@@ -107,6 +115,16 @@ impl DataDir {
         match YoutubeDlFetcher::default().download(self.get_dependencies_ref()).await {
             Ok(path) => { self.dlp_path = Some(path); Ok(true) }
             Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
+        }
+    }
+
+    pub fn ref_package(&self) -> RefPackage {
+        RefPackage {
+            root: &self.get_root_ref(),
+            music: &self.get_music_ref(),
+            dependencies: &self.get_dependencies_ref(),
+            thumbnails: &self.get_thumbnails_ref(),
+            dlp_path: self.get_dlp_ref()
         }
     }
 }

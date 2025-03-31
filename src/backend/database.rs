@@ -1,6 +1,11 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::mpsc::{
+    self,
+    Sender,
+    Receiver
+};
 
 use rusqlite::Connection;
 use rusqlite::params;

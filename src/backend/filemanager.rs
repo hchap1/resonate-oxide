@@ -19,11 +19,11 @@ pub struct DataDir {
 }
 
 pub struct RefPackage<'a> {
-    root: &'a Path,
-    music: &'a Path,
-    dependencies: &'a Path,
-    thumbnails: &'a Path,
-    dlp_path: Option<&'a Path>
+    pub root: &'a Path,
+    pub music: &'a Path,
+    pub dependencies: &'a Path,
+    pub thumbnails: &'a Path,
+    pub dlp_path: Option<&'a Path>
 }
 
 impl DataDir {
@@ -85,7 +85,12 @@ impl DataDir {
     pub fn get_music_ref(&self) -> &Path { self.music.as_path() }
     pub fn get_dependencies_ref(&self) -> &Path { self.dependencies.as_path() }
     pub fn get_thumbnails_ref(&self) -> &Path { self.thumbnails.as_path() }
-    pub fn get_dlp_ref(&self) -> Option<&Path> { self.dlp_path.as_ref().map(|v| &**v) }
+    pub fn get_dlp_ref(&self) -> Option<&Path> {
+        match &self.dlp_path {
+            Some(dlp_path) => Some(dlp_path.as_path()),
+            None => None
+        }
+    }
 
     /// Attempt to install yt-dlp. If it is already installed, return the path
     pub async fn install_dlp(&mut self) -> Result<bool, ResonateError> {

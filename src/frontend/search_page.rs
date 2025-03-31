@@ -6,26 +6,29 @@ use iced::Element;
 
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
+use crate::frontend::backend_interface::async_flatsearch;
 
-use crate::backend::web::flatsearch;
-use crate::backend::filemanager::DataDir;
+use crate::backend::util::{consume, AM};
+use crate::backend::filemanager::RefPackage;
+use crate::backend::database::Database;
 
-#[derive(Clone)]
 pub struct SearchPage<'a> {
     query: String,
-    directories: &'a DataDir
+    directories: RefPackage<'a>,
+    database: AM<Database>
 }
 
 impl<'a> SearchPage<'a> {
-    pub fn new(directories: &'a DataDir) -> Self {
+    pub fn new(directories: RefPackage<'a>, database: AM<Database>) -> Self {
         Self {
             query: String::new(),
-            directories
+            directories,
+            database
         }
     }
 }
 
-impl Page for SearchPage<'_> {
+impl<'a> Page for SearchPage<'a> {
     fn view(self: &Self) -> Element<'static, Message> {
         let header = Row::new()
             .push(
@@ -41,9 +44,18 @@ impl Page for SearchPage<'_> {
         match message {
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
             Message::SubmitSearch => {
-                flatsearch(executable_path, music_path, thumbnail_path, query, database)
+
+                let dlp_path = match self.directories.dlp_path {
+                    Some(dlp_path) => dlp_path.to_path_buf(),
+                    None => return Task::none()
+                };
+
+                Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
             }
-            _ => {}
+            Message::LoadSearchResults(search_results) => {
+                search_results.into_iter().map(|result| Task::<Message>::future(async_populate)
+            }
+            _ => Task::none()
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::path::Path;
 use std::time::Duration;
 
@@ -5,24 +6,15 @@ use youtube_dl::YoutubeDl;
 
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
-use crate::backend::database::Database;
 
 pub async fn flatsearch(
-        executable_path: Option<&Path>,
-        music_path: &Path,
-        thumbnail_path: &Path,
-        query: String,
-        database: &Database
+        executable_path: PathBuf,
+        query: &str
     ) -> Result<Vec<String>, ResonateError> {
-
-    let path = match executable_path {
-        Some(path) => path,
-        None => return Err(ResonateError::ExecNotFound(Box::new(String::from("yt-dlp not installed."))))
-    };
 
     let url = format!("https://music.youtube.com/search?q={}", query.replace(" ", "+"));
     match YoutubeDl::new(url)
-        .youtube_dl_path(path)
+        .youtube_dl_path(executable_path)
         .extra_arg("--skip-download")
         .extra_arg("--flat-playlist")
         .run() {

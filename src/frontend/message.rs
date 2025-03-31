@@ -1,3 +1,5 @@
+use crate::backend::music::Song;
+
 #[derive(Clone, Debug)]
 pub enum Message {
     None,                           // Empty message for map task
@@ -6,7 +8,8 @@ pub enum Message {
     SubmitSearch,                   // Primary task for single-entry-pages
     LoadSearchResults(Vec<String>), // Create a batch of tasks to pull down metadata for each ID and queue into search results buffer
     DLPWarning,                     // Notify the user that the current action requires yt-dlp.
-    CollectMetadata(String)         // Task created by LoadSearchResults
+    CollectMetadata(String),        // Task created by LoadSearchResults
+    SearchResult(Song)              // Final task in the search process - actually adds a finished song to the buffer
 }
 
 #[derive(Clone, Debug)]

@@ -11,11 +11,13 @@ use crate::frontend::backend_interface::async_flatsearch;
 use crate::backend::util::{consume, AM};
 use crate::backend::filemanager::RefPackage;
 use crate::backend::database::Database;
+use crate::backend::music::Song;
 
 pub struct SearchPage<'a> {
     query: String,
     directories: RefPackage<'a>,
-    database: AM<Database>
+    database: AM<Database>,
+    search_results: Option<Vec<Song>>
 }
 
 impl<'a> SearchPage<'a> {
@@ -23,7 +25,8 @@ impl<'a> SearchPage<'a> {
         Self {
             query: String::new(),
             directories,
-            database
+            database,
+            search_results: None
         }
     }
 }

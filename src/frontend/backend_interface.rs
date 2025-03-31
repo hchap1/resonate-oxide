@@ -19,9 +19,19 @@ pub async fn async_populate(executable_dir: Option<PathBuf>, music_dir: PathBuf,
         Some(pathbuf) => Some(pathbuf.as_path()),
         None => None
     }, music_dir.as_path(), thumbnail_dir.as_path(), &id).await {
-        Ok(song) => {
+        Ok(mut song) => {
             let database = desync(&database);
-            database.emplace_song_and_record_id(&song, true);
+            let (success, id) = match database.emplace_song_and_record_id(&song, true) {
+                Ok(data) => data,
+                Err(_) => return Message::None
+            };
+
+            if success {
+                song.id = id;
+                Message::SearchResult(song)
+            } else {
+                Message::None
+            }
         }
         Err(_) => return Message::None
     }

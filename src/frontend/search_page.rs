@@ -1,3 +1,4 @@
+use iced::widget::Column;
 use iced::widget::Container;
 use iced::widget::Row;
 use iced::widget::TextInput;
@@ -7,11 +8,14 @@ use iced::Element;
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
+use crate::frontend::backend_interface::async_populate;
 
 use crate::backend::util::{consume, AM};
 use crate::backend::filemanager::RefPackage;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
+
+use super::widgets::ResonateWidget;
 
 pub struct SearchPage<'a> {
     query: String,
@@ -31,8 +35,8 @@ impl<'a> SearchPage<'a> {
     }
 }
 
-impl<'a> Page for SearchPage<'a> {
-    fn view(self: &Self) -> Element<'static, Message> {
+impl<'a> Page<'a> for SearchPage<'a> {
+    fn view(self: &'a Self) -> Element<'a, Message> {
         let header = Row::new()
             .push(
                 TextInput::new("Search...", self.query.as_str())
@@ -40,7 +44,19 @@ impl<'a> Page for SearchPage<'a> {
                     .on_submit(Message::SubmitSearch)
             );
 
-        Container::new(header).into()
+        let mut column = Column::new()
+            .push(header);
+
+        match self.search_results.as_ref() {
+            Some(search_results) => {
+                for song in search_results {
+                    column = column.push(ResonateWidget::search_result(song));
+                }
+            }
+            None => {}
+        }
+
+        Container::new(column).into()
     }
 
     fn update(self: &mut Self, message: Message) -> Task<Message> {
@@ -56,7 +72,18 @@ impl<'a> Page for SearchPage<'a> {
                 Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
             }
             Message::LoadSearchResults(search_results) => {
-                search_results.into_iter().map(|result| Task::<Message>::future(async_populate)
+                let tasks = search_results.into_iter().map(|result| Task::<Message>::future(
+                    async_populate(match &self.directories.dlp_path {
+                        Some(path) => Some(path.to_path_buf()),
+                        None => None
+                    }, self.directories.music.to_path_buf(), self.directories.thumbnails.to_path_buf(),
+                    result, self.database.clone())
+                )).collect::<Vec<Task<Message>>>();
+                Task::<Message>::batch(tasks)
+            }
+            Message::SearchResult(song) => match self.search_results.as_mut() {
+                Some(search_results) => { search_results.push(song); Task::none() }
+                None => Task::none()
             }
             _ => Task::none()
         }

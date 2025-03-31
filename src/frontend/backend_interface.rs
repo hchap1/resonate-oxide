@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use crate::backend::error::ResonateError;
 use crate::frontend::message::Message;
 
 use crate::backend::web::{collect_metadata, flatsearch};
@@ -15,7 +14,7 @@ pub async fn async_flatsearch(executable_dir: PathBuf, query: String) -> Message
 }
 
 pub async fn async_populate(executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_dir: PathBuf, id: String, database: AM<Database>) -> Message {
-    match collect_metadata(match executable_dir {
+    match collect_metadata(match executable_dir.as_ref() {
         Some(pathbuf) => Some(pathbuf.as_path()),
         None => None
     }, music_dir.as_path(), thumbnail_dir.as_path(), &id).await {

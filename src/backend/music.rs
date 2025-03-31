@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::fmt::Formatter;
 
+#[derive(Debug, Clone)]
 pub struct Song {
     // Stored in database
     pub id: usize,
@@ -37,6 +38,15 @@ impl Song {
             music_path,
             thumbnail_path
         }
+    }
+}
+
+impl Song {
+    pub fn display_duration(&self) -> String {
+        format!("{:02}{:02}", 
+            self.duration.as_secs() / 60,
+            self.duration.as_secs() % 60
+        )
     }
 }
 

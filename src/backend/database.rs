@@ -1,11 +1,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::mpsc::{
-    self,
-    Sender,
-    Receiver
-};
+use std::time::Duration;
 
 use rusqlite::Connection;
 use rusqlite::params;
@@ -64,12 +60,33 @@ impl Database {
         }
     }
 
+    /// Retrieve all songs
+    pub fn retrieve_all_songs(&self) -> Vec<Song> {
+        Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {
+            let id = row.get::<_, usize>(0).unwrap();
+            let yt_id = row.get::<_, String>(1).unwrap();
+            let title = row.get::<_, String>(2).unwrap();
+            let artist = row.get::<_, String>(3).unwrap();
+            let album = row.get::<_, String>(4).unwrap();
+            let _duration = row.get::<_, usize>(5).unwrap();
+
+            Ok(Song::new(id, yt_id, title, artist, Some(album), Duration::from_secs(0), None, None))
+        }).unwrap().filter_map(
+            |res| match res {
+                Ok(song) => Some(song),
+                Err(_) => None
+            }
+        ).collect()
+    }
+
     /// Quickly check if a yt-id already exists in the database
     pub fn is_unique(&self, yt_id: &String) -> bool {
-        match Query::new(&self.connection).check_if_yt_id_exists().query(params![yt_id]) {
-            Ok(mut rows) => if let Ok(row) = rows.next() { row.is_some() } else { false },
+        !Query::new(&self.connection).check_if_yt_id_exists().query_map(params![yt_id], |row| {
+            row.get::<_, String>(0)
+        }).unwrap().any(|row| match row {
+            Ok(id) => id == *yt_id,
             Err(_) => false
-        }
+        })
     }
 
     /// Find a place for the song in the database, returning whether a change was made and what id the song takes

@@ -9,7 +9,8 @@ pub enum Message {
     LoadSearchResults(Vec<String>), // Create a batch of tasks to pull down metadata for each ID and queue into search results buffer
     DLPWarning,                     // Notify the user that the current action requires yt-dlp.
     CollectMetadata(String),        // Task created by LoadSearchResults
-    SearchResult(Song)              // Final task in the search process - actually adds a finished song to the buffer
+    SearchResult(Song),             // Final task in the search process - actually adds a finished song to the buffer
+    MultiSearchResult(Vec<Song>)    // ^ Option extension allowing for parallel metadata collection in batches or all at once
 }
 
 #[derive(Clone, Debug)]

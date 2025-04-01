@@ -7,17 +7,16 @@ use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 
 use crate::backend::filemanager::DataDir;
-use crate::backend::filemanager::RefPackage;
 use crate::backend::database::Database;
 use crate::backend::util::{sync, AM};
 
-pub trait Page<'a> {
-    fn update(self: &mut Self, message: Message) -> Task<Message>;
-    fn view(self: &'a Self) -> Element<'a, Message>;
+pub trait Page {
+    fn update(&mut self, message: Message) -> Task<Message>;
+    fn view(&self) -> Element<'_, Message>;
 }
 
 pub struct Application<'a> {
-    page: Option<Box<dyn Page<'a> + 'a>>,
+    page: Option<Box<dyn Page + 'a>>,
     directories: DataDir,
     database: AM<Database>
 }
@@ -34,28 +33,32 @@ impl<'a> Default for Application<'a> {
             Err(_) => panic!("Couldn't create or load database")
         };
 
+        for song in database.retrieve_all_songs() {
+            println!("{song}");
+        }
+
         Self::new(datadir, database)
     }
 }
 
-impl<'a> Application<'a> {
+impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
         let database = sync(database);
         Self {
-            page: None,
+            page: Some(Box::new(SearchPage::new(directories.clone(), database.clone()))),
             directories,
             database
         }
     }
 
-    pub fn view(&'a self) -> Element<'a, Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         match self.page.as_ref() {
             Some(page) => page.view(),
             None => text("404 - No page.").into()
         }
     }
 
-    pub fn update(&'a mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::LoadPage(page_type) => { self.load_page(page_type); Task::none() },
             other => match self.page.as_mut() {
@@ -65,10 +68,9 @@ impl<'a> Application<'a> {
         }
     }
 
-    fn load_page(&'a mut self, page_type: PageType) {
-        let ref_package: RefPackage = self.directories.ref_package();
+    fn load_page(&mut self, page_type: PageType) {
         self.page = Some(Box::new(match page_type {
-            PageType::SearchSongs => SearchPage::new(ref_package, self.database.clone())
+            PageType::SearchSongs => SearchPage::new(self.directories.clone(), self.database.clone())
         }));
     }
 }

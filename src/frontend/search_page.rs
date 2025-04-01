@@ -1,3 +1,6 @@
+use std::time::Duration;
+use std::thread::sleep;
+
 use iced::widget::Column;
 use iced::widget::Container;
 use iced::widget::Row;
@@ -5,27 +8,27 @@ use iced::widget::TextInput;
 use iced::Task;
 use iced::Element;
 
+use crate::backend::filemanager::DataDir;
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
-use crate::frontend::backend_interface::async_populate;
+use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
 
 use crate::backend::util::{consume, AM};
-use crate::backend::filemanager::RefPackage;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
 
 use super::widgets::ResonateWidget;
 
-pub struct SearchPage<'a> {
+pub struct SearchPage {
     query: String,
-    directories: RefPackage<'a>,
+    directories: DataDir,
     database: AM<Database>,
     search_results: Option<Vec<Song>>
 }
 
-impl<'a> SearchPage<'a> {
-    pub fn new(directories: RefPackage<'a>, database: AM<Database>) -> Self {
+impl SearchPage {
+    pub fn new(directories: DataDir, database: AM<Database>) -> Self {
         Self {
             query: String::new(),
             directories,
@@ -35,11 +38,11 @@ impl<'a> SearchPage<'a> {
     }
 }
 
-impl<'a> Page<'a> for SearchPage<'a> {
-    fn view(self: &'a Self) -> Element<'a, Message> {
+impl Page for SearchPage {
+    fn view(&self) -> Element<'_, Message> {
         let header = Row::new()
             .push(
-                TextInput::new("Search...", self.query.as_str())
+                TextInput::new("Search...", &self.query)
                     .on_input(Message::TextInput)
                     .on_submit(Message::SubmitSearch)
             );
@@ -63,28 +66,40 @@ impl<'a> Page<'a> for SearchPage<'a> {
         match message {
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
             Message::SubmitSearch => {
-
-                let dlp_path = match self.directories.dlp_path {
+                let dlp_path = match self.directories.get_dlp_ref() {
                     Some(dlp_path) => dlp_path.to_path_buf(),
                     None => return Task::none()
                 };
-
+                println!("DLP-PATH located, future spawned, consuming: {}", self.query);
                 Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
             }
+
             Message::LoadSearchResults(search_results) => {
-                let tasks = search_results.into_iter().map(|result| Task::<Message>::future(
-                    async_populate(match &self.directories.dlp_path {
-                        Some(path) => Some(path.to_path_buf()),
+                Task::stream(AsyncMetadataCollectionPool::new(
+                    search_results,
+                    match self.directories.get_dlp_ref() {
+                        Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
                         None => None
-                    }, self.directories.music.to_path_buf(), self.directories.thumbnails.to_path_buf(),
-                    result, self.database.clone())
-                )).collect::<Vec<Task<Message>>>();
-                Task::<Message>::batch(tasks)
+                    },
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf(),
+                    self.database.clone()
+                ))
             }
-            Message::SearchResult(song) => match self.search_results.as_mut() {
-                Some(search_results) => { search_results.push(song); Task::none() }
-                None => Task::none()
+
+            Message::SearchResult(song) => {
+                println!("Search results returned for {}", song.title);
+                match self.search_results.as_mut() {
+                    Some(search_results) => { search_results.push(song); Task::none() }
+                    None => { self.search_results = Some(vec![song]); Task::none() }
+                }
             }
+
+            Message::MultiSearchResult(songs) => {
+                println!("Received songs!");
+                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
+            }
+
             _ => Task::none()
         }
     }

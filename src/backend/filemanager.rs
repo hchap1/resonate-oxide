@@ -10,20 +10,13 @@ use youtube_dl::downloader::YoutubeDlFetcher;
 
 use crate::backend::error::ResonateError;
 
+#[derive(Clone)]
 pub struct DataDir {
     root: PathBuf,
     music: PathBuf,
     dependencies: PathBuf,
     thumbnails: PathBuf,
     dlp_path: Option<PathBuf>
-}
-
-pub struct RefPackage<'a> {
-    pub root: &'a Path,
-    pub music: &'a Path,
-    pub dependencies: &'a Path,
-    pub thumbnails: &'a Path,
-    pub dlp_path: Option<&'a Path>
 }
 
 impl DataDir {
@@ -120,16 +113,6 @@ impl DataDir {
         match YoutubeDlFetcher::default().download(self.get_dependencies_ref()).await {
             Ok(path) => { self.dlp_path = Some(path); Ok(true) }
             Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
-        }
-    }
-
-    pub fn ref_package(&self) -> RefPackage {
-        RefPackage {
-            root: &self.get_root_ref(),
-            music: &self.get_music_ref(),
-            dependencies: &self.get_dependencies_ref(),
-            thumbnails: &self.get_thumbnails_ref(),
-            dlp_path: self.get_dlp_ref()
         }
     }
 }

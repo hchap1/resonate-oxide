@@ -19,12 +19,9 @@ pub async fn flatsearch(
         .extra_arg("--flat-playlist")
         .run() {
         Ok(result) => {
-            println!("YTDL finished");
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
                     Some(entries) => Ok(entries.into_iter().filter_map(|entry| {
-                        println!("ID: {}, TITLE: {:?}", entry.id, entry.title);
-                        println!("DATA: {:?}", entry.channel);
                         match entry.title {
                             Some(_) => Some(entry.id.clone()),
                             None => None
@@ -54,8 +51,6 @@ pub fn collect_metadata(
         None => return Err(ResonateError::ExecNotFound(Box::new(String::from("yt-dlp not installed."))))
     };
 
-    println!("Attempting to collect metadata for song: {id}");
-
     let ytdl = YoutubeDl::new(id)
         .youtube_dl_path(path)
         .extra_arg("--skip-download")
@@ -79,7 +74,6 @@ pub fn collect_metadata(
                             Some(duration) => duration,
                             None => 0u64
                         };
-                        println!("Success! Metadata collected for {}", title);
                         Ok(Song::new(0, entry.id, title, artist, entry.album.take(), Duration::from_secs(duration), music, thumbnail))
                     } else {
                         Err(ResonateError::NetworkError(Box::new(String::from("Could not parse metadata from entry"))))

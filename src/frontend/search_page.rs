@@ -70,13 +70,12 @@ impl Page for SearchPage {
                     Some(dlp_path) => dlp_path.to_path_buf(),
                     None => return Task::none()
                 };
-                println!("DLP-PATH located, future spawned, consuming: {}", self.query);
                 Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
             }
 
             Message::LoadSearchResults(search_results) => {
                 Task::stream(AsyncMetadataCollectionPool::new(
-                    search_results,
+                    search_results[0..3].to_vec(),
                     match self.directories.get_dlp_ref() {
                         Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
                         None => None
@@ -88,7 +87,6 @@ impl Page for SearchPage {
             }
 
             Message::SearchResult(song) => {
-                println!("Search results returned for {}", song.title);
                 match self.search_results.as_mut() {
                     Some(search_results) => { search_results.push(song); Task::none() }
                     None => { self.search_results = Some(vec![song]); Task::none() }
@@ -96,7 +94,6 @@ impl Page for SearchPage {
             }
 
             Message::MultiSearchResult(songs) => {
-                println!("Received songs!");
                 Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
             }
 

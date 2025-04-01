@@ -105,12 +105,10 @@ impl Stream for AsyncMetadataCollectionPool {
     type Item = Message;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut std::task::Context<'_>) -> std::task::Poll<Option<<Self as Stream>::Item>> {
-        println!("Polled!");
         'aquire_waker: {
             let mut waker = self.waker.lock().unwrap();
             if waker.is_some() { break 'aquire_waker; }
             *waker = Some(context.waker().clone());
-            println!("Copped waker.");
         }
 
         if self.queue.len() == 0 && self.thread_pool.len() == 0 { return std::task::Poll::Ready(None) }
@@ -119,7 +117,6 @@ impl Stream for AsyncMetadataCollectionPool {
 
         for (idx, worker) in self.thread_pool.iter().enumerate() {
             if worker.is_finished() {
-                println!(" - WORKER FINISHED");
                 finished_workers.push(idx);
             }
         }
@@ -130,12 +127,6 @@ impl Stream for AsyncMetadataCollectionPool {
 
             match self.thread_pool.remove(idx - offset).join() {
                 Ok(message) => {
-                    match message {
-                        Message::SearchResult(ref song) => {
-                            println!(" - - - SONG COPPED: {}", song.title);
-                        }
-                        _ => {}
-                    }
                     match results.as_mut() {
                         Some(results) => results.push(message),
                         None => results = Some(vec![message])
@@ -145,8 +136,6 @@ impl Stream for AsyncMetadataCollectionPool {
             }
 
             if self.queue.len() == 0 { continue; }
-
-            println!(" - - LOADING WORKER WITH NEXT ITEM");
 
             let executable = self.executable_dir.clone();
             let music = self.music_dir.clone();
@@ -168,14 +157,12 @@ impl Stream for AsyncMetadataCollectionPool {
         }
 
         if self.queue.len() > 0 && self.thread_pool.len() < 4 {
-            println!("Creating a worker!");
             let executable = self.executable_dir.clone();
             let music = self.music_dir.clone();
             let thumbnails = self.thumbnail_dir.clone();
             let id = self.queue.pop().unwrap();
             let database = self.database.clone();
             let waker = self.waker.clone();
-            println!("Worker assigned to {id}");
 
             self.thread_pool.push(spawn(
                 move || collect_metadata_and_notify_executor(

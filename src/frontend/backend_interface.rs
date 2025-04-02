@@ -269,6 +269,7 @@ impl Stream for DatabaseSearchQuery {
         };
 
         let waker = self.waker.clone();
+        println!("SPAWNING HANDLE: {query}");
         self.handle = Some(spawn(move || search_mutex(database, music_path, thumbnail_path, query, waker)));
 
         match results.len() {

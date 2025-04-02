@@ -69,10 +69,7 @@ impl Page for SearchPage {
 
             Message::SubmitSearch => {
 
-                if let Some(search_results) = self.search_results.as_mut() {
-                    search_results.clear();
-                }
-
+                if let Some(search_results) = self.search_results.as_mut() { search_results.clear(); }
                 for handle in &self.search_handles { handle.abort(); }
 
                 let dlp_path = match self.directories.get_dlp_ref() {
@@ -84,17 +81,21 @@ impl Page for SearchPage {
                 let music_path = self.directories.get_music_ref().to_path_buf();
                 let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
 
-                let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query))).abortable();
+                let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(async_flatsearch(dlp_path, self.query.clone())).abortable();
                 self.search_handles.push(flatsearch_handle);
 
-                Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, self.query.clone())).chain(
+                Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, consume(&mut self.query))).chain(
                     flatsearch_task
                 )
             }
 
             Message::LoadSearchResults(search_results) => {
+                let ids = match search_results.len() > 3 {
+                    true => search_results[0..3].to_vec(),
+                    false => search_results
+                };
                 let (metadata_collector, metadata_collection_handle) = Task::stream(AsyncMetadataCollectionPool::new(
-                    search_results[0..3].to_vec(),
+                    ids,
                     match self.directories.get_dlp_ref() {
                         Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
                         None => None

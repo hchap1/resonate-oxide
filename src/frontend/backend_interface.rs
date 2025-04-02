@@ -10,7 +10,7 @@ use iced::futures::Stream;
 use crate::frontend::message::Message;
 
 use crate::backend::web::{collect_metadata, flatsearch};
-use crate::backend::database::thouroughly_search_mutex;
+use crate::backend::database::search_mutex;
 use crate::backend::error::ResonateError;
 use crate::backend::util::{sync, desync, AM};
 use crate::backend::database::Database;
@@ -269,7 +269,7 @@ impl Stream for DatabaseSearchQuery {
         };
 
         let waker = self.waker.clone();
-        self.handle = Some(spawn(move || thouroughly_search_mutex(database, music_path, thumbnail_path, query, waker)));
+        self.handle = Some(spawn(move || search_mutex(database, music_path, thumbnail_path, query, waker)));
 
         match results.len() {
             0 => std::task::Poll::Pending,

@@ -65,7 +65,8 @@ impl Database {
 
     /// Get songs where the name, string or artist matches a word
     pub fn keyword(&self, music_path: &Path, thumbnail_path: &Path, query: String) -> Vec<Song> {
-        Query::new(&self.connection).get_song_by_match().query_map(params![query, query, query], |row| {
+        let similar_query = format!("%{query}%");
+        Query::new(&self.connection).get_song_by_match().query_map(params![similar_query, similar_query, similar_query], |row| {
             let id = row.get::<_, usize>(0).unwrap();
             let yt_id = row.get::<_, String>(1).unwrap();
             let title = row.get::<_, String>(2).unwrap();
@@ -153,17 +154,9 @@ impl Database {
     }
 }
 
-pub fn thouroughly_search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String, waker: AM<Option<Waker>>) ->  Vec<Song> {
-    println!("---- SEARCH REQUESTED ----");
-    let keywords: Vec<String> = query.split(" ").map(|x| x.to_string()).collect();
-    let mut results: Vec<Song> = Vec::new();
-    for keyword in keywords {
-        println!("Trying: {keyword}");
-        let database = desync(&database);
-        let mut database_output = database.keyword(music_path.as_path(), thumbnail_path.as_path(), keyword);
-        println!("Results: {database_output:?}");
-        results.append(&mut database_output);
-    }
+pub fn search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String, waker: AM<Option<Waker>>) ->  Vec<Song> {
+    let database = desync(&database);
+    let database_output = database.keyword(music_path.as_path(), thumbnail_path.as_path(), query);
 
     let waker = desync(&waker);
     match waker.as_ref() {
@@ -171,5 +164,5 @@ pub fn thouroughly_search_mutex(database: AM<Database>, music_path: PathBuf, thu
         None => {} // Nothing we can do about it.
     }
 
-    results
+    database_output
 }

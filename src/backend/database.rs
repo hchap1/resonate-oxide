@@ -1,12 +1,20 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
+use std::task::Waker;
 use std::time::Duration;
+use std::pin::Pin;
+use std::thread::JoinHandle;
+use std::thread::spawn;
 
+use iced::futures::Stream;
 use rusqlite::Connection;
 use rusqlite::params;
 
 use crate::backend::sql::*;
+use crate::backend::util::AM;
+use crate::backend::util::desync;
+use crate::backend::util::sync;
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
 
@@ -60,17 +68,17 @@ impl Database {
         }
     }
 
-    /// Retrieve all songs
-    pub fn retrieve_all_songs(&self) -> Vec<Song> {
-        Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {
+    /// Get songs where the name, string or artist matches a word
+    pub fn keyword(&self, music_path: &Path, thumbnail_path: &Path, query: String) -> Vec<Song> {
+        Query::new(&self.connection).get_song_by_match().query_map(params![query, query, query], |row| {
             let id = row.get::<_, usize>(0).unwrap();
             let yt_id = row.get::<_, String>(1).unwrap();
             let title = row.get::<_, String>(2).unwrap();
             let artist = row.get::<_, String>(3).unwrap();
             let album = row.get::<_, String>(4).unwrap();
-            let _duration = row.get::<_, usize>(5).unwrap();
+            let duration = row.get::<_, usize>(5).unwrap();
 
-            Ok(Song::new(id, yt_id, title, artist, Some(album), Duration::from_secs(0), None, None))
+            Ok(Song::load(id, yt_id, title, artist, Some(album), Duration::from_secs(duration as u64), music_path, thumbnail_path))
         }).unwrap().filter_map(
             |res| match res {
                 Ok(song) => Some(song),
@@ -78,6 +86,25 @@ impl Database {
             }
         ).collect()
     }
+
+    /// Retrieve all songs
+    pub fn retrieve_all_songs(&self, music_path: &Path, thumbnail_path: &Path) -> Vec<Song> {
+        Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {
+            let id = row.get::<_, usize>(0).unwrap();
+            let yt_id = row.get::<_, String>(1).unwrap();
+            let title = row.get::<_, String>(2).unwrap();
+            let artist = row.get::<_, String>(3).unwrap();
+            let album = row.get::<_, String>(4).unwrap();
+            let duration = row.get::<_, usize>(5).unwrap();
+
+            Ok(Song::load(id, yt_id, title, artist, Some(album), Duration::from_secs(duration as u64), music_path, thumbnail_path))
+        }).unwrap().filter_map(
+            |res| match res {
+                Ok(song) => Some(song),
+                Err(_) => None
+            }
+        ).collect()
+   }
 
     /// Quickly check if a yt-id already exists in the database
     pub fn is_unique(&self, yt_id: &String) -> bool {
@@ -111,7 +138,7 @@ impl Database {
         }
     }
 
-    pub async fn add_song_to_playlist(&self, song_id: usize, playlist_id: usize) -> Result<bool, ResonateError> {
+    pub fn add_song_to_playlist(&self, song_id: usize, playlist_id: usize) -> Result<bool, ResonateError> {
         // If the song is in the playlist already, return false
         if match Query::new(&self.connection).check_if_song_in_playlist().query(params![playlist_id, song_id]) {
             Ok(mut rows) => if let Ok(row) = rows.next() { row.is_some() } else { false }
@@ -129,4 +156,14 @@ impl Database {
             Err(_) => Err(ResonateError::SQLError)
         }
     }
+}
+
+pub fn thouroughly_search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String) ->  Vec<Song> {
+    let keywords: Vec<String> = query.split(" ").map(|x| x.to_string()).collect();
+    let mut results: Vec<Song> = Vec::new();
+    for keyword in keywords {
+        let database = desync(&database);
+        results.append(&mut database.keyword(music_path.as_path(), thumbnail_path.as_path(), keyword));
+    }
+    results
 }

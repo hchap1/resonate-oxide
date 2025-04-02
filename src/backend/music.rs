@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::fmt::Formatter;
 
@@ -38,6 +38,32 @@ impl Song {
             music_path,
             thumbnail_path
         }
+    }
+
+    pub fn load(
+        id: usize,
+        yt_id: String,
+        title: String,
+        artist: String,
+        album: Option<String>,
+        duration: Duration,
+        music_path: &Path,
+        thumbnail_path: &Path
+    ) -> Self {
+        let music_path = music_path.join(format!("{}.mp3", yt_id));
+        let thumbnail_path = thumbnail_path.join(format!("{}.png", yt_id));
+
+        let music = music_path.join(format!("{}.mp3", yt_id));
+        let music = if music.exists() { Some(music) } else { None };
+        let thumbnail = match album.as_ref() {
+            Some(album) => {
+                let path = thumbnail_path.join(format!("{}.png", album.replace(' ', "_")));
+                if path.exists() { Some(path) } else { None }
+            }
+            None => None
+        };
+
+        Self::new(id, yt_id, title, artist, album, duration, music, thumbnail)
     }
 }
 

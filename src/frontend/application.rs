@@ -33,10 +33,6 @@ impl<'a> Default for Application<'a> {
             Err(_) => panic!("Couldn't create or load database")
         };
 
-        for song in database.retrieve_all_songs() {
-            println!("{song}");
-        }
-
         Self::new(datadir, database)
     }
 }

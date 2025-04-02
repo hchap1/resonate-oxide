@@ -9,6 +9,7 @@ use iced::futures::Stream;
 use crate::frontend::message::Message;
 
 use crate::backend::web::{collect_metadata, flatsearch};
+use crate::backend::database::thouroughly_search_mutex;
 use crate::backend::error::ResonateError;
 use crate::backend::util::{sync, desync, AM};
 use crate::backend::database::Database;
@@ -187,3 +188,76 @@ impl Stream for AsyncMetadataCollectionPool {
         }
     }
 }
+
+pub struct DatabaseSearchQuery {
+    database: AM<Database>,
+    music_path: PathBuf,
+    thumbnail_path: PathBuf,
+    items: Vec<String>,
+    waker: AM<Option<Waker>>,
+    handle: Option<JoinHandle<Vec<Song>>>,
+    has_performed_full_search: bool
+}
+
+impl DatabaseSearchQuery {
+    pub fn new(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String) -> Self {
+        Self {
+            database,
+            music_path,
+            thumbnail_path,
+            items: query.split(" ").map(|x| x.to_string()).collect(),
+            waker: sync(None),
+            handle: None,
+            has_performed_full_search: false
+        }
+    }
+}
+
+impl Stream for DatabaseSearchQuery {
+    type Item = Message;
+    fn poll_next(mut self: Pin<&mut Self>, context: &mut std::task::Context) -> std::task::Poll<Option<<Self as Stream>::Item>> {
+        'collect_waker: {
+            let mut waker = self.waker.lock().unwrap();
+            if waker.is_some() { break 'collect_waker; }
+            *waker = Some(context.waker().clone());
+        }
+
+        let mut results: Vec<Song> = vec![];
+
+        match &self.handle {
+            Some(handle) => {
+                if handle.is_finished() {
+                    match self.handle.take().unwrap().join() {
+                        Ok(mut data) => results.append(&mut data),
+                        Err(_) => {}
+                    }
+                }
+            }
+            None => {}
+        }
+
+        if self.items.len() == 0 && self.handle.is_none() {
+            return std::task::Poll::Ready(None);
+        }
+
+        let database = self.database.clone();
+        let music_path = self.music_path.clone();
+        let thumbnail_path = self.thumbnail_path.clone();
+
+        let query = match self.has_performed_full_search {
+            false => {
+                self.has_performed_full_search = true;
+                self.items.join(" ").to_string()
+            }
+            true => self.items.remove(0)
+        };
+
+        self.handle = Some(spawn(move || thouroughly_search_mutex(database, music_path, thumbnail_path, query)));
+
+        match results.len() {
+            0 => std::task::Poll::Pending,
+            _ => std::task::Poll::Ready(Some(Message::MultiSearchResult(results)))
+        }
+    }
+}
+

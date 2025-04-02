@@ -1,6 +1,3 @@
-use std::time::Duration;
-use std::thread::sleep;
-
 use iced::widget::Column;
 use iced::widget::Container;
 use iced::widget::Row;
@@ -8,13 +5,14 @@ use iced::widget::TextInput;
 use iced::Task;
 use iced::Element;
 
-use crate::backend::filemanager::DataDir;
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
 use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
+use crate::frontend::backend_interface::DatabaseSearchQuery;
 
 use crate::backend::util::{consume, AM};
+use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
 
@@ -65,12 +63,21 @@ impl Page for SearchPage {
     fn update(self: &mut Self, message: Message) -> Task<Message> {
         match message {
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
+
             Message::SubmitSearch => {
                 let dlp_path = match self.directories.get_dlp_ref() {
                     Some(dlp_path) => dlp_path.to_path_buf(),
                     None => return Task::none()
                 };
-                Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
+
+                let database = self.database.clone();
+                let music_path = self.directories.get_music_ref().to_path_buf();
+                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
+
+                Task::<Message>::batch(vec![
+                    Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, self.query.clone())),
+                    Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
+                ])
             }
 
             Message::LoadSearchResults(search_results) => {

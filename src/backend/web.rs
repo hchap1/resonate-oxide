@@ -61,20 +61,11 @@ pub fn collect_metadata(
             match result.into_single_video() {
                 Some(mut entry) => {
                     if let (Some(title), Some(artist), Some(duration)) = (entry.title, entry.artist, entry.duration) {
-                        let music = music_path.join(format!("{}.mp3", entry.id));
-                        let music = if music.exists() { Some(music) } else { None };
-                        let thumbnail = match entry.album.as_ref() {
-                            Some(album) => {
-                                let path = thumbnail_path.join(format!("{}.png", album.replace(' ', "_")));
-                                if path.exists() { Some(path) } else { None }
-                            }
-                            None => None
-                        };
                         let duration = match duration.as_u64() {
                             Some(duration) => duration,
                             None => 0u64
                         };
-                        Ok(Song::new(0, entry.id, title, artist, entry.album.take(), Duration::from_secs(duration), music, thumbnail))
+                        Ok(Song::load(0, entry.id, title, artist, entry.album.take(), Duration::from_secs(duration), music_path, thumbnail_path))
                     } else {
                         Err(ResonateError::NetworkError(Box::new(String::from("Could not parse metadata from entry"))))
                     }

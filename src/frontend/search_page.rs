@@ -1,4 +1,5 @@
 use iced::widget::Column;
+use iced::task::Handle;
 use iced::widget::Container;
 use iced::widget::Row;
 use iced::widget::TextInput;
@@ -22,7 +23,8 @@ pub struct SearchPage {
     query: String,
     directories: DataDir,
     database: AM<Database>,
-    search_results: Option<Vec<Song>>
+    search_results: Option<Vec<Song>>,
+    search_handles: Vec<Handle>
 }
 
 impl SearchPage {
@@ -31,7 +33,8 @@ impl SearchPage {
             query: String::new(),
             directories,
             database,
-            search_results: None
+            search_results: None,
+            search_handles: Vec::new()
         }
     }
 }
@@ -70,6 +73,8 @@ impl Page for SearchPage {
                     search_results.clear();
                 }
 
+                for handle in &self.search_handles { handle.abort(); }
+
                 let dlp_path = match self.directories.get_dlp_ref() {
                     Some(dlp_path) => dlp_path.to_path_buf(),
                     None => return Task::none()
@@ -79,13 +84,16 @@ impl Page for SearchPage {
                 let music_path = self.directories.get_music_ref().to_path_buf();
                 let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
 
+                let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query))).abortable();
+                self.search_handles.push(flatsearch_handle);
+
                 Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, self.query.clone())).chain(
-                    Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
+                    flatsearch_task
                 )
             }
 
             Message::LoadSearchResults(search_results) => {
-                Task::stream(AsyncMetadataCollectionPool::new(
+                let (metadata_collector, metadata_collection_handle) = Task::stream(AsyncMetadataCollectionPool::new(
                     search_results[0..3].to_vec(),
                     match self.directories.get_dlp_ref() {
                         Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
@@ -94,7 +102,10 @@ impl Page for SearchPage {
                     self.directories.get_music_ref().to_path_buf(),
                     self.directories.get_thumbnails_ref().to_path_buf(),
                     self.database.clone()
-                ))
+                )).abortable();
+
+                self.search_handles.push(metadata_collection_handle);
+                metadata_collector
             }
 
             Message::SearchResult(song) => {

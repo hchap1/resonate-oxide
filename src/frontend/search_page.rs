@@ -1,10 +1,11 @@
 use iced::widget::Column;
 use iced::task::Handle;
-use iced::widget::Container;
 use iced::widget::Row;
 use iced::widget::TextInput;
 use iced::Task;
 use iced::Element;
+
+use std::time::Duration;
 
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
@@ -33,7 +34,17 @@ impl SearchPage {
             query: String::new(),
             directories,
             database,
-            search_results: None,
+            // search_results: None,
+            search_results: Some(vec![Song::new(
+                0,
+                String::from("TESTID"),
+                String::from("TestSong"),
+                String::from("Harrison"),
+                Some(String::from("TestSongs")),
+                Duration::from_secs(10),
+                None,
+                None
+            )]),
             search_handles: Vec::new()
         }
     }
@@ -48,19 +59,24 @@ impl Page for SearchPage {
                     .on_submit(Message::SubmitSearch)
             );
 
-        let mut column = Column::new()
-            .push(header);
+        let mut column = Column::new().spacing(20);
 
-        match self.search_results.as_ref() {
-            Some(search_results) => {
-                for song in search_results {
-                    column = column.push(ResonateWidget::search_result(song));
-                }
+        if let Some(search_results) = self.search_results.as_ref() {
+            for song in search_results {
+                column = column.push(
+                    ResonateWidget::search_result(song)
+                )
             }
-            None => {}
         }
 
-        Container::new(column).into()
+        let view_window = ResonateWidget::padded_scrollable(column.into());
+
+        ResonateWidget::window(
+            Column::new()
+                .push(header)
+                .push(view_window)
+                .into()
+        )
     }
 
     fn update(self: &mut Self, message: Message) -> Task<Message> {

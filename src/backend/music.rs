@@ -69,7 +69,7 @@ impl Song {
 
 impl Song {
     pub fn display_duration(&self) -> String {
-        format!("{:02}{:02}", 
+        format!("{:02}:{:02}", 
             self.duration.as_secs() / 60,
             self.duration.as_secs() % 60
         )

@@ -3,18 +3,13 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::task::Waker;
 use std::time::Duration;
-use std::pin::Pin;
-use std::thread::JoinHandle;
-use std::thread::spawn;
 
-use iced::futures::Stream;
 use rusqlite::Connection;
 use rusqlite::params;
 
 use crate::backend::sql::*;
 use crate::backend::util::AM;
 use crate::backend::util::desync;
-use crate::backend::util::sync;
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
 
@@ -121,7 +116,7 @@ impl Database {
     /// Individual songs are checked without initializing a whole hashset.
     pub fn emplace_song_and_record_id(&self, song: &Song, check: bool) -> Result<(bool, usize), ResonateError> {
         // If the song is already in the database, return false
-        if check { if !self.is_unique(&song.title) { return Ok((false, 0)); }}
+        if check { if !self.is_unique(&song.yt_id) { return Ok((false, 0)); }}
         let album: &String = match song.album.as_ref() {
             Some(album) => album,
             None => &String::new()
@@ -158,12 +153,23 @@ impl Database {
     }
 }
 
-pub fn thouroughly_search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String) ->  Vec<Song> {
+pub fn thouroughly_search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String, waker: AM<Option<Waker>>) ->  Vec<Song> {
+    println!("---- SEARCH REQUESTED ----");
     let keywords: Vec<String> = query.split(" ").map(|x| x.to_string()).collect();
     let mut results: Vec<Song> = Vec::new();
     for keyword in keywords {
+        println!("Trying: {keyword}");
         let database = desync(&database);
-        results.append(&mut database.keyword(music_path.as_path(), thumbnail_path.as_path(), keyword));
+        let mut database_output = database.keyword(music_path.as_path(), thumbnail_path.as_path(), keyword);
+        println!("Results: {database_output:?}");
+        results.append(&mut database_output);
     }
+
+    let waker = desync(&waker);
+    match waker.as_ref() {
+        Some(waker) => waker.wake_by_ref(),
+        None => {} // Nothing we can do about it.
+    }
+
     results
 }

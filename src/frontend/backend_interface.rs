@@ -3,6 +3,7 @@ use std::pin::Pin;
 use std::task::Waker;
 use std::thread::spawn;
 use std::thread::JoinHandle;
+use std::collections::HashSet;
 
 use iced::futures::Stream;
 
@@ -196,7 +197,8 @@ pub struct DatabaseSearchQuery {
     items: Vec<String>,
     waker: AM<Option<Waker>>,
     handle: Option<JoinHandle<Vec<Song>>>,
-    has_performed_full_search: bool
+    has_performed_full_search: bool,
+    selected_songs: HashSet<usize>
 }
 
 impl DatabaseSearchQuery {
@@ -208,7 +210,8 @@ impl DatabaseSearchQuery {
             items: query.split(" ").map(|x| x.to_string()).collect(),
             waker: sync(None),
             handle: None,
-            has_performed_full_search: false
+            has_performed_full_search: false,
+            selected_songs: HashSet::new()
         }
     }
 }
@@ -222,22 +225,35 @@ impl Stream for DatabaseSearchQuery {
             *waker = Some(context.waker().clone());
         }
 
-        let mut results: Vec<Song> = vec![];
-
-        match &self.handle {
+        let results: Vec<Song> = match &self.handle {
             Some(handle) => {
                 if handle.is_finished() {
                     match self.handle.take().unwrap().join() {
-                        Ok(mut data) => results.append(&mut data),
-                        Err(_) => {}
+                        Ok(data) => data.into_iter().filter(|song| !self.selected_songs.contains(&song.id)).collect(),
+                        Err(_) => Vec::new()
                     }
+                } else {
+                    Vec::new()
                 }
             }
-            None => {}
-        }
+            None => Vec::new()
+        };
 
-        if self.items.len() == 0 && self.handle.is_none() {
-            return std::task::Poll::Ready(None);
+        results.iter().for_each(|song| { self.selected_songs.insert(song.id); });
+
+        if self.items.len() == 0 {
+            if self.handle.is_none() {
+                if results.len() == 0 {
+                    return std::task::Poll::Ready(None);
+                } else {
+                    return std::task::Poll::Ready(Some(Message::MultiSearchResult(results)));
+                }
+            }
+            if results.len() == 0 {
+                return std::task::Poll::Pending;
+            } else {
+                return std::task::Poll::Ready(Some(Message::MultiSearchResult(results)));
+            }
         }
 
         let database = self.database.clone();
@@ -252,7 +268,8 @@ impl Stream for DatabaseSearchQuery {
             true => self.items.remove(0)
         };
 
-        self.handle = Some(spawn(move || thouroughly_search_mutex(database, music_path, thumbnail_path, query)));
+        let waker = self.waker.clone();
+        self.handle = Some(spawn(move || thouroughly_search_mutex(database, music_path, thumbnail_path, query, waker)));
 
         match results.len() {
             0 => std::task::Poll::Pending,

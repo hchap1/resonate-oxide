@@ -33,6 +33,13 @@ impl<'a> Default for Application<'a> {
             Err(_) => panic!("Couldn't create or load database")
         };
 
+        for song in database.retrieve_all_songs(datadir.get_music_ref(), datadir.get_thumbnails_ref()) {
+            println!("Song: {song}");
+        }
+
+        let unique = database.is_unique(&String::from("9qnqYL0eNNI"));
+        println!("{unique}");
+
         Self::new(datadir, database)
     }
 }

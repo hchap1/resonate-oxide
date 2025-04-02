@@ -65,6 +65,11 @@ impl Page for SearchPage {
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
 
             Message::SubmitSearch => {
+
+                if let Some(search_results) = self.search_results.as_mut() {
+                    search_results.clear();
+                }
+
                 let dlp_path = match self.directories.get_dlp_ref() {
                     Some(dlp_path) => dlp_path.to_path_buf(),
                     None => return Task::none()
@@ -74,10 +79,9 @@ impl Page for SearchPage {
                 let music_path = self.directories.get_music_ref().to_path_buf();
                 let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
 
-                Task::<Message>::batch(vec![
-                    Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, self.query.clone())),
+                Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, self.query.clone())).chain(
                     Task::<Message>::future(async_flatsearch(dlp_path, consume(&mut self.query)))
-                ])
+                )
             }
 
             Message::LoadSearchResults(search_results) => {

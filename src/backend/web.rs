@@ -117,3 +117,28 @@ pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: S
         false => Err(())
     }
 }
+
+pub async fn download_song(dlp_path: PathBuf, music_path: PathBuf, id: String) -> Result<PathBuf, ()> {
+    let output = music_path.join(format!("{id}.mp3"));
+    let ytdlp = YoutubeDl::new(format!("https://music.youtube.com/watch?v={id}"))
+        .youtube_dl_path(dlp_path)
+        .extra_arg("-o")
+        .extra_arg(output.to_string_lossy().to_string())
+        .run_async().await;
+
+    match ytdlp {
+        Ok(results) => {
+            match results.into_single_video() {
+                Some(song) => {
+                    if song.id == id {
+                        Ok(output)
+                    } else {
+                        Err(())
+                    }
+                }
+                None => Err(())
+            }
+        }
+        Err(_) => Err(())
+    }
+}

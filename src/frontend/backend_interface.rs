@@ -7,6 +7,7 @@ use std::collections::HashSet;
 
 use iced::futures::Stream;
 
+use crate::backend::web::download_song;
 use crate::frontend::message::Message;
 
 use crate::backend::web::{collect_metadata, flatsearch};
@@ -280,13 +281,20 @@ impl Stream for DatabaseSearchQuery {
     }
 }
 
-pub async fn async_download_thumnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: String, album: Option<String>) -> Message {
+pub async fn async_download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: String, album: Option<String>) -> Message {
     let album_string = match album {
         Some(album) => album,
         None => id.clone()
     };
     match download_thumbnail(dlp_path, thumbnail_dir, id, album_string).await {
         Ok(_) => Message::UpdateThumbnails,
+        Err(_) => Message::None
+    }
+}
+
+pub async fn async_download_song(dlp_path: PathBuf, music_dir: PathBuf, song: Song) -> Message {
+    match download_song(dlp_path, music_path, song.yt_id.clone()).await {
+        Ok(_) => Message::SongDownloaded(song),
         Err(_) => Message::None
     }
 }

@@ -11,7 +11,8 @@ pub enum Message {
     CollectMetadata(String),        // Task created by LoadSearchResults
     SearchResult(Song),             // Final task in the search process - actually adds a finished song to the buffer
     MultiSearchResult(Vec<Song>),   // ^ Option extension allowing for parallel metadata collection in batches or all at once
-    UpdateThumbnails                // On any page that contains thumbnails, update them
+    UpdateThumbnails,               // On any page that contains thumbnails, update them
+    Download(String)                // Download a song asynchronously. Relies on the frontend to manage concurrency
 }
 
 #[derive(Clone, Debug)]

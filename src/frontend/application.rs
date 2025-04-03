@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::Element;
 use iced::widget::text;
 use iced::Task;
@@ -5,6 +7,7 @@ use iced::Task;
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
+use crate::frontend::backend_interface::async_download_thumbnail;
 
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
@@ -18,7 +21,10 @@ pub trait Page {
 pub struct Application<'a> {
     page: Option<Box<dyn Page + 'a>>,
     directories: DataDir,
-    database: AM<Database>
+    database: AM<Database>,
+
+    current_thumbnail_downloads: HashSet<String>,
+    current_song_downloads: HashSet<String>
 }
 
 impl<'a> Default for Application<'a> {
@@ -50,7 +56,10 @@ impl Application<'_> {
         Self {
             page: Some(Box::new(SearchPage::new(directories.clone(), database.clone()))),
             directories,
-            database
+            database,
+            
+            current_thumbnail_downloads: HashSet::new(),
+            current_song_downloads: HashSet::new()
         }
     }
 
@@ -63,6 +72,35 @@ impl Application<'_> {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::SearchResult(song) => {
+                let id = song.yt_id.clone();
+                let album = song.album.clone();
+
+                let search_string = match song.album.as_ref() {
+                    Some(album) => album.clone(),
+                    None => id.clone()
+                };
+
+                let require_thumbnail_download = song.thumbnail_path.is_none() && !self.current_thumbnail_downloads.contains(&search_string);
+
+                if let Some(page) = self.page.as_mut() {
+                    page.update(Message::SearchResult(song));
+                }
+
+                if require_thumbnail_download {
+                    self.current_thumbnail_downloads.insert(search_string);
+                    Task::future(async_download_thumbnail(
+                        self.directories.get_dlp_ref().expect("DLP not installed").to_path_buf(),
+                        self.directories.get_thumbnails_ref().to_path_buf(),
+                        id,
+                        album
+                    ))
+                } else { Task::none() }
+            }
+
+            Message::MultiSearchResult(songs) => {
+                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
+            }
             Message::LoadPage(page_type) => { self.load_page(page_type); Task::none() },
             other => match self.page.as_mut() {
                 Some(page) => page.update(other),

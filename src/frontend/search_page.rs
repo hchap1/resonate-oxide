@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
-use iced::widget::TextInput;
 use iced::Task;
 use iced::Element;
 
@@ -14,7 +13,7 @@ use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
 use crate::frontend::backend_interface::DatabaseSearchQuery;
 use crate::frontend::backend_interface::async_download_thumnail;
 
-use crate::backend::util::{consume, AM};
+use crate::backend::util::{consume, desync, AM};
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
@@ -27,27 +26,28 @@ pub struct SearchPage {
     database: AM<Database>,
     search_results: Option<Vec<Song>>,
     search_handles: Vec<Handle>,
-    thumbnails_being_downloaded: HashSet<String>
+    thumbnails_being_downloaded: HashSet<String>,
 }
 
 impl SearchPage {
     pub fn new(directories: DataDir, database: AM<Database>) -> Self {
+        let songs = desync(&database).retrieve_all_songs(directories.get_music_ref(), directories.get_thumbnails_ref());
         Self {
             query: String::new(),
             directories,
             database,
-            search_results: None,
+            search_results: Some(songs),
             search_handles: Vec::new(),
-            thumbnails_being_downloaded: HashSet::new()
+            thumbnails_being_downloaded: HashSet::new(),
         }
     }
 }
 
 impl Page for SearchPage {
     fn view(&self) -> Element<'_, Message> {
-        let header = Row::new()
+        let search_bar = Row::new()
             .push(
-                TextInput::new("Search...", &self.query)
+                ResonateWidget::search_bar("Search...", &self.query)
                     .on_input(Message::TextInput)
                     .on_submit(Message::SubmitSearch)
             );
@@ -58,6 +58,7 @@ impl Page for SearchPage {
             for song in search_results {
                 column = column.push(
                     ResonateWidget::search_result(song, self.directories.get_default_thumbnail())
+                        .on_press(Message::Download(song.yt_id.clone()))
                 )
             }
         }
@@ -65,9 +66,10 @@ impl Page for SearchPage {
         let view_window = ResonateWidget::padded_scrollable(column.into());
 
         ResonateWidget::window(
-            Column::new()
-                .push(header)
+            Column::new().spacing(20)
+                .push(ResonateWidget::header("SEARCH"))
                 .push(view_window)
+                .push(search_bar)
                 .into()
         )
     }
@@ -119,34 +121,11 @@ impl Page for SearchPage {
             }
 
             Message::SearchResult(song) => {
-                let id = song.yt_id.clone();
-                let album = song.album.clone();
-
-                let search_string = match song.album.as_ref() {
-                    Some(album) => album.clone(),
-                    None => id.clone()
-                };
-
-                let require_thumbnail_download = song.thumbnail_path.is_none() && !self.thumbnails_being_downloaded.contains(&search_string);
-
                 match self.search_results.as_mut() {
                     Some(search_results) => search_results.push(song),
                     None => self.search_results = Some(vec![song])
                 }
-
-                if require_thumbnail_download {
-                    self.thumbnails_being_downloaded.insert(search_string);
-                    Task::future(async_download_thumnail(
-                        self.directories.get_dlp_ref().expect("DLP not installed").to_path_buf(),
-                        self.directories.get_thumbnails_ref().to_path_buf(),
-                        id,
-                        album
-                    ))
-                } else { Task::none() }
-            }
-
-            Message::MultiSearchResult(songs) => {
-                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
+                Task::none()
             }
 
             Message::UpdateThumbnails => {

@@ -5,6 +5,8 @@ use std::fs::read_dir;
 use std::fs::create_dir_all;
 use std::fs::create_dir;
 
+use image::Luma;
+use image::ImageBuffer;
 use directories::ProjectDirs;
 use youtube_dl::downloader::YoutubeDlFetcher;
 
@@ -16,6 +18,7 @@ pub struct DataDir {
     music: PathBuf,
     dependencies: PathBuf,
     thumbnails: PathBuf,
+    default_thumbnail: PathBuf,
     dlp_path: Option<PathBuf>
 }
 
@@ -52,6 +55,17 @@ impl DataDir {
             Err(_) => return Err(error)
         };
 
+        let default_thumbnail = if thumbnails.exists() {
+            let default_thumbnail = thumbnails.join("default_thumbnail.png");
+            if !default_thumbnail.exists() {
+                let img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(64, 64, |_, _| Luma([100]));
+                img.save(&default_thumbnail);
+            }
+            default_thumbnail
+        } else {
+            panic!("COULDN'T CREATE DEFAULT THUMBNAIL");
+        };
+
         let mut matching_entry = match read_dir(&dependencies) {
             Ok(entries) => entries,
             Err(_) => return Err(ResonateError::DirectoryNotFound(Box::new(String::from("Could not read from the dependencies directory."))))
@@ -71,7 +85,7 @@ impl DataDir {
             None => None
         };
 
-        Ok(Self { music, dependencies, thumbnails, root, dlp_path })
+        Ok(Self { music, dependencies, thumbnails, root, dlp_path, default_thumbnail })
     }
 
     pub fn get_root_ref(&self) -> &Path { self.root.as_path() }
@@ -84,6 +98,7 @@ impl DataDir {
             None => None
         }
     }
+    pub fn get_default_thumbnail(&self) -> &Path { self.default_thumbnail.as_path() }
 
     /// Attempt to install yt-dlp. If it is already installed, return the path
     pub async fn install_dlp(&mut self) -> Result<bool, ResonateError> {

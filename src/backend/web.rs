@@ -2,7 +2,9 @@ use std::path::PathBuf;
 use std::path::Path;
 use std::time::Duration;
 
+use image::imageops::FilterType;
 use youtube_dl::YoutubeDl;
+use tokio::process::Command;
 
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
@@ -17,7 +19,7 @@ pub async fn flatsearch(
         .youtube_dl_path(executable_path)
         .extra_arg("--skip-download")
         .extra_arg("--flat-playlist")
-        .run() {
+        .run_async().await {
         Ok(result) => {
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
@@ -74,5 +76,44 @@ pub fn collect_metadata(
             }
         }
         Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not collect metadata from ID"))))
+    }
+}
+
+pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: String, album_name: String) -> Result<PathBuf, ()> {
+    let album = album_name.replace(" ", "_");
+    let path = thumbnail_dir.join(&album).to_string_lossy().to_string();
+
+    let mut handle = Command::new(dlp_path)
+        .arg("--write-thumbnail")
+        .arg("--skip-download")
+        .arg(format!("https://music.youtube.com/watch?v={}", id))
+        .arg("-o")
+        .arg(path.clone())
+        .spawn().unwrap();
+
+    let _ = handle.wait().await;
+
+    let raw = match image::open(thumbnail_dir.join(format!("{album}.webp"))) {
+        Ok(image) => image,
+        Err(_) => return Err(())
+    };
+
+    let original_width = raw.width();
+    let original_height = raw.height();
+    let new_height = 64;
+    let new_width = (original_width as f64 * (new_height as f64 / original_height as f64)) as u32;
+    let scaled = raw.resize(new_width, new_height, FilterType::Gaussian);
+
+    let result: PathBuf = thumbnail_dir.join(format!("{album}.png"));
+
+    let height = scaled.height();
+    let padding = (scaled.width() - height)/2;
+    let cropped = scaled.crop_imm(padding, 0, height, height);
+    let _ = cropped.save(&result);
+    let _ = std::fs::remove_file(thumbnail_dir.join(format!("{album}.webp")));
+
+    match result.exists() {
+        true => Ok(result),
+        false => Err(())
     }
 }

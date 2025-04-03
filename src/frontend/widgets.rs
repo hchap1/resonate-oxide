@@ -1,5 +1,7 @@
+use std::path::Path;
+
 use iced::widget::scrollable::Scroller;
-use iced::widget::{container, text, Column, Container, Row, scrollable, Scrollable};
+use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable};
 use iced::{Border, Color, Element, Length, Shadow};
 
 use crate::frontend::message::Message;
@@ -63,12 +65,18 @@ impl ResonateStyle {
 
 pub struct ResonateWidget;
 impl ResonateWidget {
-    pub fn search_result<'a>(song: &'a Song) -> Element<'a, Message> {
+    pub fn search_result<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Element<'a, Message> {
         Container::new(Row::new()
+            .push(
+                image(match song.thumbnail_path.as_ref() {
+                    Some(thumbnail) => thumbnail.as_path(),
+                    None => default_thumbnail
+                })
+            )
             .push(
                 Column::new().spacing(10)
                     .push(
-                        text(&song.title).width(Length::FillPortion(3))
+                        text(&song.title).width(Length::FillPortion(3)).size(20).color(ResonateColour::text())
                     ).push(
                         text(&song.artist).width(Length::FillPortion(2))
                     )

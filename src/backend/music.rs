@@ -40,6 +40,24 @@ impl Song {
         }
     }
 
+    pub fn load_paths(&mut self, music_path: &Path, thumbnail_path: &Path) {
+        let music = music_path.join(format!("{}.mp3", self.yt_id));
+        let music = if music.exists() { Some(music) } else { None };
+        let thumbnail = match self.album.as_ref() {
+            Some(album) => {
+                let path = thumbnail_path.join(format!("{}.png", album.replace(' ', "_")));
+                if path.exists() { Some(path) } else { None }
+            }
+            None => {
+                let path = thumbnail_path.join(format!("{}.png", self.yt_id.replace(' ', "_")));
+                if path.exists() { Some(path) } else { None }
+            }
+        };
+
+        self.music_path = music;
+        self.thumbnail_path = thumbnail;
+    }
+
     pub fn load(
         id: usize,
         yt_id: String,
@@ -50,20 +68,9 @@ impl Song {
         music_path: &Path,
         thumbnail_path: &Path
     ) -> Self {
-        let music_path = music_path.join(format!("{}.mp3", yt_id));
-        let thumbnail_path = thumbnail_path.join(format!("{}.png", yt_id));
-
-        let music = music_path.join(format!("{}.mp3", yt_id));
-        let music = if music.exists() { Some(music) } else { None };
-        let thumbnail = match album.as_ref() {
-            Some(album) => {
-                let path = thumbnail_path.join(format!("{}.png", album.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-            None => None
-        };
-
-        Self::new(id, yt_id, title, artist, album, duration, music, thumbnail)
+        let mut song = Self::new(id, yt_id, title, artist, album, duration, None, None);
+        song.load_paths(music_path, thumbnail_path);
+        song
     }
 }
 

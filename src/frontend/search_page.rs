@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
@@ -5,13 +7,12 @@ use iced::widget::TextInput;
 use iced::Task;
 use iced::Element;
 
-use std::time::Duration;
-
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
 use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
 use crate::frontend::backend_interface::DatabaseSearchQuery;
+use crate::frontend::backend_interface::async_download_thumnail;
 
 use crate::backend::util::{consume, AM};
 use crate::backend::filemanager::DataDir;
@@ -25,7 +26,8 @@ pub struct SearchPage {
     directories: DataDir,
     database: AM<Database>,
     search_results: Option<Vec<Song>>,
-    search_handles: Vec<Handle>
+    search_handles: Vec<Handle>,
+    thumbnails_being_downloaded: HashSet<String>
 }
 
 impl SearchPage {
@@ -34,18 +36,9 @@ impl SearchPage {
             query: String::new(),
             directories,
             database,
-            // search_results: None,
-            search_results: Some(vec![Song::new(
-                0,
-                String::from("TESTID"),
-                String::from("TestSong"),
-                String::from("Harrison"),
-                Some(String::from("TestSongs")),
-                Duration::from_secs(10),
-                None,
-                None
-            )]),
-            search_handles: Vec::new()
+            search_results: None,
+            search_handles: Vec::new(),
+            thumbnails_being_downloaded: HashSet::new()
         }
     }
 }
@@ -64,7 +57,7 @@ impl Page for SearchPage {
         if let Some(search_results) = self.search_results.as_ref() {
             for song in search_results {
                 column = column.push(
-                    ResonateWidget::search_result(song)
+                    ResonateWidget::search_result(song, self.directories.get_default_thumbnail())
                 )
             }
         }
@@ -126,14 +119,41 @@ impl Page for SearchPage {
             }
 
             Message::SearchResult(song) => {
+                let id = song.yt_id.clone();
+                let album = song.album.clone();
+
+                let search_string = match song.album.as_ref() {
+                    Some(album) => album.clone(),
+                    None => id.clone()
+                };
+
+                let require_thumbnail_download = song.thumbnail_path.is_none() && !self.thumbnails_being_downloaded.contains(&search_string);
+
                 match self.search_results.as_mut() {
-                    Some(search_results) => { search_results.push(song); Task::none() }
-                    None => { self.search_results = Some(vec![song]); Task::none() }
+                    Some(search_results) => search_results.push(song),
+                    None => self.search_results = Some(vec![song])
                 }
+
+                if require_thumbnail_download {
+                    self.thumbnails_being_downloaded.insert(search_string);
+                    Task::future(async_download_thumnail(
+                        self.directories.get_dlp_ref().expect("DLP not installed").to_path_buf(),
+                        self.directories.get_thumbnails_ref().to_path_buf(),
+                        id,
+                        album
+                    ))
+                } else { Task::none() }
             }
 
             Message::MultiSearchResult(songs) => {
                 Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
+            }
+
+            Message::UpdateThumbnails => {
+                if let Some(search_results) = self.search_results.as_mut() {
+                    search_results.iter_mut().for_each(|song| song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref()));
+                }
+                Task::none()
             }
 
             _ => Task::none()

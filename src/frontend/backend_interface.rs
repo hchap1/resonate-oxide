@@ -10,6 +10,7 @@ use iced::futures::Stream;
 use crate::frontend::message::Message;
 
 use crate::backend::web::{collect_metadata, flatsearch};
+use crate::backend::web::download_thumbnail;
 use crate::backend::database::search_mutex;
 use crate::backend::error::ResonateError;
 use crate::backend::util::{sync, desync, AM};
@@ -279,3 +280,13 @@ impl Stream for DatabaseSearchQuery {
     }
 }
 
+pub async fn async_download_thumnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: String, album: Option<String>) -> Message {
+    let album_string = match album {
+        Some(album) => album,
+        None => id.clone()
+    };
+    match download_thumbnail(dlp_path, thumbnail_dir, id, album_string).await {
+        Ok(_) => Message::UpdateThumbnails,
+        Err(_) => Message::None
+    }
+}

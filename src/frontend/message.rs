@@ -10,7 +10,8 @@ pub enum Message {
     DLPWarning,                     // Notify the user that the current action requires yt-dlp.
     CollectMetadata(String),        // Task created by LoadSearchResults
     SearchResult(Song),             // Final task in the search process - actually adds a finished song to the buffer
-    MultiSearchResult(Vec<Song>)    // ^ Option extension allowing for parallel metadata collection in batches or all at once
+    MultiSearchResult(Vec<Song>),   // ^ Option extension allowing for parallel metadata collection in batches or all at once
+    UpdateThumbnails                // On any page that contains thumbnails, update them
 }
 
 #[derive(Clone, Debug)]

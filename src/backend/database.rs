@@ -12,6 +12,7 @@ use crate::backend::util::AM;
 use crate::backend::util::desync;
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
+use crate::backend::music::Playlist;
 
 pub struct Database {
     connection: Connection,
@@ -150,6 +151,21 @@ impl Database {
         ]) {
             Ok(_) => Ok(true),
             Err(_) => Err(ResonateError::SQLError)
+        }
+    }
+
+    pub fn retrieve_all_playlists(&self) -> Vec<Playlist> {
+        match Query::new(&self.connection).get_all_playlists().query_map(params![], |row| {
+            Ok(Playlist {
+                id: row.get::<_, usize>(0).unwrap(),
+                name: row.get::<_, String>(1).unwrap()
+            })
+        }) {
+            Ok(playlists) => playlists.filter_map(|playlist| match playlist {
+                Ok(playlist) => Some(playlist),
+                Err(_) => None
+            }).collect(),
+            Err(_) => vec![]
         }
     }
 }

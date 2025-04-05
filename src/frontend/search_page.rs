@@ -11,7 +11,6 @@ use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
 use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
 use crate::frontend::backend_interface::DatabaseSearchQuery;
-use crate::frontend::backend_interface::async_download_thumnail;
 
 use crate::backend::util::{consume, desync, AM};
 use crate::backend::filemanager::DataDir;
@@ -26,11 +25,11 @@ pub struct SearchPage {
     database: AM<Database>,
     search_results: Option<Vec<Song>>,
     search_handles: Vec<Handle>,
-    thumbnails_being_downloaded: HashSet<String>,
+    playlist_id: usize
 }
 
 impl SearchPage {
-    pub fn new(directories: DataDir, database: AM<Database>) -> Self {
+    pub fn new(directories: DataDir, database: AM<Database>, playlist_id: usize) -> Self {
         let songs = desync(&database).retrieve_all_songs(directories.get_music_ref(), directories.get_thumbnails_ref());
         Self {
             query: String::new(),
@@ -38,7 +37,7 @@ impl SearchPage {
             database,
             search_results: Some(songs),
             search_handles: Vec::new(),
-            thumbnails_being_downloaded: HashSet::new(),
+            playlist_id
         }
     }
 }
@@ -58,7 +57,7 @@ impl Page for SearchPage {
             for song in search_results {
                 column = column.push(
                     ResonateWidget::search_result(song, self.directories.get_default_thumbnail())
-                        .on_press(Message::Download(song.yt_id.clone()))
+                        .on_press(Message::Download(song.clone()))
                 )
             }
         }

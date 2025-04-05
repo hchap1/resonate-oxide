@@ -118,27 +118,34 @@ pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: S
     }
 }
 
-pub async fn download_song(dlp_path: PathBuf, music_path: PathBuf, id: String) -> Result<PathBuf, ()> {
-    let output = music_path.join(format!("{id}.mp3"));
-    let ytdlp = YoutubeDl::new(format!("https://music.youtube.com/watch?v={id}"))
-        .youtube_dl_path(dlp_path)
-        .extra_arg("-o")
-        .extra_arg(output.to_string_lossy().to_string())
-        .run_async().await;
+pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, id: String) -> Result<PathBuf, ()> {
+    let dlp_path = match dlp_path {
+        Some(dlp_path) => dlp_path,
+        None => return Err(())
+    };
 
-    match ytdlp {
-        Ok(results) => {
-            match results.into_single_video() {
-                Some(song) => {
-                    if song.id == id {
-                        Ok(output)
-                    } else {
-                        Err(())
-                    }
-                }
-                None => Err(())
-            }
-        }
-        Err(_) => Err(())
+    println!("DOWNLOADING: {id}");
+
+    let output = music_path.join(format!("{id}.mp3"));
+    let url = format!("https://music.youtube.com/watch?v={id}");
+
+    let mut ytdlp = Command::new(dlp_path)
+        .arg("-f")
+        .arg("bestaudio")
+        .arg("--extract-audio")
+        .arg("--audio-format")
+        .arg("mp3")
+        .arg("-o")
+        .arg(output.to_string_lossy().to_string())
+        .arg(url)
+        .spawn().unwrap();
+
+    let _ = ytdlp.wait().await;
+
+    println!("DOWNLOAD TASK FINISHED.");
+
+    match output.exists() {
+        true => Ok(output),
+        false => Err(())
     }
 }

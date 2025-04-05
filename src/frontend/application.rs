@@ -4,7 +4,10 @@ use iced::Element;
 use iced::widget::text;
 use iced::Task;
 
+// GUI PAGES
 use crate::frontend::search_page::SearchPage;
+use crate::frontend::playlists::PlaylistPage;
+
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::backend_interface::async_download_thumbnail;
@@ -12,6 +15,8 @@ use crate::frontend::backend_interface::async_download_thumbnail;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::util::{sync, AM};
+
+use super::backend_interface::async_download_song;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
@@ -54,7 +59,7 @@ impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
         let database = sync(database);
         Self {
-            page: Some(Box::new(SearchPage::new(directories.clone(), database.clone()))),
+            page: Some(Box::new(SearchPage::new(directories.clone(), database.clone(), 0))),
             directories,
             database,
             
@@ -72,6 +77,23 @@ impl Application<'_> {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::Download(song) => {
+                println!("DOWNLOAD TASK RECEIVED FOR {}", song.title);
+                if self.current_song_downloads.contains(&song.yt_id) {
+                    return Task::none();
+                }
+                self.current_song_downloads.insert(song.yt_id.clone());
+                Task::future(async_download_song(
+                    self.directories.get_dlp_ref().map(|x| x.to_path_buf()),
+                    self.directories.get_music_ref().to_path_buf(),
+                    song
+                ))
+            }
+
+            Message::SongDownloaded(_) => {
+                Task::none()
+            }
+
             Message::SearchResult(song) => {
                 let id = song.yt_id.clone();
                 let album = song.album.clone();
@@ -84,7 +106,7 @@ impl Application<'_> {
                 let require_thumbnail_download = song.thumbnail_path.is_none() && !self.current_thumbnail_downloads.contains(&search_string);
 
                 if let Some(page) = self.page.as_mut() {
-                    page.update(Message::SearchResult(song));
+                    let _ = page.update(Message::SearchResult(song));
                 }
 
                 if require_thumbnail_download {
@@ -101,7 +123,8 @@ impl Application<'_> {
             Message::MultiSearchResult(songs) => {
                 Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
             }
-            Message::LoadPage(page_type) => { self.load_page(page_type); Task::none() },
+
+            Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
             other => match self.page.as_mut() {
                 Some(page) => page.update(other),
                 None => Task::none()
@@ -109,9 +132,10 @@ impl Application<'_> {
         }
     }
 
-    fn load_page(&mut self, page_type: PageType) {
+    fn load_page(&mut self, page_type: PageType, playlist_id: Option<usize>) {
         self.page = Some(Box::new(match page_type {
-            PageType::SearchSongs => SearchPage::new(self.directories.clone(), self.database.clone())
+            PageType::SearchSongs => SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())
+            PageType::Playlists => PlaylistPage
         }));
     }
 }

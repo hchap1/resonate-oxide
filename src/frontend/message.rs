@@ -13,7 +13,10 @@ pub enum Message {
     MultiSearchResult(Vec<Song>),        // ^ Option extension allowing for parallel metadata collection in batches or all at once
     UpdateThumbnails,                    // On any page that contains thumbnails, update them
     Download(Song),                      // Download a song asynchronously. Relies on the frontend to manage concurrency
-    SongDownloaded(Song)
+    SongDownloaded(Song),
+    CreatePlaylist,                      // Create a new "My Playlist" name playlist, adding a number if multiple exist
+    StartEditing(usize),                 // Edit the name of a playlist on the Playlists page
+    StopEditing,                         // Exit exit mode
 }
 
 #[derive(Clone, Debug)]

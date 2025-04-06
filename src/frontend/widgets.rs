@@ -4,10 +4,10 @@ use iced::alignment::Vertical;
 use iced::widget::{button, text_input, Button};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput};
-use iced::{Border, Color, Element, Length, Shadow};
+use iced::{Background, Border, Color, Element, Length, Shadow};
 
 use crate::frontend::message::Message;
-use crate::backend::music::Song;
+use crate::backend::music::{Playlist, Song};
 
 struct ResonateColour;
 impl ResonateColour {
@@ -113,8 +113,46 @@ impl ResonateWidget {
         text(value).size(30).color(ResonateColour::colour()).into()
     }
 
+    pub fn inline_button<'a>(text: &'a str) -> Button<'a, Message> {
+        button(text).style(|_, _| button::Style {
+            background: None,
+            text_color: ResonateColour::darker(),
+            border: Border::default(),
+            shadow: Shadow::default()
+        })
+    }
+
     pub fn search_bar<'a>(default: &str, current: &str) -> TextInput<'a, Message> {
         text_input(default, current).style(|_, status| ResonateStyle::search_bar(status))
+    }
+
+    pub fn playlist<'a>(playlist: &'a Playlist, input_field: Option<&'a str>, idx: usize) -> Button<'a, Message> {
+        button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
+            .push({
+                let element: Element<'_, Message> = match input_field {
+                    Some(current_value) => text_input("Name...", current_value)
+                        .on_input(Message::TextInput)
+                        .on_submit(Message::StopEditing)
+                        .style(|_,_| text_input::Style {
+                            background: Background::Color(ResonateColour::foreground()),
+                            border: Border::default().rounded(10),
+                            icon: ResonateColour::text(),
+                            placeholder: ResonateColour::darker(),
+                            selection: ResonateColour::colour(),
+                            value: ResonateColour::text()
+                        })
+                            .width(Length::FillPortion(5))
+                            .size(20)
+                        .into(),
+                    None => text(&playlist.name).size(20).color(ResonateColour::text()).width(Length::FillPortion(5)).into()
+                };
+                element}
+            ).push(
+                button(text("✎").size(20)).on_press(Message::StartEditing(idx))
+            ).push(
+                text(&playlist.id).size(15).width(Length::FillPortion(1))
+            )
+        ).style(|_| ResonateStyle::list_container()).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
     pub fn search_result<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Button<'a, Message> {

@@ -6,7 +6,7 @@ use iced::Task;
 
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
-use crate::frontend::playlists::PlaylistPage;
+use crate::frontend::playlists::PlaylistsPage;
 
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -59,7 +59,7 @@ impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
         let database = sync(database);
         Self {
-            page: Some(Box::new(SearchPage::new(directories.clone(), database.clone(), 0))),
+            page: Some(Box::new(PlaylistsPage::new(database.clone()))),
             directories,
             database,
             
@@ -133,9 +133,9 @@ impl Application<'_> {
     }
 
     fn load_page(&mut self, page_type: PageType, playlist_id: Option<usize>) {
-        self.page = Some(Box::new(match page_type {
-            PageType::SearchSongs => SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())
-            PageType::Playlists => PlaylistPage
-        }));
+        self.page = Some(match page_type {
+            PageType::SearchSongs => Box::new(SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())),
+            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.clone()))
+        });
     }
 }

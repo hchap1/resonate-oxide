@@ -135,6 +135,21 @@ impl Database {
         }
     }
 
+    /// Add a playlist into the database, returning the ID with which it was assigned
+    pub fn emplace_playlist_and_record_id(&self, playlist: &Playlist) -> Result<usize, ResonateError> {
+        match Query::new(&self.connection).create_playlist().execute(params![
+            &playlist.name
+        ]) {
+            Ok(_) => Ok(self.connection.last_insert_rowid() as usize),
+            Err(_) => Err(ResonateError::SQLError)
+        }
+    }
+
+    /// Sets the name of playlist to name by id
+    pub fn set_playlist_name(&self, playlist_id: usize, name: &String) {
+        let _ = self.connection.execute("UPDATE Playlists SET title = ? WHERE id = ?", params![name, playlist_id]);
+    }
+
     pub fn add_song_to_playlist(&self, song_id: usize, playlist_id: usize) -> Result<bool, ResonateError> {
         // If the song is in the playlist already, return false
         if match Query::new(&self.connection).check_if_song_in_playlist().query(params![playlist_id, song_id]) {
@@ -154,11 +169,26 @@ impl Database {
         }
     }
 
+    pub fn get_playlist_by_id(&self, id: usize) -> Option<Playlist> {
+        let playlist = Query::new(&self.connection).get_playlist_by_id().query_map(params![id], |row| Ok(
+            Playlist {
+                id,
+                name: row.get::<_, String>(1).unwrap(),
+                song_count: 0
+            }
+        )).unwrap().find(|p| p.is_ok());
+        match playlist {
+            Some(p) => Some(p.unwrap()),
+            None => None
+        }
+    }
+
     pub fn retrieve_all_playlists(&self) -> Vec<Playlist> {
         match Query::new(&self.connection).get_all_playlists().query_map(params![], |row| {
             Ok(Playlist {
                 id: row.get::<_, usize>(0).unwrap(),
-                name: row.get::<_, String>(1).unwrap()
+                name: row.get::<_, String>(1).unwrap(),
+                song_count: 0
             })
         }) {
             Ok(playlists) => playlists.filter_map(|playlist| match playlist {

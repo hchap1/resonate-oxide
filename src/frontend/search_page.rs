@@ -1,11 +1,10 @@
-use std::collections::HashSet;
-
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
 use iced::Task;
 use iced::Element;
 
+use crate::backend::music::Playlist;
 use crate::frontend::message::Message;
 use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
@@ -25,19 +24,20 @@ pub struct SearchPage {
     database: AM<Database>,
     search_results: Option<Vec<Song>>,
     search_handles: Vec<Handle>,
-    playlist_id: usize
+    playlist: Option<Playlist>
 }
 
 impl SearchPage {
     pub fn new(directories: DataDir, database: AM<Database>, playlist_id: usize) -> Self {
         let songs = desync(&database).retrieve_all_songs(directories.get_music_ref(), directories.get_thumbnails_ref());
+        let playlist = desync(&database).get_playlist_by_id(playlist_id);
         Self {
             query: String::new(),
             directories,
             database,
             search_results: Some(songs),
             search_handles: Vec::new(),
-            playlist_id
+            playlist
         }
     }
 }
@@ -66,7 +66,12 @@ impl Page for SearchPage {
 
         ResonateWidget::window(
             Column::new().spacing(20)
-                .push(ResonateWidget::header("SEARCH"))
+                .push(ResonateWidget::header(
+                    match self.playlist.as_ref() {
+                        Some(playlist) => &playlist.name,
+                        None => "Searh"
+                    })
+                )
                 .push(view_window)
                 .push(search_bar)
                 .into()

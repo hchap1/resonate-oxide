@@ -6,3 +6,6 @@ mod widgets;
 // Pages
 mod playlists;
 mod search_page;
+
+// Icons
+mod assets;

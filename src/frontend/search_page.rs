@@ -1,6 +1,9 @@
+use iced::alignment::Vertical;
+use iced::widget::svg;
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
+use iced::Length;
 use iced::Task;
 use iced::Element;
 
@@ -66,12 +69,12 @@ impl Page for SearchPage {
 
         ResonateWidget::window(
             Column::new().spacing(20)
-                .push(ResonateWidget::header(
+                .push(Row::new().push(ResonateWidget::header(
                     match self.playlist.as_ref() {
                         Some(playlist) => &playlist.name,
                         None => "Searh"
-                    })
-                )
+                    }
+                )).push(svg(crate::frontend::assets::home_icon()).width(32).height(32)).spacing(20).align_y(Vertical::Center).width(Length::Fill))
                 .push(view_window)
                 .push(search_bar)
                 .into()

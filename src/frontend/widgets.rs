@@ -1,12 +1,14 @@
 use std::path::Path;
 
 use iced::alignment::Vertical;
+use iced::widget::svg::Handle;
 use iced::widget::{button, text_input, Button};
 use iced::widget::scrollable::Scroller;
-use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput};
+use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg};
 use iced::{Background, Border, Color, Element, Length, Shadow};
 
 use crate::frontend::message::Message;
+
 use crate::backend::music::{Playlist, Song};
 
 struct ResonateColour;
@@ -14,12 +16,13 @@ impl ResonateColour {
     fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
     fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
 
-    fn background() -> Color { Self::hex("#1f2335") }
-    fn foreground() -> Color { Self::hex("#24283b") }
-    fn accent()     -> Color { Self::hex("#292e42") }
-    fn colour()     -> Color { Self::hex("#9d7cd8") }
-    fn text()       -> Color { Self::hex("#c0caf5") }
-    fn darker()     -> Color { Self::hex("#565f89") }
+    fn background()     -> Color { Self::hex("#1f2335") }
+    fn foreground()     -> Color { Self::hex("#24283b") }
+    fn accent()         -> Color { Self::hex("#292e42") }
+    fn colour()         -> Color { Self::hex("#9d7cd8") }
+    fn lighter_colour() -> Color { Self::hex("#b992ff") }
+    fn text()           -> Color { Self::hex("#c0caf5") }
+    fn darker()         -> Color { Self::hex("#565f89") }
 }
 
 struct ResonateStyle;
@@ -105,10 +108,30 @@ impl ResonateStyle {
             shadow: Shadow::default()
         }
     }
+
+    fn icon_button(status: iced::widget::button::Status) -> button::Style {
+        button::Style {
+            background: Some(iced::Background::Color(
+                match status {
+                    button::Status::Active => ResonateColour::colour(),
+                    button::Status::Disabled => ResonateColour::background(),
+                    _ => ResonateColour::lighter_colour()
+                }
+            )),
+            text_color: ResonateColour::text(),
+            border: Border::default().rounded(10),
+            shadow: Shadow::default()
+        }
+    }
 }
 
 pub struct ResonateWidget;
 impl ResonateWidget {
+
+    pub fn button_widget(icon: Handle) -> Button<'_, Message> {
+
+    }
+
     pub fn header<'a>(value: &'a str) -> Element<'a, Message> {
         text(value).size(30).color(ResonateColour::colour()).into()
     }
@@ -128,7 +151,9 @@ impl ResonateWidget {
 
     pub fn playlist<'a>(playlist: &'a Playlist, input_field: Option<&'a str>, idx: usize) -> Button<'a, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
-            .push({
+            .push(
+                text(&playlist.id).size(15).width(Length::FillPortion(1))
+            ).push({
                 let element: Element<'_, Message> = match input_field {
                     Some(current_value) => text_input("Name...", current_value)
                         .on_input(Message::TextInput)
@@ -141,18 +166,18 @@ impl ResonateWidget {
                             selection: ResonateColour::colour(),
                             value: ResonateColour::text()
                         })
-                            .width(Length::FillPortion(5))
+                            .width(Length::FillPortion(15))
                             .size(20)
                         .into(),
-                    None => text(&playlist.name).size(20).color(ResonateColour::text()).width(Length::FillPortion(5)).into()
+                    None => text(&playlist.name).size(20).color(ResonateColour::text()).width(Length::FillPortion(15)).into()
                 };
                 element}
             ).push(
-                button(text("✎").size(20)).on_press(Message::StartEditing(idx))
-            ).push(
-                text(&playlist.id).size(15).width(Length::FillPortion(1))
+                button(
+                    svg(crate::frontend::assets::edit_icon()).width(32).height(32)
+                ).on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))
             )
-        ).style(|_| ResonateStyle::list_container()).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
+        ).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
     pub fn search_result<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Button<'a, Message> {

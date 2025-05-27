@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::widget::Column;
 use iced::{Element, Task};
 
@@ -33,7 +35,7 @@ impl PlaylistsPage {
 }
 
 impl Page for PlaylistsPage {
-    fn view(& self) -> Element<'_, Message> {
+    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
             column = column.push(ResonateWidget::playlist(value,

@@ -23,6 +23,7 @@ impl ResonateColour {
     fn lighter_colour() -> Color { Self::hex("#b992ff") }
     fn text()           -> Color { Self::hex("#c0caf5") }
     fn darker()         -> Color { Self::hex("#565f89") }
+    fn yellow()         -> Color { Self::hex("#e0cf7e") }
 }
 
 struct ResonateStyle;
@@ -182,7 +183,7 @@ impl ResonateWidget {
         ).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
-    pub fn song<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Button<'a, Message> {
+    pub fn song<'a>(song: &'a Song, default_thumbnail: &'a Path, is_downloading: bool) -> Button<'a, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(
                 Container::new(image(match song.thumbnail_path.as_ref() {
@@ -205,10 +206,17 @@ impl ResonateWidget {
             ).push(
                 text(song.display_duration()).width(Length::FillPortion(1))
             ).push(
-                text(match song.music_path.as_ref() {
-                    Some(path) => path.to_string_lossy().to_string(),
-                    None => String::from("Balls")
-                })
+                if is_downloading {
+                    text("DOWNLOADING").color(ResonateColour::yellow())
+                } else {
+                    match song.music_path.as_ref() {
+                        Some(path) => text(match path.file_name() {
+                            Some(s) => s.to_string_lossy().to_string(),
+                            None => String::from("INVALID PATH")
+                        }).color(ResonateColour::accent()),
+                        None => text("NOT DOWNLOADED").color(ResonateColour::text())
+                    }
+                }
             )
         ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
     }

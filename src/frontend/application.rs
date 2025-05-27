@@ -22,7 +22,7 @@ use super::backend_interface::async_install_dlp;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
-    fn view(&self) -> Element<'_, Message>;
+    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message>;
 }
 
 pub struct Application<'a> {
@@ -74,7 +74,7 @@ impl Application<'_> {
 
     pub fn view(&self) -> Element<'_, Message> {
         match self.page.as_ref() {
-            Some(page) => page.view(),
+            Some(page) => page.view(&self.current_song_downloads),
             None => text("404 - No page.").into()
         }
     }

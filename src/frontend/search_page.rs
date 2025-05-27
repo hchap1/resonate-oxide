@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::alignment::Vertical;
 use iced::widget::Column;
 use iced::task::Handle;
@@ -46,7 +48,7 @@ impl SearchPage {
 }
 
 impl Page for SearchPage {
-    fn view(&self) -> Element<'_, Message> {
+    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message> {
         let search_bar = Row::new()
             .push(
                 ResonateWidget::search_bar("Search...", &self.query)

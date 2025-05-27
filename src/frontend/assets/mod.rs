@@ -8,3 +8,6 @@ macro_rules! svg {
 
 svg!(edit_icon, "icons/edit.svg");
 svg!(home_icon, "icons/home.svg");
+svg!(tick_icon, "icons/check.svg");
+svg!(downloading_icon, "icons/downloading.svg");
+svg!(cloud_icon, "icons/cloud.svg");

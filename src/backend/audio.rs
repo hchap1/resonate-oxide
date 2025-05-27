@@ -7,6 +7,7 @@ use std::io::Cursor;
 use std::io::Read;
 use std::fs::File;
 
+use rodio::Decoder;
 use rodio::OutputStream;
 use rodio::OutputStreamHandle;
 use rodio::Sink;
@@ -105,6 +106,22 @@ fn audio_thread(sink: Sink, task_downstream: Receiver<AudioTask>, queue_upstream
                 return;
             },
             _ => {}
+        }
+
+        if sink.empty() && queue.songs.len() == 0 {
+            if queue.position < queue.songs.len() - 1 {
+                queue.position += 1;
+            } else {
+                continue;
+            }
+
+            let data = match Decoder::new(queue.songs[queue.position].audio.clone()) {
+                Ok(data) => data,
+                Err(_) => continue
+            };
+
+            sink.clear();
+            sink.append(data);
         }
     }
 }

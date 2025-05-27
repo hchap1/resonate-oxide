@@ -155,8 +155,10 @@ impl Application<'_> {
             Message::AddSongToPlaylist(song, playlist_id) => {
                 let _ = self.database.lock().unwrap().add_song_to_playlist(song.id, playlist_id);
                 Task::done(
+                    Message::SongAddedToPlaylist(song.id)
+                ).chain(Task::done(
                     Message::Download(song)
-                )
+                ))
             }
 
             other => match self.page.as_mut() {

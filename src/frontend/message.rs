@@ -22,7 +22,8 @@ pub enum Message {
     DownloadDLP,                         // Spawns a task to check if DLP is downloaded, and if it isn't, download it
     DLPDownloaded(Option<PathBuf>),      // <- Obvious
 
-    AddSongToPlaylist(Song, usize),     // This also downloads the song
+    AddSongToPlaylist(Song, usize),      // This also downloads the song
+    SongAddedToPlaylist(usize),          // For updating the GUI
 }
 
 #[derive(Clone, Debug)]

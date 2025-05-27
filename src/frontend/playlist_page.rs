@@ -78,6 +78,7 @@ impl Page for PlaylistPage {
             let is_downloading = current_song_downloads.contains(&song.yt_id);
             column = column.push(
                 ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading)
+                    .on_press(Message::Download(song.clone()))
             );
         }
 

@@ -29,20 +29,36 @@ pub struct SearchPage {
     database: AM<Database>,
     search_results: Option<Vec<Song>>,
     search_handles: Vec<Handle>,
-    playlist: Option<Playlist>
+    playlist: Option<Playlist>,
+
+    existing_songs: HashSet<usize>
 }
 
 impl SearchPage {
     pub fn new(directories: DataDir, database: AM<Database>, playlist_id: usize) -> Self {
         let songs = desync(&database).retrieve_all_songs(directories.get_music_ref(), directories.get_thumbnails_ref());
         let playlist = desync(&database).get_playlist_by_id(playlist_id);
+
+        let songs_in_playlist = match desync(&database).search_playlist(playlist_id, String::new(),
+            directories.get_music_ref(), directories.get_thumbnails_ref()) {
+            Ok(songs) => songs,
+            Err(_) => Vec::new()
+        };
+
+        let mut existing_songs: HashSet<usize> = HashSet::new();
+
+        for song in songs_in_playlist {
+            existing_songs.insert(song.id);
+        }
+
         Self {
             query: String::new(),
             directories,
             database,
             search_results: Some(songs),
             search_handles: Vec::new(),
-            playlist
+            playlist,
+            existing_songs
         }
     }
 }
@@ -60,8 +76,14 @@ impl Page for SearchPage {
 
         if let Some(search_results) = self.search_results.as_ref() {
             for song in search_results {
+
+                if self.existing_songs.contains(&song.id) {
+                    continue;
+                }
+
+                let is_downloading = current_song_downloads.contains(&song.yt_id);
                 column = column.push(
-                    ResonateWidget::search_result(song, self.directories.get_default_thumbnail())
+                    ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading)
                         .on_press(Message::AddSongToPlaylist(song.clone(), match self.playlist.as_ref() {
                             Some(playlist) => playlist.id,
                             None => 0
@@ -147,6 +169,11 @@ impl Page for SearchPage {
                 if let Some(search_results) = self.search_results.as_mut() {
                     search_results.iter_mut().for_each(|song| song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref()));
                 }
+                Task::none()
+            }
+
+            Message::SongAddedToPlaylist(song_id) => {
+                self.existing_songs.insert(song_id);
                 Task::none()
             }
 

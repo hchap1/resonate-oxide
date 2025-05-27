@@ -69,7 +69,7 @@ impl Page for PlaylistPage {
             .push(
                 ResonateWidget::inline_button("ADD SONGS")
                     .on_press(Message::LoadPage(PageType::SearchSongs, Some(self.playlist.id)))
-            )
+            );
 
         let mut column = Column::new().spacing(20);
 

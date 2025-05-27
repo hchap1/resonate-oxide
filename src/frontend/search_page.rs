@@ -60,7 +60,11 @@ impl Page for SearchPage {
             for song in search_results {
                 column = column.push(
                     ResonateWidget::search_result(song, self.directories.get_default_thumbnail())
-                        .on_press(Message::Download(song.clone()))
+                        .on_press(Message::AddSongToPlaylist(song.clone(), match self.playlist.as_ref() {
+                            Some(playlist) => playlist.id,
+                            None => 0
+                        })
+                    )
                 )
             }
         }

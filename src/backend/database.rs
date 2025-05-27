@@ -245,8 +245,9 @@ impl Database {
     /// Retrieve songs that are in a given playlist matching a search query
     pub fn search_playlist(&self, playlist_id: usize, query: String, music_path: &Path, thumbnail_path: &Path)
     -> Result<Vec<Song>, ResonateError> {
+        let like_query = format!("%{query}%");
         let song_ids: Vec<usize> = match Query::new(&self.connection).search_playlist().query_map(
-            params![playlist_id, query, query, query],
+            params![playlist_id, like_query, like_query, like_query],
             |row| row.get::<_, usize>(0)
         ) {
             Ok(values) => values.filter_map(|song| song.ok()).collect(),

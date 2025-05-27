@@ -1,3 +1,4 @@
+use iced::alignment::Vertical;
 use iced::widget::Column;
 use iced::Element;
 use iced::widget::Row;
@@ -14,6 +15,9 @@ use crate::backend::music::Song;
 use crate::backend::database::Database;
 use crate::backend::util::AM;
 use crate::backend::util::desync;
+use crate::backend::util::consume;
+
+use super::message::PageType;
 
 pub struct PlaylistPage {
     playlist: Playlist,
@@ -58,9 +62,14 @@ impl PlaylistPage {
 
 impl Page for PlaylistPage {
     fn view(&self) -> Element<'_, Message> {
-        let search_bar = Row::new().push(
+        let search_bar = Row::new().spacing(20).align_y(Vertical::Center).push(
             ResonateWidget::search_bar("Search...", &self.query)
-        );
+                .on_input(Message::TextInput)
+                .on_submit(Message::SubmitSearch))
+            .push(
+                ResonateWidget::inline_button("ADD SONGS")
+                    .on_press(Message::LoadPage(PageType::SearchSongs, Some(self.playlist.id)))
+            )
 
         let mut column = Column::new().spacing(20);
 
@@ -83,6 +92,22 @@ impl Page for PlaylistPage {
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
-        Task::none()
+        match message {
+            Message::TextInput(new_value) => self.query = new_value,
+            Message::SubmitSearch => {
+                self.songs.clear();
+                let database = desync(&self.database);
+                self.songs = match database.search_playlist(
+                    self.playlist.id,
+                    consume(&mut self.query),
+                    self.directories.get_music_ref(),
+                    self.directories.get_thumbnails_ref()
+                ) {
+                        Ok(values) => values,
+                        Err(_) => return Task::none()
+                    }
+            }
+            _ => ()
+        }.into()
     }
 }

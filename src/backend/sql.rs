@@ -45,6 +45,22 @@ impl<'a> Query<'a> {
     pub fn get_song_by_match(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?").unwrap() }
     pub fn get_all_playlists(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Playlists").unwrap() }
 
+    pub fn search_playlist(self) -> Statement<'a> {
+        self.connection.prepare(
+            "
+            SELECT e.song_id
+            FROM Entries e
+            JOIN Songs s ON e.song_id = s.id
+            WHERE e.playlist_id = ?
+              AND (
+                s.title  LIKE ? OR
+                s.artist LIKE ? OR
+                s.album  LIKE ? 
+              );
+            "
+        ).unwrap()
+    }
+
     pub fn insert_song(self) -> Statement<'a> { 
         self.connection.prepare("
             INSERT INTO Songs

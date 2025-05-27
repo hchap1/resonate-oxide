@@ -41,7 +41,7 @@ impl Page for PlaylistsPage {
                 Some((playlist, idx)) => if idx == i { Some(playlist) } else { None },
                 None => None
             }, i)
-                .on_press(Message::LoadPage(PageType::SearchSongs, Some(value.id)))
+                .on_press(Message::LoadPage(PageType::ViewPlaylist, Some(value.id)))
             );
         }
 

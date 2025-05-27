@@ -28,5 +28,6 @@ pub enum Message {
 #[derive(Clone, Debug)]
 pub enum PageType {
     SearchSongs,
-    Playlists
+    Playlists,
+    ViewPlaylist
 }

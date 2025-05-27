@@ -239,7 +239,7 @@ impl ResonateWidget {
         ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
-    pub fn padded_scrollable<'a>(element: Element<'a, Message>) -> Element<'a, Message> {
+    pub fn padded_scrollable<'a>(element: Element<'a, Message>) -> Scrollable<'a, Message> {
             Scrollable::new(
                 element
             )
@@ -247,7 +247,6 @@ impl ResonateWidget {
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .spacing(20)
-            .into()
     }
 
     pub fn window<'a>(element: Element<'a, Message>) -> Element<'a, Message> {

@@ -64,6 +64,49 @@ impl Database {
         }
     }
 
+    /// Get songs by id (not yt-id)
+    pub fn get_song_by_id(&self, song_id: usize, music_path: &Path, thumbnail_path: &Path) -> Option<Song> {
+        match Query::new(&self.connection).get_song_by_field().query_map(
+            params!["id", song_id],
+            |row| {
+
+                if let (
+                    Ok(id),
+                    Ok(yt_id),
+                    Ok(title),
+                    Ok(artist),
+                    Ok(album),
+                    Ok(duration)
+                ) = (
+                    row.get::<_, usize>(0),
+                    row.get::<_, String>(1),
+                    row.get::<_, String>(2),
+                    row.get::<_, String>(3),
+                    row.get::<_, String>(4),
+                    row.get::<_, usize>(5)
+                ) {
+                    Ok(
+                        Song::load(
+                            id,
+                            yt_id,
+                            title,
+                            artist,
+                            Some(album),
+                            Duration::from_secs(duration as u64),
+                            music_path,
+                            thumbnail_path
+                        )
+                    )
+                } else {
+                    Err(rusqlite::Error::InvalidQuery)
+                }
+            }
+        ) {
+            Ok(values) => values.filter_map(|value| value.ok()).nth(0),
+            Err(_) => None
+        }
+    }
+
     /// Get songs where the name, string or artist matches a word
     pub fn keyword(&self, music_path: &Path, thumbnail_path: &Path, query: String) -> Vec<Song> {
         let similar_query = format!("%{query}%");
@@ -197,6 +240,27 @@ impl Database {
             }).collect(),
             Err(_) => vec![]
         }
+    }
+
+    /// Retrieve songs that are in a given playlist matching a search query
+    pub fn search_playlist(&self, playlist_id: usize, query: String, music_path: &Path, thumbnail_path: &Path)
+    -> Result<Vec<Song>, ResonateError> {
+        let song_ids: Vec<usize> = match Query::new(&self.connection).search_playlist().query_map(
+            params![playlist_id, query, query, query],
+            |row| row.get::<_, usize>(0)
+        ) {
+            Ok(values) => values.filter_map(|song| song.ok()).collect(),
+            Err(_) => return Err(ResonateError::SQLError)
+        };
+
+        Ok(
+            song_ids
+                .into_iter()
+                .filter_map(
+                    |song_id|
+                    self.get_song_by_id(song_id, music_path, thumbnail_path)
+                ).collect()
+        )
     }
 }
 

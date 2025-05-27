@@ -7,6 +7,7 @@ use iced::Task;
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::playlists::PlaylistsPage;
+use crate::frontend::playlist_page::PlaylistPage;
 
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -148,7 +149,7 @@ impl Application<'_> {
             Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
 
             Message::AddSongToPlaylist(song, playlist_id) => {
-                self.database.lock().unwrap().add_song_to_playlist(song.id, playlist_id);
+                let _ = self.database.lock().unwrap().add_song_to_playlist(song.id, playlist_id);
                 Task::done(
                     Message::Download(song)
                 )
@@ -164,8 +165,15 @@ impl Application<'_> {
 
     fn load_page(&mut self, page_type: PageType, playlist_id: Option<usize>) {
         self.page = Some(match page_type {
-            PageType::SearchSongs => Box::new(SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())),
-            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.clone()))
+            PageType::SearchSongs => Box::new(
+                SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())),
+            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.clone())),
+            PageType::ViewPlaylist => Box::new(
+                match PlaylistPage::new(playlist_id, self.database.clone(), self.directories.clone()) {
+                    Ok(page) => page,
+                    Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
+                }
+            )
         });
     }
 }

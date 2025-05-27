@@ -109,6 +109,16 @@ impl Page for PlaylistPage {
                         Err(_) => return Task::none()
                     }
             }
+            Message::SongDownloaded(song) => {
+                for s in &mut self.songs {
+                    if s.id == song.id {
+                        s.load_paths(
+                            self.directories.get_music_ref(),
+                            self.directories.get_thumbnails_ref()
+                        )
+                    }
+                }
+            }
             _ => ()
         }.into()
     }

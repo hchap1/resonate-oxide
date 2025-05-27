@@ -112,7 +112,11 @@ impl Application<'_> {
                 ))
             }
 
-            Message::SongDownloaded(_) => {
+            Message::SongDownloaded(song) => {
+                self.current_song_downloads.remove(&song.yt_id);
+                if let Some(page) = self.page.as_mut() {
+                    let _ = page.update(Message::SongDownloaded(song));
+                }
                 Task::none()
             }
 

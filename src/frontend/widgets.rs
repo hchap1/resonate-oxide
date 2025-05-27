@@ -25,6 +25,7 @@ impl ResonateColour {
     fn darker()         -> Color { Self::hex("#565f89") }
     fn yellow()         -> Color { Self::hex("#e0cf7e") }
     fn red()            -> Color { Self::hex("#b26b6a") }
+    fn green()          -> Color { Self::hex("#9ccc65") }
 }
 
 struct ResonateStyle;

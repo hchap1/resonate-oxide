@@ -14,7 +14,8 @@ pub enum ResonateError {
     DatabaseCreationError,
     TableCreationError,
     UnrecognisedHomeDir,
-    SQLError
+    SQLError,
+    FFmpegDownloadError
 }
 
 impl Debug for ResonateError {
@@ -30,7 +31,8 @@ impl Debug for ResonateError {
             Self::DatabaseError(e) => write!(f, "Database error: {e:?}"),
             Self::DatabaseCreationError => write!(f, "Could not create database."),
             Self::TableCreationError => write!(f, "Failed to create a SQL table."),
-            Self::SQLError => write!(f, "SQL error.")
+            Self::SQLError => write!(f, "SQL error."),
+            Self::FFmpegDownloadError => write!(f, "FFmpegDownloadError")
         }
     }
 }

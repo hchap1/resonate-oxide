@@ -1,5 +1,4 @@
 use iced::alignment::Vertical;
-use iced::widget::svg;
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
@@ -19,6 +18,7 @@ use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
 
+use super::message::PageType;
 use super::widgets::ResonateWidget;
 
 pub struct SearchPage {
@@ -74,7 +74,9 @@ impl Page for SearchPage {
                         Some(playlist) => &playlist.name,
                         None => "Searh"
                     }
-                )).push(svg(crate::frontend::assets::home_icon()).width(32).height(32)).spacing(20).align_y(Vertical::Center).width(Length::Fill))
+                )).push(
+                    ResonateWidget::button_widget(crate::frontend::assets::home_icon()).on_press(Message::LoadPage(PageType::Playlists, None))
+                    ).spacing(20).align_y(Vertical::Center).width(Length::Fill))
                 .push(view_window)
                 .push(search_bar)
                 .into()

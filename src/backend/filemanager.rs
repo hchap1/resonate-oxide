@@ -5,6 +5,7 @@ use std::fs::read_dir;
 use std::fs::create_dir_all;
 use std::fs::create_dir;
 
+use essi_ffmpeg::FFmpeg;
 use image::Luma;
 use image::ImageBuffer;
 use directories::ProjectDirs;
@@ -59,7 +60,7 @@ impl DataDir {
             let default_thumbnail = thumbnails.join("default_thumbnail.png");
             if !default_thumbnail.exists() {
                 let img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(64, 64, |_, _| Luma([100]));
-                img.save(&default_thumbnail);
+                let _ = img.save(&default_thumbnail);
             }
             default_thumbnail
         } else {
@@ -88,6 +89,10 @@ impl DataDir {
         Ok(Self { music, dependencies, thumbnails, root, dlp_path, default_thumbnail })
     }
 
+    pub fn take_dlp_path(&mut self, dlp_path: PathBuf) {
+        self.dlp_path = Some(dlp_path);
+    }
+
     pub fn get_root_ref(&self) -> &Path { self.root.as_path() }
     pub fn get_music_ref(&self) -> &Path { self.music.as_path() }
     pub fn get_dependencies_ref(&self) -> &Path { self.dependencies.as_path() }
@@ -100,34 +105,41 @@ impl DataDir {
     }
     pub fn get_default_thumbnail(&self) -> &Path { self.default_thumbnail.as_path() }
 
-    /// Attempt to install yt-dlp. If it is already installed, return the path
-    pub async fn install_dlp(&mut self) -> Result<bool, ResonateError> {
+}
 
-        // Check if some yt-dlp file already exists in the dependencies
-        let existing_path_option = match read_dir(self.get_dependencies_ref()) {
-            Ok(contents) => contents.into_iter().filter_map(|item| match item {
-                Ok(item) => Some(item),
-                Err(_) => None
-            }).find(|entry| {
-                match entry.path().is_file() {
-                    true => {
-                        entry.path().to_string_lossy().to_string().contains("yt-dlp")
-                    }
-                    false => false
+/// Attempt to install yt-dlp. If it is already installed, return the path
+pub async fn install_dlp(target: PathBuf) -> Result<PathBuf, ResonateError> {
+    println!("[DIRECTORIES] Attempting to download yt-dlp to {target:?}");
+    // Check if some yt-dlp file already exists in the dependencies
+    let existing_path_option = match read_dir(&target) {
+        Ok(contents) => contents.into_iter().filter_map(|item| match item {
+            Ok(item) => Some(item),
+            Err(_) => None
+        }).find(|entry| {
+            match entry.path().is_file() {
+                true => {
+                    entry.path().to_string_lossy().to_string().contains("yt-dlp")
                 }
-            }),
-            Err(e) => return Err(ResonateError::DirectoryNotFound(Box::new(e)))
-        };
+                false => false
+            }
+        }),
+        Err(e) => return Err(ResonateError::DirectoryNotFound(Box::new(e)))
+    };
 
-        // If there is an existing executable, return the path to it
-        if let Some(path) = existing_path_option {
-            self.dlp_path = Some(path.path());
-        }
+    println!("[DIRECTORIES] Existing installation: {existing_path_option:?}");
 
-        // If not, attempt to download
-        match YoutubeDlFetcher::default().download(self.get_dependencies_ref()).await {
-            Ok(path) => { self.dlp_path = Some(path); Ok(true) }
-            Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
-        }
+    // If there is an existing executable, return the path to it
+    if let Some(path) = existing_path_option {
+        return Ok(path.path());
     }
+
+    // If not, attempt to download
+    match YoutubeDlFetcher::default().download(target).await {
+        Ok(path) => Ok(path),
+        Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
+    }
+}
+
+pub async fn download_ffmpeg(target: PathBuf) -> Result<PathBuf, ResonateError> {
+    Ok(target)
 }

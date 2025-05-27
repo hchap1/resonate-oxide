@@ -1,11 +1,13 @@
 pub mod application;
+pub mod message;
+
 mod backend_interface;
-mod message;
 mod widgets;
 
 // Pages
 mod playlists;
 mod search_page;
+mod playlist_page;
 
 // Icons
 mod assets;

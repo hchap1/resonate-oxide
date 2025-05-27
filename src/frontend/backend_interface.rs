@@ -2,11 +2,12 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::Waker;
 use std::thread::spawn;
-use std::thread::JoinHandle;
 use std::collections::HashSet;
+use std::thread::JoinHandle;
 
 use iced::futures::Stream;
 
+use crate::backend::filemanager::install_dlp;
 use crate::backend::web::download_song;
 use crate::frontend::message::Message;
 
@@ -297,4 +298,13 @@ pub async fn async_download_song(dlp_path: Option<PathBuf>, music_dir: PathBuf, 
         Ok(_) => Message::SongDownloaded(song),
         Err(_) => Message::None
     }
+}
+
+pub async fn async_install_dlp(dependencies_dir: PathBuf) -> Message {
+    let result = install_dlp(dependencies_dir).await;
+    match result.as_ref() {
+        Ok(p) => println!("[DLP] Installed to {}", p.display()),
+        Err(e) => println!("[DLP] Could not install: {e:?}")
+    }
+    Message::DLPDownloaded(result.ok())
 }

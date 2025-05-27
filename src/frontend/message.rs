@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::backend::music::Song;
 
 #[derive(Clone, Debug)]
@@ -17,6 +19,10 @@ pub enum Message {
     CreatePlaylist,                      // Create a new "My Playlist" name playlist, adding a number if multiple exist
     StartEditing(usize),                 // Edit the name of a playlist on the Playlists page
     StopEditing,                         // Exit exit mode
+    DownloadDLP,                         // Spawns a task to check if DLP is downloaded, and if it isn't, download it
+    DLPDownloaded(Option<PathBuf>),      // <- Obvious
+
+    AddSongToPlaylist(Song, usize),     // This also downloads the song
 }
 
 #[derive(Clone, Debug)]

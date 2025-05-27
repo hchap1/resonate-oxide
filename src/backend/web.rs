@@ -142,8 +142,6 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, id: S
 
     let _ = ytdlp.wait().await;
 
-    println!("DOWNLOAD TASK FINISHED.");
-
     match output.exists() {
         true => Ok(output),
         false => Err(())

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use iced::alignment::Vertical;
-use iced::widget::svg::Handle;
+use iced::advanced::svg::Handle;
 use iced::widget::{button, text_input, Button};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg};
@@ -128,8 +128,10 @@ impl ResonateStyle {
 pub struct ResonateWidget;
 impl ResonateWidget {
 
-    pub fn button_widget(icon: Handle) -> Button<'_, Message> {
-
+    pub fn button_widget<'a>(icon: Handle) -> Button<'a, Message> {
+        button(
+            svg(icon).width(32).height(32)
+        ).style(|_,state| ResonateStyle::icon_button(state))
     }
 
     pub fn header<'a>(value: &'a str) -> Element<'a, Message> {
@@ -178,6 +180,37 @@ impl ResonateWidget {
                 ).on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))
             )
         ).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
+    }
+
+    pub fn song<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Button<'a, Message> {
+        button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
+            .push(
+                Container::new(image(match song.thumbnail_path.as_ref() {
+                    Some(thumbnail) => thumbnail.as_path(),
+                    None => default_thumbnail
+                })).style(|_| ResonateStyle::thumbnail_container()).padding(10)
+            )
+            .push(
+                Column::new().spacing(10)
+                    .push(
+                        text(&song.title).width(Length::FillPortion(3)).size(20).color(ResonateColour::text())
+                    ).push(
+                        text(&song.artist).width(Length::FillPortion(2))
+                    )
+            ).push(
+                text(match &song.album {
+                    Some(album) => album,
+                    None => "No album"
+                }).width(Length::FillPortion(3))
+            ).push(
+                text(song.display_duration()).width(Length::FillPortion(1))
+            ).push(
+                text(match song.music_path.as_ref() {
+                    Some(path) => path.to_string_lossy().to_string(),
+                    None => String::from("Balls")
+                })
+            )
+        ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
     pub fn search_result<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Button<'a, Message> {

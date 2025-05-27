@@ -41,7 +41,7 @@ impl<'a> Query<'a> {
 
     pub fn retrieve_all_songs(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs").unwrap() }
     pub fn retrieve_all_song_yt_ids(self) -> Statement<'a> { self.connection.prepare("SELECT yt_id FROM Songs").unwrap() }
-    pub fn get_song_by_field(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE ? = ?").unwrap() }
+    pub fn get_song_by_id(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE id = ?").unwrap() }
     pub fn get_playlist_by_id(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Playlists WHERE id = ?").unwrap() }
     pub fn get_song_by_match(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Songs WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?").unwrap() }
     pub fn get_all_playlists(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Playlists").unwrap() }
@@ -52,11 +52,11 @@ impl<'a> Query<'a> {
             SELECT e.song_id
             FROM Entries e
             JOIN Songs s ON e.song_id = s.id
-            WHERE e.playlist_id = ?
+            WHERE e.playlist_id = ?1
               AND (
-                s.title  LIKE ? OR
-                s.artist LIKE ? OR
-                s.album  LIKE ? 
+                s.title  LIKE ?2 OR
+                s.artist LIKE ?3 OR
+                s.album  LIKE ?4 
               );
             "
         ).unwrap()

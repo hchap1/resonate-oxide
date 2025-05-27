@@ -66,10 +66,9 @@ impl Database {
 
     /// Get songs by id (not yt-id)
     pub fn get_song_by_id(&self, song_id: usize, music_path: &Path, thumbnail_path: &Path) -> Option<Song> {
-        match Query::new(&self.connection).get_song_by_field().query_map(
-            params!["id", song_id],
+        match Query::new(&self.connection).get_song_by_id().query_map(
+            params![song_id],
             |row| {
-
                 if let (
                     Ok(id),
                     Ok(yt_id),
@@ -254,12 +253,12 @@ impl Database {
             Err(_) => return Err(ResonateError::SQLError)
         };
 
+
         Ok(
             song_ids
                 .into_iter()
                 .filter_map(
-                    |song_id|
-                    self.get_song_by_id(song_id, music_path, thumbnail_path)
+                    |song_id| self.get_song_by_id(song_id, music_path, thumbnail_path)
                 ).collect()
         )
     }

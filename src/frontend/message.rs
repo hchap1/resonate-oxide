@@ -26,6 +26,7 @@ pub enum Message {
     AddSongToPlaylist(Song, usize),      // This also downloads the song
     SongAddedToPlaylist(usize),          // For updating the GUI
     RemoveSongFromPlaylist(usize, usize),// Song id, playlist id
+    DeletePlaylist(usize),
     
     AudioTask(AudioTask),
     QueueUpdate(QueueFramework),         // Queue change

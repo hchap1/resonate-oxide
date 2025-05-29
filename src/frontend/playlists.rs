@@ -119,6 +119,16 @@ impl Page for PlaylistsPage {
                 Task::none()
             }
 
+            Message::DeletePlaylist(id) => {
+                if let Some(idx) = self.playlists.iter().enumerate().find_map(|p|
+                    if p.1.id == id { Some(p.0) }
+                    else { None }
+                ) {
+                    self.playlists.remove(idx);
+                }
+                Task::none()
+            }
+
             _ => Task::none()
         }
     }

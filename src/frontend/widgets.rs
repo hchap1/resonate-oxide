@@ -285,6 +285,10 @@ impl ResonateWidget {
                 Self::button_widget(crate::frontend::assets::shuffle()).on_press(Message::LoadEntirePlaylist(
                     playlist.id, true
                 ))
+            ).push(
+                Self::button_widget(crate::frontend::assets::close()).on_press(Message::DeletePlaylist(
+                    playlist.id
+                ))
             )
         ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
     }

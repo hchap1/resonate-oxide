@@ -86,4 +86,12 @@ impl<'a> Query<'a> {
             VALUES(?, ?)
         ").unwrap()
     }
+
+    pub fn delete_playlist(self) -> Statement<'a> {
+        self.connection.prepare("DELETE FROM Playlists WHERE id = ?").unwrap()
+    }
+
+    pub fn delete_all_songs_in_playlist(self) -> Statement<'a> {
+        self.connection.prepare("DELETE FROM Entries WHERE playlist_id = ?").unwrap()
+    }
 }

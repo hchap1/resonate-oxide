@@ -249,6 +249,14 @@ impl Application<'_> {
                 Task::done(Message::AudioTask(AudioTask::RemoveSongById(song_id)))
             }
 
+            Message::DeletePlaylist(playlist_id) => {
+                self.database.lock().unwrap().delete_playlist(playlist_id);
+                if let Some(page) = self.page.as_mut() {
+                    let _ = page.update(Message::DeletePlaylist(playlist_id));
+                }
+                Task::none()
+            }
+
             other => match self.page.as_mut() {
                 Some(page) => page.update(other),
                 None => Task::none()

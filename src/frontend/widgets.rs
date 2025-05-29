@@ -352,7 +352,7 @@ impl ResonateWidget {
             ).push_maybe(
                 match playlist_id {
                     Some(playlist_id) => Some(
-                        button(svg(crate::frontend::assets::close()))
+                        Self::button_widget(crate::frontend::assets::close())
                             .on_press(Message::RemoveSongFromPlaylist(song.id, playlist_id))
                     ),
                     None => None

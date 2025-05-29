@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
 use iced::Element;
+use iced::widget::Column;
 use iced::widget::text;
 use iced::Task;
 
+use crate::backend::audio::QueueFramework;
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::playlists::PlaylistsPage;
@@ -12,17 +14,19 @@ use crate::frontend::playlist_page::PlaylistPage;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::backend_interface::async_download_thumbnail;
+use crate::frontend::backend_interface::async_download_song;
+use crate::frontend::backend_interface::async_install_dlp;
 
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::util::{sync, AM};
+use crate::backend::audio::AudioPlayer;
 
-use super::backend_interface::async_download_song;
-use super::backend_interface::async_install_dlp;
+use super::widgets::ResonateWidget;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message>;
+    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message>;
 }
 
 pub struct Application<'a> {
@@ -31,7 +35,10 @@ pub struct Application<'a> {
     database: AM<Database>,
 
     current_thumbnail_downloads: HashSet<String>,
-    current_song_downloads: HashSet<String>
+    current_song_downloads: HashSet<String>,
+
+    audio_player: Option<AudioPlayer>,
+    queue_state: Option<QueueFramework>
 }
 
 impl<'a> Default for Application<'a> {
@@ -61,20 +68,34 @@ impl<'a> Default for Application<'a> {
 
 impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
+
         let database = sync(database);
+        let audio_player = match AudioPlayer::new() {
+            Ok(audio_player) => Some(audio_player),
+            Err(e) => {
+                println!("[CRITICAL] audio_player failed with error: {e:?}");
+                None
+            }
+        };
+
         Self {
             page: Some(Box::new(PlaylistsPage::new(database.clone()))),
             directories,
             database,
             
             current_thumbnail_downloads: HashSet::new(),
-            current_song_downloads: HashSet::new()
+            current_song_downloads: HashSet::new(),
+
+            audio_player,
+            queue_state: None
         }
     }
 
     pub fn view(&self) -> Element<'_, Message> {
         match self.page.as_ref() {
-            Some(page) => page.view(&self.current_song_downloads),
+            Some(page) => ResonateWidget::window(page.view(&self.current_song_downloads).push(
+                ResonateWidget::control_bar(self.queue_state.as_ref())
+            ).into()),
             None => text("404 - No page.").into()
         }
     }
@@ -159,6 +180,29 @@ impl Application<'_> {
                 ).chain(Task::done(
                     Message::Download(song)
                 ))
+            }
+
+            Message::AudioTask(task) => {
+                if let Some(audio_player) = self.audio_player.as_ref() {
+                    let _ = audio_player.send_task(task);
+                }
+                Task::none()
+            }
+
+            Message::StartListeningToQueue => {
+                if let Some(audio_player) = self.audio_player.as_mut() {
+                    match audio_player.take_queue_stream() {
+                        Some(queue) => Task::stream(queue),
+                        None => Task::none()
+                    }
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::QueueUpdate(queue_state) => {
+                self.queue_state = Some(queue_state);
+                Task::none()
             }
 
             other => match self.page.as_mut() {

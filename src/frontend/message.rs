@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::backend::audio::{AudioTask, QueueFramework};
 use crate::backend::music::Song;
 
 #[derive(Clone, Debug)]
@@ -24,6 +25,10 @@ pub enum Message {
 
     AddSongToPlaylist(Song, usize),      // This also downloads the song
     SongAddedToPlaylist(usize),          // For updating the GUI
+    
+    AudioTask(AudioTask),
+    QueueUpdate(QueueFramework),         // Queue change
+    StartListeningToQueue,               // Start the stream task subscription
 }
 
 #[derive(Clone, Debug)]

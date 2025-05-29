@@ -9,5 +9,8 @@ use frontend::message::Message;
 #[tokio::main]
 async fn main() -> Result<(), iced::Error> {
     iced::application("Resonate-Oxide", Application::update, Application::view)
-        .run_with(|| (Application::default(), Task::done(Message::DownloadDLP)))
+        .run_with(|| (Application::default(), Task::batch(vec![
+            Task::done(Message::DownloadDLP),
+            Task::done(Message::StartListeningToQueue)
+        ])))
 }

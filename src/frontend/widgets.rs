@@ -7,6 +7,7 @@ use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg};
 use iced::{Background, Border, Color, Element, Length, Shadow};
 
+use crate::backend::audio::QueueFramework;
 use crate::frontend::message::Message;
 
 use crate::backend::music::{Playlist, Song};
@@ -130,6 +131,23 @@ impl ResonateStyle {
 
 pub struct ResonateWidget;
 impl ResonateWidget {
+    pub fn control_bar<'a>(queue_state: Option<&QueueFramework>) -> Element<'a, Message> {
+        let queue_state = match queue_state {
+            Some(queue_state) => queue_state,
+            None => return text("NOTHING_QUEUED").into() // temporary
+        };
+
+        Container::new(
+            Row::new().spacing(20)
+                .push(
+                    Self::button_widget(crate::frontend::assets::back_skip())
+                ).push(
+                    Self::button_widget(crate::frontend::assets::pause())
+                ).push(
+                    Self::button_widget(crate::frontend::assets::forward_skip())
+                )
+        ).into()
+    }
 
     pub fn button_widget<'a>(icon: Handle) -> Button<'a, Message> {
         button(

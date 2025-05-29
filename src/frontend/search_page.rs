@@ -64,7 +64,7 @@ impl SearchPage {
 }
 
 impl Page for SearchPage {
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message> {
+    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
         let search_bar = Row::new()
             .push(
                 ResonateWidget::search_bar("Search...", &self.query)
@@ -95,20 +95,19 @@ impl Page for SearchPage {
 
         let view_window = ResonateWidget::padded_scrollable(column.into());
 
-        ResonateWidget::window(
-            Column::new().spacing(20)
-                .push(Row::new().push(ResonateWidget::header(
-                    match self.playlist.as_ref() {
-                        Some(playlist) => &playlist.name,
-                        None => "Searh"
-                    }
-                )).push(
-                    ResonateWidget::button_widget(crate::frontend::assets::home_icon()).on_press(Message::LoadPage(PageType::Playlists, None))
-                    ).spacing(20).align_y(Vertical::Center).width(Length::Fill))
-                .push(view_window)
-                .push(search_bar)
-                .into()
-        )
+        Column::new().spacing(20)
+            .push(Row::new().push(ResonateWidget::header(
+                match self.playlist.as_ref() {
+                    Some(playlist) => &playlist.name,
+                    None => "Searh"
+                }
+            )).push(
+                ResonateWidget::button_widget(
+                        crate::frontend::assets::home_icon()
+                    ).on_press(Message::LoadPage(PageType::Playlists, None))
+                ).spacing(20).align_y(Vertical::Center).width(Length::Fill))
+            .push(view_window)
+            .push(search_bar)
     }
 
     fn update(self: &mut Self, message: Message) -> Task<Message> {

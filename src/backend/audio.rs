@@ -1,19 +1,30 @@
 use std::thread::JoinHandle;
 use std::thread::spawn;
+use std::thread::sleep;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
 use std::io::Cursor;
 use std::io::Read;
 use std::fs::File;
+use std::time::Duration;
 
 use rodio::Decoder;
 use rodio::OutputStream;
 use rodio::OutputStreamHandle;
 use rodio::Sink;
 
+use async_channel::unbounded;
+
 use crate::backend::music::Song;
 use crate::backend::error::ResonateError;
+use crate::frontend::message::Message;
+
+pub struct QueueFramework {
+    pub songs: Vec<Song>,
+    pub position: usize,
+    pub playing: bool
+}
 
 pub struct QueueItem {
     song: Song,
@@ -61,6 +72,7 @@ impl Queue {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum AudioTask {
     TogglePlayback,
     Play,
@@ -72,34 +84,74 @@ pub enum AudioTask {
     EndThread
 }
 
-fn audio_thread(sink: Sink, task_downstream: Receiver<AudioTask>, queue_upstream: Sender<Queue>) {
+fn load_audio(sink: &Sink, queue: &Queue, queue_upstream: &async_channel::Sender<Message>) {
+    // assume position has already been adjusted
+    if let Some(queue_item) = queue.songs.get(queue.position) {
+        let decoder = match Decoder::new(queue_item.audio.clone()) {
+            Ok(decoder) => decoder,
+            Err(_) => return
+        };
 
+        sink.clear();
+        sink.append(decoder);
+        sink.play();
+
+        let _ = queue_upstream.send(Message::QueueUpdate(
+            QueueFramework {
+                songs: queue.songs.iter().map(|qi| qi.song.clone()).collect(),
+                position: queue.position,
+                playing: !sink.is_paused()
+            }
+        ));
+    }
+}
+
+fn audio_thread(
+    sink: Sink, task_downstream: Receiver<AudioTask>,
+    queue_upstream: async_channel::Sender<Message>
+) {
     let mut queue: Queue = Queue::new();
 
     loop {
+        sleep(Duration::from_millis(500));
+
+        println!("[AUDIO] Trying to recv.");
         match task_downstream.try_recv() {
-            Ok(task) => match task {
-                AudioTask::Play => sink.play(),
-                AudioTask::Pause => sink.pause(),
-                AudioTask::TogglePlayback => if sink.is_paused() { sink.play() } else { sink.pause() },
-                AudioTask::SkipForward => if queue.position < queue.songs.len() - 1 { queue.position += 1 },
-                AudioTask::SkipBackward => if queue.position > 0 { queue.position -= 1 },
-                AudioTask::Push(song) => {
-                    if let Some(queue_item) = QueueItem::new(song) {
-                        queue.songs.push(queue_item);
-                    }
-                }
-                AudioTask::Insert(song) => {
-                    if let Some(queue_item) = QueueItem::new(song) {
-                        queue.songs.insert(0, queue_item);
+            Ok(task) => {
+                println!("[AUDIO] Received.");
+                match task {
+                    AudioTask::Play => sink.play(),
+                    AudioTask::Pause => sink.pause(),
+                    AudioTask::TogglePlayback => if sink.is_paused() { sink.play() } else { sink.pause() },
+
+                    AudioTask::SkipForward => {
+                        if queue.position < queue.songs.len() - 1 { queue.position += 1 }
+                        load_audio(&sink, &queue, &queue_upstream);
                     }
 
-                    // Offsets all the other songs, thus account for this
-                    if queue.songs.len() != 1 {
-                        queue.position += 1;
+                    AudioTask::SkipBackward => {
+                        if queue.position > 0 { queue.position -= 1 }
+                        load_audio(&sink, &queue, &queue_upstream);
                     }
-                },
-                AudioTask::EndThread => return
+                    
+                    AudioTask::Push(song) => {
+                        if let Some(queue_item) = QueueItem::new(song) {
+                            queue.songs.push(queue_item);
+                        } else {
+                        }
+                    }
+                    AudioTask::Insert(song) => {
+                        if let Some(queue_item) = QueueItem::new(song) {
+                            queue.songs.insert(0, queue_item);
+                        }
+
+                        // Offsets all the other songs, thus account for this
+                        if queue.songs.len() != 1 {
+                            queue.position += 1;
+                        }
+                    },
+                    AudioTask::EndThread => return
+                }
             },
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 eprintln!("[AUDIO] Task channel became unresponsive. Killing thread.");
@@ -108,20 +160,11 @@ fn audio_thread(sink: Sink, task_downstream: Receiver<AudioTask>, queue_upstream
             _ => {}
         }
 
-        if sink.empty() && queue.songs.len() == 0 {
+        if sink.empty() && queue.songs.len() != 0 {
             if queue.position < queue.songs.len() - 1 {
                 queue.position += 1;
-            } else {
-                continue;
             }
-
-            let data = match Decoder::new(queue.songs[queue.position].audio.clone()) {
-                Ok(data) => data,
-                Err(_) => continue
-            };
-
-            sink.clear();
-            sink.append(data);
+            load_audio(&sink, &queue, &queue_upstream);
         }
     }
 }
@@ -132,14 +175,14 @@ pub struct AudioPlayer {
     _thread_handle: JoinHandle<()>,
 
     task_upstream: Sender<AudioTask>,
-    queue_downstream: Receiver<Queue>
+    queue_downstream: Option<async_channel::Receiver<Message>>
 }
 
 impl AudioPlayer {
     pub fn new() -> Result<AudioPlayer, ResonateError> {
 
         let (task_upstream, task_downstream) = channel::<AudioTask>();
-        let (queue_upstream, queue_downstream) = channel::<Queue>();
+        let (queue_upstream, queue_downstream) = unbounded::<Message>();
 
         let (_stream, handle) = match OutputStream::try_default() {
             Ok(data) => data,
@@ -158,7 +201,21 @@ impl AudioPlayer {
             _handle: handle,
             _thread_handle,
             task_upstream,
-            queue_downstream
+            queue_downstream: Some(queue_downstream)
         })
+    }
+
+    pub fn send_task(&self, task: AudioTask) -> Result<(), ()> {
+        match self.task_upstream.send(task) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                println!("[AUDIO] Error sending task: {e:?}");
+                Err(())
+            }
+        }
+    }
+
+    pub fn take_queue_stream(&mut self) -> Option<async_channel::Receiver<Message>> {
+        self.queue_downstream.take()
     }
 }

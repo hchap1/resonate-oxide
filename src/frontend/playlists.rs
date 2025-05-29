@@ -35,7 +35,7 @@ impl PlaylistsPage {
 }
 
 impl Page for PlaylistsPage {
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message> {
+    fn view(&self, _current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
             column = column.push(ResonateWidget::playlist(value,
@@ -56,11 +56,9 @@ impl Page for PlaylistsPage {
                 .into()
         );
 
-        ResonateWidget::window(
             Column::new().spacing(20)
                 .push(ResonateWidget::header("Playlists"))
-                .push(view_window).into()
-        )
+                .push(view_window)
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {

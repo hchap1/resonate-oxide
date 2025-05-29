@@ -62,7 +62,7 @@ impl PlaylistPage {
 }
 
 impl Page for PlaylistPage {
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Element<'_, Message> {
+    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
         let search_bar = Row::new().spacing(20).align_y(Vertical::Center).push(
             ResonateWidget::search_bar("Search...", &self.query)
                 .on_input(Message::TextInput)
@@ -76,22 +76,23 @@ impl Page for PlaylistPage {
 
         for song in &self.songs {
             let is_downloading = current_song_downloads.contains(&song.yt_id);
+            let widget = ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading);
             column = column.push(
-                ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading)
-                    .on_press(Message::Download(song.clone()))
+                if song.music_path.is_none() {
+                    widget.on_press(Message::Download(song.clone()))
+                } else {
+                    widget.on_press(Message::AudioTask(crate::backend::audio::AudioTask::Push(song.clone())))
+                }
             );
         }
 
         let view_window = ResonateWidget::padded_scrollable(column.into()).width(Length::Fill).height(Length::Fill);
         
-        ResonateWidget::window(
             Column::new()
                 .push(Row::new()
                     .push(ResonateWidget::header(&self.playlist.name)))
                 .push(view_window)
                 .push(search_bar)
-                .into()
-        )
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {

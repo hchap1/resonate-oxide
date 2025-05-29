@@ -1,4 +1,3 @@
-use std::task::Waker;
 use std::thread::JoinHandle;
 use std::thread::spawn;
 use std::thread::sleep;
@@ -18,11 +17,6 @@ use rodio::Sink;
 
 use crate::backend::music::Song;
 use crate::backend::error::ResonateError;
-use crate::backend::util::AMO;
-use crate::backend::util::AMV;
-use crate::backend::util::desync;
-use crate::backend::util::sync;
-use crate::frontend::message::Message;
 
 #[derive(Debug, Clone)]
 pub struct QueueFramework {
@@ -123,10 +117,8 @@ fn audio_thread(
     loop {
         sleep(Duration::from_millis(200));
 
-        println!("[AUDIO] Trying to recv.");
         match task_downstream.try_recv() {
             Ok(task) => {
-                println!("[AUDIO] Received.");
                 match task {
                     AudioTask::Play => {
                         sink.play();

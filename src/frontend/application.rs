@@ -87,9 +87,14 @@ impl Application<'_> {
 
     pub fn view(&self) -> Element<'_, Message> {
         match self.page.as_ref() {
-            Some(page) => ResonateWidget::window(page.view(&self.current_song_downloads).push(
-                ResonateWidget::control_bar(self.queue_state.as_ref())
-            ).into()),
+            Some(page) => {
+                ResonateWidget::window(
+                    Column::new().spacing(20)
+                        .push(page.view(&self.current_song_downloads))
+                        .push(ResonateWidget::control_bar(self.queue_state.as_ref()))
+                        .into()
+                )
+            }
             None => text("404 - No page.").into()
         }
     }

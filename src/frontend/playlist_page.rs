@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use iced::alignment::Vertical;
 use iced::widget::Column;
-use iced::Element;
 use iced::widget::Row;
 use iced::Length;
 use iced::Task;
@@ -88,7 +87,7 @@ impl Page for PlaylistPage {
 
         let view_window = ResonateWidget::padded_scrollable(column.into()).width(Length::Fill).height(Length::Fill);
         
-            Column::new()
+            Column::new().spacing(20)
                 .push(Row::new()
                     .push(ResonateWidget::header(&self.playlist.name)))
                 .push(view_window)

@@ -131,6 +131,7 @@ impl ResonateStyle {
 
 pub struct ResonateWidget;
 impl ResonateWidget {
+
     pub fn control_bar<'a>(queue_state: Option<&QueueFramework>) -> Element<'a, Message> {
         let queue_state = match queue_state {
             Some(queue_state) => queue_state,

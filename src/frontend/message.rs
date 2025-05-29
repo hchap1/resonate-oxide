@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::backend::audio::{AudioTask, QueueFramework};
+use crate::backend::audio::{AudioPlayer, AudioTask, QueueFramework};
 use crate::backend::music::Song;
 
 #[derive(Clone, Debug)]
@@ -28,7 +28,7 @@ pub enum Message {
     
     AudioTask(AudioTask),
     QueueUpdate(QueueFramework),         // Queue change
-    StartListeningToQueue,               // Start the stream task subscription
+    LoadAudio
 }
 
 #[derive(Clone, Debug)]

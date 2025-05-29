@@ -7,10 +7,10 @@ use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg};
 use iced::{Background, Border, Color, Element, Length, Shadow};
 
-use crate::backend::audio::QueueFramework;
 use crate::frontend::message::Message;
 
 use crate::backend::music::{Playlist, Song};
+use crate::backend::audio::{AudioTask, QueueFramework};
 
 struct ResonateColour;
 impl ResonateColour {
@@ -140,11 +140,22 @@ impl ResonateWidget {
         Container::new(
             Row::new().spacing(20)
                 .push(
-                    Self::button_widget(crate::frontend::assets::back_skip())
+                    Self::button_widget(crate::frontend::assets::back_skip()).on_press(
+                        Message::AudioTask(AudioTask::SkipBackward)
+                    )
                 ).push(
-                    Self::button_widget(crate::frontend::assets::pause())
+                    Self::button_widget(
+                        match queue_state.playing {
+                            true => crate::frontend::assets::pause(),
+                            false => crate::frontend::assets::play()
+                        }
+                    ).on_press(
+                            Message::AudioTask(AudioTask::TogglePlayback)
+                        )
                 ).push(
-                    Self::button_widget(crate::frontend::assets::forward_skip())
+                    Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
+                        Message::AudioTask(AudioTask::SkipForward)
+                    )
                 )
         ).into()
     }

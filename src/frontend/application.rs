@@ -6,6 +6,7 @@ use iced::widget::text;
 use iced::Task;
 
 use crate::backend::audio::QueueFramework;
+use crate::backend::util::Relay;
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::playlists::PlaylistsPage;
@@ -70,13 +71,6 @@ impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
 
         let database = sync(database);
-        let audio_player = match AudioPlayer::new() {
-            Ok(audio_player) => Some(audio_player),
-            Err(e) => {
-                println!("[CRITICAL] audio_player failed with error: {e:?}");
-                None
-            }
-        };
 
         Self {
             page: Some(Box::new(PlaylistsPage::new(database.clone()))),
@@ -86,7 +80,7 @@ impl Application<'_> {
             current_thumbnail_downloads: HashSet::new(),
             current_song_downloads: HashSet::new(),
 
-            audio_player,
+            audio_player: None,
             queue_state: None
         }
     }
@@ -183,26 +177,24 @@ impl Application<'_> {
             }
 
             Message::AudioTask(task) => {
-                if let Some(audio_player) = self.audio_player.as_ref() {
-                    let _ = audio_player.send_task(task);
-                }
+                if let Some(ap) = self.audio_player.as_ref() { let _ = ap.send_task(task); }
                 Task::none()
-            }
-
-            Message::StartListeningToQueue => {
-                if let Some(audio_player) = self.audio_player.as_mut() {
-                    match audio_player.take_queue_stream() {
-                        Some(queue) => Task::stream(queue),
-                        None => Task::none()
-                    }
-                } else {
-                    Task::none()
-                }
             }
 
             Message::QueueUpdate(queue_state) => {
+                println!("[QUEUE] Received new QUEUE STATE");
                 self.queue_state = Some(queue_state);
                 Task::none()
+            }
+            
+            Message::LoadAudio => {
+                let (audio_player, receiver) = match AudioPlayer::new() {
+                    Ok(data) => data,
+                    Err(_) => return Task::none()
+                };
+
+                self.audio_player = Some(audio_player);
+                Task::stream(Relay::consume_receiver(receiver, |message| Message::QueueUpdate(message)))
             }
 
             other => match self.page.as_mut() {

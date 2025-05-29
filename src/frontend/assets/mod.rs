@@ -20,3 +20,4 @@ svg!(pause, "icons/pause.svg");
 svg!(shuffle, "icons/shuffle.svg");
 
 svg!(back, "icons/back.svg");
+svg!(close, "icons/delete.svg");

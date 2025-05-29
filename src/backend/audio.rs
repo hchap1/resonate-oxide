@@ -10,6 +10,7 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::bounded;
 
+use iced::widget::shader::wgpu::core::id;
 use rodio::Decoder;
 use rodio::OutputStream;
 use rodio::OutputStreamHandle;
@@ -82,7 +83,9 @@ pub enum AudioTask {
     Insert(Song),
     EndThread,
     Move(usize),
-    SetQueue(Vec<Song>)
+    SetQueue(Vec<Song>),
+    RemoveSongById(usize),
+    RemoveSongByIdx(usize)
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -179,6 +182,33 @@ fn audio_thread(
                         queue.position = 0;
                         queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
                         sink.play();
+                        load_audio(&sink, &queue, &queue_upstream);
+                    }
+                    AudioTask::RemoveSongById(song_id) => {
+                        let idx = match queue.songs.iter().enumerate().find_map(|(i, qi)|
+                            if qi.song.id == song_id { Some(i) } else { None }
+                        ) {
+                            Some(idx) => idx,
+                            None => continue
+                        };
+
+                        if idx < queue.position {
+                            queue.position -= 1;
+                        }
+
+                        queue.songs.remove(idx);
+                        load_audio(&sink, &queue, &queue_upstream);
+                    }
+                    AudioTask::RemoveSongByIdx(idx) => {
+                        if idx >= queue.songs.len() {
+                            continue
+                        }
+
+                        if idx < queue.position {
+                            queue.position -= 1;
+                        }
+
+                        queue.songs.remove(idx);
                         load_audio(&sink, &queue, &queue_upstream);
                     }
                     AudioTask::EndThread => return

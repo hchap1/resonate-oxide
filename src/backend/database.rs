@@ -51,6 +51,11 @@ impl Database {
         Ok(db)
     }
 
+    /// Attempts to remove song from playlist
+    pub fn remove_song_from_playlist(&self, song_id: usize, playlist_id: usize) {
+        let _ = Query::new(&self.connection).remove_song_from_playlist().execute(params![song_id, playlist_id]);
+    }
+
     /// Attempt to hash every song in the database by YT-ID for uniqueness check
     pub fn hash_all_songs(&self) -> HashSet<String> {
         match Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {

@@ -193,7 +193,7 @@ impl ResonateWidget {
                     )
                 )
             ).align_x(Horizontal::Center)
-        ).into()
+        ).style(|_| ResonateStyle::list_container()).into()
     }
 
     pub fn control_bar<'a>(queue_state: Option<&QueueFramework>, last_page: (PageType, Option<usize>)) -> Element<'a, Message> {
@@ -225,7 +225,7 @@ impl ResonateWidget {
                         Message::AudioTask(AudioTask::SkipForward)
                     )
                 )).align_x(Horizontal::Center)
-        ).into()
+        ).style(|_| ResonateStyle::list_container()).into()
     }
 
     pub fn button_widget<'a>(icon: Handle) -> Button<'a, Message> {
@@ -313,7 +313,12 @@ impl ResonateWidget {
             )
     }
 
-    pub fn song<'a>(song: &'a Song, default_thumbnail: &'a Path, is_downloading: bool) -> Button<'a, Message> {
+    pub fn song<'a>(
+        song: &'a Song,
+        default_thumbnail: &'a Path,
+        is_downloading: bool,
+        playlist_id: Option<usize>
+    ) -> Button<'a, Message> {
 
         let is_downloaded = song.music_path.is_some();
 
@@ -344,6 +349,14 @@ impl ResonateWidget {
                 }).width(Length::FillPortion(3))
             ).push(
                 text(song.display_duration()).width(Length::FillPortion(1))
+            ).push_maybe(
+                match playlist_id {
+                    Some(playlist_id) => Some(
+                        button(svg(crate::frontend::assets::close()))
+                            .on_press(Message::RemoveSongFromPlaylist(song.id, playlist_id))
+                    ),
+                    None => None
+                }
             )
         ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
     }

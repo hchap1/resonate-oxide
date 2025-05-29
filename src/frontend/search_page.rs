@@ -81,7 +81,7 @@ impl Page for SearchPage {
 
                 let is_downloading = current_song_downloads.contains(&song.yt_id);
                 column = column.push(
-                    ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading)
+                    ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading, None)
                         .on_press(Message::AddSongToPlaylist(song.clone(), match self.playlist.as_ref() {
                             Some(playlist) => playlist.id,
                             None => 0

@@ -75,7 +75,7 @@ impl Page for PlaylistPage {
 
         for song in &self.songs {
             let is_downloading = current_song_downloads.contains(&song.yt_id);
-            let widget = ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading);
+            let widget = ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading, Some(self.playlist.id));
             column = column.push(
                 if song.music_path.is_none() {
                     widget.on_press(Message::Download(song.clone()))
@@ -118,6 +118,15 @@ impl Page for PlaylistPage {
                             self.directories.get_thumbnails_ref()
                         )
                     }
+                }
+            }
+            Message::RemoveSongFromPlaylist(song_id, _) => {
+                match self.songs.iter().enumerate().find_map(|song|
+                    if song.1.id == song_id { Some(song.0) }
+                    else { None }
+                ) {
+                    Some(idx) => { self.songs.remove(idx); },
+                    None => {}
                 }
             }
             _ => ()

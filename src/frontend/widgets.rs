@@ -98,6 +98,21 @@ impl ResonateStyle {
         }
     }
 
+    fn hightlighted_button_wrapper(status: iced::widget::button::Status) -> button::Style {
+        button::Style {
+            background: Some(iced::Background::Color(
+                match status {
+                    button::Status::Active => ResonateColour::foreground(),
+                    button::Status::Disabled => ResonateColour::background(),
+                    _ => ResonateColour::colour()
+                }
+            )),
+            text_color: ResonateColour::text(),
+            border: Border::default().rounded(10),
+            shadow: Shadow::default()
+        }
+    }
+
     fn button_wrapper(status: iced::widget::button::Status) -> button::Style {
         button::Style {
             background: Some(iced::Background::Color(
@@ -132,9 +147,33 @@ impl ResonateStyle {
 pub struct ResonateWidget;
 impl ResonateWidget {
 
+    pub fn queue_bar<'a>(
+        queue_state: Option<&'a QueueFramework>, default_thumbnail: &'a Path
+    ) -> Element<'a, Message> {
+        Container::new(
+            Self::padded_scrollable({
+                let mut column = Column::new().spacing(10);
+                
+                let queue_items = match queue_state.as_ref() {
+                    Some(queue_state) => {
+                        for (idx, song) in queue_state.songs.iter().enumerate() {
+                            column = column.push(
+                                Self::simple_song(song, default_thumbnail, idx == queue_state.position)
+                            )
+                        }
+                        column.into()
+                    },
+                    None => column.into()
+                };
+
+                queue_items
+            })
+        ).into()
+    }
+
     pub fn blank_control_bar<'a>() -> Element<'a, Message> {
         Container::new(
-            Column::new().push(Row::new().spacing(20).align_y(Vertical::Center)
+            Column::new().width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
                     Self::button_widget(crate::frontend::assets::back_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipBackward)
@@ -159,7 +198,7 @@ impl ResonateWidget {
         };
 
         Container::new(
-            Column::new().push(Row::new().spacing(20).align_y(Vertical::Center)
+            Column::new().width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
                     Self::button_widget(crate::frontend::assets::back_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipBackward)
@@ -171,8 +210,8 @@ impl ResonateWidget {
                             false => crate::frontend::assets::play()
                         }
                     ).on_press(
-                            Message::AudioTask(AudioTask::TogglePlayback)
-                        )
+                        Message::AudioTask(AudioTask::TogglePlayback)
+                    )
                 ).push(
                     Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipForward)
@@ -236,6 +275,25 @@ impl ResonateWidget {
         ).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
+    pub fn simple_song<'a>(song: &'a Song, default_thumbnail: &'a Path, selected: bool) -> Button<'a, Message> {
+        button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
+            .push(
+                Container::new(image(match song.thumbnail_path.as_ref() {
+                    Some(thumbnail) => thumbnail.as_path(),
+                    None => default_thumbnail
+                })).style(|_| ResonateStyle::thumbnail_container()).padding(10)
+            )
+            .push(
+                Column::new().spacing(10)
+                    .push(
+                        text(&song.title).width(Length::FillPortion(3)).size(20).color(ResonateColour::text())
+                    ).push(
+                        text(&song.artist).width(Length::FillPortion(2))
+                    )
+            )
+        ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::hightlighted_button_wrapper(state))
+    }
+
     pub fn song<'a>(song: &'a Song, default_thumbnail: &'a Path, is_downloading: bool) -> Button<'a, Message> {
 
         let is_downloaded = song.music_path.is_some();
@@ -259,32 +317,6 @@ impl ResonateWidget {
                                 else { svg(crate::frontend::assets::cloud_icon()) }).width(Length::Fixed(32f32))
                             )
                             .push(text(&song.artist).width(Length::FillPortion(2)))
-                    )
-            ).push(
-                text(match &song.album {
-                    Some(album) => album,
-                    None => "No album"
-                }).width(Length::FillPortion(3))
-            ).push(
-                text(song.display_duration()).width(Length::FillPortion(1))
-            )
-        ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
-    }
-
-    pub fn search_result<'a>(song: &'a Song, default_thumbnail: &'a Path) -> Button<'a, Message> {
-        button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
-            .push(
-                Container::new(image(match song.thumbnail_path.as_ref() {
-                    Some(thumbnail) => thumbnail.as_path(),
-                    None => default_thumbnail
-                })).style(|_| ResonateStyle::thumbnail_container()).padding(10)
-            )
-            .push(
-                Column::new().spacing(10)
-                    .push(
-                        text(&song.title).width(Length::FillPortion(3)).size(20).color(ResonateColour::text())
-                    ).push(
-                        text(&song.artist).width(Length::FillPortion(2))
                     )
             ).push(
                 text(match &song.album {

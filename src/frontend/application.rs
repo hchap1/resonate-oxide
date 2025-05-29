@@ -2,11 +2,13 @@ use std::collections::HashSet;
 
 use iced::Element;
 use iced::widget::Column;
+use iced::widget::Row;
 use iced::widget::text;
 use iced::Task;
 
 use crate::backend::audio::QueueFramework;
 use crate::backend::util::Relay;
+
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::playlists::PlaylistsPage;
@@ -89,10 +91,16 @@ impl Application<'_> {
         match self.page.as_ref() {
             Some(page) => {
                 ResonateWidget::window(
-                    Column::new().spacing(20)
-                        .push(page.view(&self.current_song_downloads))
-                        .push(ResonateWidget::control_bar(self.queue_state.as_ref()))
-                        .into()
+                    Row::new().spacing(20).push(
+                        Column::new().spacing(20)
+                            .push(page.view(&self.current_song_downloads))
+                            .push(ResonateWidget::control_bar(self.queue_state.as_ref()))
+                        ).push(
+                            ResonateWidget::queue_bar(
+                                self.queue_state.as_ref(),
+                                self.directories.get_default_thumbnail()
+                            )
+                        ).into()
                 )
             }
             None => text("404 - No page.").into()

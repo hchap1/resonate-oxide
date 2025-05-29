@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::path::Path;
+use std::process::ExitStatus;
 use std::time::Duration;
 
 use image::imageops::FilterType;
@@ -140,7 +141,8 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, id: S
         .arg(url)
         .spawn().unwrap();
 
-    let _ = ytdlp.wait().await;
+    let status = ytdlp.wait().await;
+    println!("[YT-DLP] Status: {status:?}");
 
     match output.exists() {
         true => Ok(output),

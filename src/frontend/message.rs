@@ -22,6 +22,7 @@ pub enum Message {
     StopEditing,                         // Exit exit mode
     DownloadDLP,                         // Spawns a task to check if DLP is downloaded, and if it isn't, download it
     DLPDownloaded(Option<PathBuf>),      // <- Obvious
+    DownloadFailed(Song),
 
     AddSongToPlaylist(Song, usize),      // This also downloads the song
     SongAddedToPlaylist(usize),          // For updating the GUI

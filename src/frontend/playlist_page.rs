@@ -120,6 +120,9 @@ impl Page for PlaylistPage {
                     }
                 }
             }
+
+            Message::DownloadFailed(_) => {},
+
             Message::RemoveSongFromPlaylist(song_id, _) => {
                 match self.songs.iter().enumerate().find_map(|song|
                     if song.1.id == song_id { Some(song.0) }

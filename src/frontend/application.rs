@@ -141,7 +141,12 @@ impl Application<'_> {
 
             Message::Download(song) => {
 
-                println!("DOWNLOAD TASK RECEIVED FOR {}", song.title);
+                if let Some(mp) = song.music_path.as_ref() {
+                    if mp.exists() {
+                        return Task::none();
+                    }
+                }
+
                 if self.current_song_downloads.contains(&song.yt_id) {
                     return Task::none();
                 }
@@ -253,6 +258,15 @@ impl Application<'_> {
                 self.database.lock().unwrap().delete_playlist(playlist_id);
                 if let Some(page) = self.page.as_mut() {
                     let _ = page.update(Message::DeletePlaylist(playlist_id));
+                }
+                Task::none()
+            }
+
+            Message::DownloadFailed(song) => {
+                println!("[UPDATE] Download of {} failed.", song.title);
+                self.current_song_downloads.remove(&song.yt_id);
+                if let Some(page) = self.page.as_mut() {
+                    let _ = page.update(Message::DownloadFailed(song));
                 }
                 Task::none()
             }

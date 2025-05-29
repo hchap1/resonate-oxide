@@ -296,7 +296,7 @@ pub async fn async_download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf,
 pub async fn async_download_song(dlp_path: Option<PathBuf>, music_dir: PathBuf, song: Song) -> Message {
     match download_song(dlp_path, music_dir, song.yt_id.clone()).await {
         Ok(_) => Message::SongDownloaded(song),
-        Err(_) => Message::None
+        Err(_) => Message::DownloadFailed(song),
     }
 }
 

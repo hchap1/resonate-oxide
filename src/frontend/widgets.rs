@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use iced::alignment::Vertical;
+use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
 use iced::widget::{button, text_input, Button};
 use iced::widget::scrollable::Scroller;
@@ -132,14 +132,34 @@ impl ResonateStyle {
 pub struct ResonateWidget;
 impl ResonateWidget {
 
+    pub fn blank_control_bar<'a>() -> Element<'a, Message> {
+        Container::new(
+            Column::new().push(Row::new().spacing(20).align_y(Vertical::Center)
+                .push(
+                    Self::button_widget(crate::frontend::assets::back_skip()).on_press(
+                        Message::AudioTask(AudioTask::SkipBackward)
+                    )
+                ).push(
+                    Self::button_widget(crate::frontend::assets::play()).on_press(
+                        Message::AudioTask(AudioTask::TogglePlayback)
+                    )
+                ).push(
+                    Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
+                        Message::AudioTask(AudioTask::SkipForward)
+                    )
+                )
+            ).align_x(Horizontal::Center)
+        ).into()
+    }
+
     pub fn control_bar<'a>(queue_state: Option<&QueueFramework>) -> Element<'a, Message> {
         let queue_state = match queue_state {
             Some(queue_state) => queue_state,
-            None => return text("NOTHING_QUEUED").into() // temporary
+            None => return Self::blank_control_bar()
         };
 
         Container::new(
-            Row::new().spacing(20)
+            Column::new().push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
                     Self::button_widget(crate::frontend::assets::back_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipBackward)
@@ -158,6 +178,7 @@ impl ResonateWidget {
                         Message::AudioTask(AudioTask::SkipForward)
                     )
                 )
+            ).align_x(Horizontal::Center)
         ).into()
     }
 

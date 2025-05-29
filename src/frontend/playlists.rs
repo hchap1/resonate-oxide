@@ -1,17 +1,16 @@
 use std::collections::HashSet;
 
 use iced::widget::Column;
-use iced::{Element, Task};
+use iced::Task;
 
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
+use crate::frontend::message::PageType;
 
 use crate::backend::music::Playlist;
 use crate::backend::database::Database;
 use crate::backend::util::{AM, desync};
-
-use super::message::PageType;
 
 pub struct PlaylistsPage {
     database: AM<Database>,
@@ -122,5 +121,9 @@ impl Page for PlaylistsPage {
 
             _ => Task::none()
         }
+    }
+
+    fn back(&self, last_page: (PageType, Option<usize>)) -> (PageType, Option<usize>) {
+        last_page
     }
 }

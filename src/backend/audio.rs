@@ -80,7 +80,8 @@ pub enum AudioTask {
     SkipBackward,
     Push(Song),
     Insert(Song),
-    EndThread
+    EndThread,
+    Move(usize)
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -160,6 +161,18 @@ fn audio_thread(
                         }
                         update_queue(&sink, &queue, &queue_upstream);
                     },
+                    AudioTask::Move(target) => {
+                        if queue.position == target {
+                            continue
+                        }
+
+                        if target >= queue.songs.len() {
+                            continue
+                        }
+
+                        queue.position = target;
+                        load_audio(&sink, &queue, &queue_upstream);
+                    }
                     AudioTask::EndThread => return
                 }
             },

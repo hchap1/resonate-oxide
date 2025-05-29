@@ -4,6 +4,7 @@ use iced::Element;
 use iced::widget::Column;
 use iced::widget::Row;
 use iced::widget::text;
+use iced::Length;
 use iced::Task;
 
 use crate::backend::audio::QueueFramework;
@@ -30,6 +31,7 @@ use super::widgets::ResonateWidget;
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
     fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message>;
+    fn back(&self, previous_page: (PageType, Option<usize>)) -> (PageType, Option<usize>);
 }
 
 pub struct Application<'a> {
@@ -41,7 +43,10 @@ pub struct Application<'a> {
     current_song_downloads: HashSet<String>,
 
     audio_player: Option<AudioPlayer>,
-    queue_state: Option<QueueFramework>
+    queue_state: Option<QueueFramework>,
+
+    last_page: (PageType, Option<usize>),
+    current_page: (PageType, Option<usize>),
 }
 
 impl<'a> Default for Application<'a> {
@@ -55,15 +60,6 @@ impl<'a> Default for Application<'a> {
             Ok(database) => database,
             Err(_) => panic!("Couldn't create or load database")
         };
-
-        for song in database.retrieve_all_songs(datadir.get_music_ref(), datadir.get_thumbnails_ref()) {
-            println!("Song: {song}");
-        }
-
-        let unique = database.is_unique(&String::from("9qnqYL0eNNI"));
-        println!("{unique}");
-
-        println!("Root: {:?}", datadir.get_root_ref());
 
         Self::new(datadir, database)
     }
@@ -83,7 +79,10 @@ impl Application<'_> {
             current_song_downloads: HashSet::new(),
 
             audio_player: None,
-            queue_state: None
+            queue_state: None,
+
+            last_page: (PageType::Playlists, None),
+            current_page: (PageType::Playlists, None)
         }
     }
 
@@ -91,16 +90,27 @@ impl Application<'_> {
         match self.page.as_ref() {
             Some(page) => {
                 ResonateWidget::window(
-                    Row::new().spacing(20).push(
-                        Column::new().spacing(20)
-                            .push(page.view(&self.current_song_downloads))
-                            .push(ResonateWidget::control_bar(self.queue_state.as_ref()))
-                        ).push(
-                            ResonateWidget::queue_bar(
-                                self.queue_state.as_ref(),
-                                self.directories.get_default_thumbnail()
+                    Column::new().spacing(20).push(
+                        Row::new().spacing(20).push(
+                            Column::new().spacing(20)
+                                .push(page.view(&self.current_song_downloads))
+                                .width(Length::FillPortion(3))
+                            ).push(
+                                Column::new().spacing(20).push(ResonateWidget::header("Queue"))
+                                    .push(
+                                        ResonateWidget::queue_bar(
+                                            self.queue_state.as_ref(),
+                                            self.directories.get_default_thumbnail()
+                                        )
+                                    )
                             )
-                        ).into()
+                    ).push(ResonateWidget::control_bar(self.queue_state.as_ref(), 
+                        match self.page.as_ref() {
+                            Some(page) => page.back(self.last_page.clone()),
+                            None => self.last_page.clone()
+                        }
+                    ))
+                    .into()
                 )
             }
             None => text("404 - No page.").into()
@@ -219,6 +229,8 @@ impl Application<'_> {
     }
 
     fn load_page(&mut self, page_type: PageType, playlist_id: Option<usize>) {
+        self.last_page = self.current_page.to_owned();
+        self.current_page = (page_type.clone(), playlist_id.clone());
         self.page = Some(match page_type {
             PageType::SearchSongs => Box::new(
                 SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())),

@@ -12,6 +12,8 @@ use crate::frontend::message::Message;
 use crate::backend::music::{Playlist, Song};
 use crate::backend::audio::{AudioTask, QueueFramework};
 
+use super::message::PageType;
+
 struct ResonateColour;
 impl ResonateColour {
     fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
@@ -102,9 +104,9 @@ impl ResonateStyle {
         button::Style {
             background: Some(iced::Background::Color(
                 match status {
-                    button::Status::Active => ResonateColour::foreground(),
+                    button::Status::Active => ResonateColour::colour(),
                     button::Status::Disabled => ResonateColour::background(),
-                    _ => ResonateColour::colour()
+                    _ => ResonateColour::lighter_colour()
                 }
             )),
             text_color: ResonateColour::text(),
@@ -153,12 +155,12 @@ impl ResonateWidget {
         Container::new(
             Self::padded_scrollable({
                 let mut column = Column::new().spacing(10);
-                
                 let queue_items = match queue_state.as_ref() {
                     Some(queue_state) => {
                         for (idx, song) in queue_state.songs.iter().enumerate() {
                             column = column.push(
                                 Self::simple_song(song, default_thumbnail, idx == queue_state.position)
+                                    .on_press(Message::AudioTask(AudioTask::Move(idx)))
                             )
                         }
                         column.into()
@@ -171,10 +173,13 @@ impl ResonateWidget {
         ).into()
     }
 
-    pub fn blank_control_bar<'a>() -> Element<'a, Message> {
+    pub fn blank_control_bar<'a>(last_page: (PageType, Option<usize>)) -> Element<'a, Message> {
         Container::new(
             Column::new().width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
+                    Self::button_widget(crate::frontend::assets::back())
+                        .on_press(Message::LoadPage(last_page.0 ,last_page.1))
+                ).push(
                     Self::button_widget(crate::frontend::assets::back_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipBackward)
                     )
@@ -191,15 +196,18 @@ impl ResonateWidget {
         ).into()
     }
 
-    pub fn control_bar<'a>(queue_state: Option<&QueueFramework>) -> Element<'a, Message> {
+    pub fn control_bar<'a>(queue_state: Option<&QueueFramework>, last_page: (PageType, Option<usize>)) -> Element<'a, Message> {
         let queue_state = match queue_state {
             Some(queue_state) => queue_state,
-            None => return Self::blank_control_bar()
+            None => return Self::blank_control_bar(last_page)
         };
 
         Container::new(
             Column::new().width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
+                    Self::button_widget(crate::frontend::assets::back())
+                        .on_press(Message::LoadPage(last_page.0 ,last_page.1))
+                ).push(
                     Self::button_widget(crate::frontend::assets::back_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipBackward)
                     )
@@ -216,8 +224,7 @@ impl ResonateWidget {
                     Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipForward)
                     )
-                )
-            ).align_x(Horizontal::Center)
+                )).align_x(Horizontal::Center)
         ).into()
     }
 
@@ -272,7 +279,7 @@ impl ResonateWidget {
                     svg(crate::frontend::assets::edit_icon()).width(32).height(32)
                 ).on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))
             )
-        ).padding(20)).style(|_, state| ResonateStyle::button_wrapper(state))
+        ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
     pub fn simple_song<'a>(song: &'a Song, default_thumbnail: &'a Path, selected: bool) -> Button<'a, Message> {
@@ -291,7 +298,12 @@ impl ResonateWidget {
                         text(&song.artist).width(Length::FillPortion(2))
                     )
             )
-        ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::hightlighted_button_wrapper(state))
+        ).padding(5).width(Length::Fill)).style(move |_, state| 
+                match selected {
+                    true => ResonateStyle::hightlighted_button_wrapper(state),
+                    false => ResonateStyle::button_wrapper(state)
+                }
+            )
     }
 
     pub fn song<'a>(song: &'a Song, default_thumbnail: &'a Path, is_downloading: bool) -> Button<'a, Message> {

@@ -123,4 +123,8 @@ impl Page for PlaylistPage {
             _ => ()
         }.into()
     }
+
+    fn back(&self, _: (PageType, Option<usize>)) -> (PageType, Option<usize>) {
+        (PageType::Playlists, None)
+    }
 }

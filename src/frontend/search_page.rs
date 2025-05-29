@@ -6,22 +6,20 @@ use iced::task::Handle;
 use iced::widget::Row;
 use iced::Length;
 use iced::Task;
-use iced::Element;
 
-use crate::backend::music::Playlist;
-use crate::frontend::message::Message;
 use crate::frontend::application::Page;
 use crate::frontend::backend_interface::async_flatsearch;
 use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
 use crate::frontend::backend_interface::DatabaseSearchQuery;
+use crate::frontend::message::PageType;
+use crate::frontend::widgets::ResonateWidget;
 
 use crate::backend::util::{consume, desync, AM};
+use crate::backend::music::Playlist;
+use crate::frontend::message::Message;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
-
-use super::message::PageType;
-use super::widgets::ResonateWidget;
 
 pub struct SearchPage {
     query: String,
@@ -99,13 +97,11 @@ impl Page for SearchPage {
             .push(Row::new().push(ResonateWidget::header(
                 match self.playlist.as_ref() {
                     Some(playlist) => &playlist.name,
-                    None => "Searh"
+                    None => "Search"
                 }
             )).push(
-                ResonateWidget::button_widget(
-                        crate::frontend::assets::home_icon()
-                    ).on_press(Message::LoadPage(PageType::Playlists, None))
-                ).spacing(20).align_y(Vertical::Center).width(Length::Fill))
+                ResonateWidget::header(" - Add Songs")
+            ).spacing(20).align_y(Vertical::Center).width(Length::Fill))
             .push(view_window)
             .push(search_bar)
     }
@@ -178,5 +174,9 @@ impl Page for SearchPage {
 
             _ => Task::none()
         }
+    }
+
+    fn back(&self, last_page: (PageType, Option<usize>)) -> (PageType, Option<usize>) {
+        last_page
     }
 }

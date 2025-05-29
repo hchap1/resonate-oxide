@@ -28,7 +28,8 @@ pub enum Message {
     
     AudioTask(AudioTask),
     QueueUpdate(QueueFramework),         // Queue change
-    LoadAudio
+    LoadAudio,
+    LoadEntirePlaylist(usize, bool),     // Id, whether to shuffle
 }
 
 #[derive(Clone, Debug)]

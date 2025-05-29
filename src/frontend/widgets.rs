@@ -275,9 +275,16 @@ impl ResonateWidget {
                 };
                 element}
             ).push(
-                button(
-                    svg(crate::frontend::assets::edit_icon()).width(32).height(32)
-                ).on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))
+                Self::button_widget(crate::frontend::assets::edit_icon())
+                    .on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))
+            ).push(
+                Self::button_widget(crate::frontend::assets::play()).on_press(Message::LoadEntirePlaylist(
+                    playlist.id, false
+                ))
+            ).push(
+                Self::button_widget(crate::frontend::assets::shuffle()).on_press(Message::LoadEntirePlaylist(
+                    playlist.id, true
+                ))
             )
         ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
     }

@@ -1,5 +1,8 @@
 use std::collections::HashSet;
 
+use rand::rng;
+use rand::seq::SliceRandom;
+
 use iced::Element;
 use iced::widget::Column;
 use iced::widget::Row;
@@ -7,6 +10,7 @@ use iced::widget::text;
 use iced::Length;
 use iced::Task;
 
+use crate::backend::audio::AudioTask;
 use crate::backend::audio::QueueFramework;
 use crate::backend::util::Relay;
 
@@ -20,13 +24,12 @@ use crate::frontend::message::PageType;
 use crate::frontend::backend_interface::async_download_thumbnail;
 use crate::frontend::backend_interface::async_download_song;
 use crate::frontend::backend_interface::async_install_dlp;
+use crate::frontend::widgets::ResonateWidget;
 
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::util::{sync, AM};
 use crate::backend::audio::AudioPlayer;
-
-use super::widgets::ResonateWidget;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
@@ -225,6 +228,24 @@ impl Application<'_> {
                 None => Task::none()
             }
 
+            Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
+                let mut rng = rng();
+
+                let mut songs = {
+                    match self.database.lock().unwrap().search_playlist(
+                        playlist_id, String::new(), 
+                        self.directories.get_music_ref(),
+                        self.directories.get_thumbnails_ref()
+                    ) {
+                        Ok(songs) => songs,
+                        Err(_) => return Task::none()
+                    }
+                };
+
+                if do_shuffle { songs.shuffle(&mut rng); }
+
+                Task::done(Message::AudioTask(AudioTask::SetQueue(songs)))
+            }
         }
     }
 

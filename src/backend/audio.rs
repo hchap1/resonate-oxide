@@ -81,7 +81,8 @@ pub enum AudioTask {
     Push(Song),
     Insert(Song),
     EndThread,
-    Move(usize)
+    Move(usize),
+    SetQueue(Vec<Song>)
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -172,6 +173,12 @@ fn audio_thread(
 
                         queue.position = target;
                         load_audio(&sink, &queue, &queue_upstream);
+                    }
+                    AudioTask::SetQueue(songs) => {
+                        sink.clear();
+                        queue.position = 0;
+                        queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
+                        sink.play();
                     }
                     AudioTask::EndThread => return
                 }

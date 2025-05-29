@@ -17,5 +17,6 @@ svg!(forward_skip, "icons/forward_skip.svg");
 
 svg!(play, "icons/play.svg");
 svg!(pause, "icons/pause.svg");
+svg!(shuffle, "icons/shuffle.svg");
 
 svg!(back, "icons/back.svg");

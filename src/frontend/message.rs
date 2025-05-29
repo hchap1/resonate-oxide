@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::backend::audio::{AudioPlayer, AudioTask, QueueFramework};
+use crate::backend::audio::{AudioTask, QueueFramework};
 use crate::backend::music::Song;
 
 #[derive(Clone, Debug)]

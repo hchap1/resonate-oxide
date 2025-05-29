@@ -223,11 +223,6 @@ impl Application<'_> {
                 Task::stream(Relay::consume_receiver(receiver, |message| Message::QueueUpdate(message)))
             }
 
-            other => match self.page.as_mut() {
-                Some(page) => page.update(other),
-                None => Task::none()
-            }
-
             Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
                 let mut rng = rng();
 
@@ -245,6 +240,11 @@ impl Application<'_> {
                 if do_shuffle { songs.shuffle(&mut rng); }
 
                 Task::done(Message::AudioTask(AudioTask::SetQueue(songs)))
+            }
+
+            other => match self.page.as_mut() {
+                Some(page) => page.update(other),
+                None => Task::none()
             }
         }
     }

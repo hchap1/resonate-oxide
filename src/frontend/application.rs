@@ -208,7 +208,6 @@ impl Application<'_> {
             }
 
             Message::QueueUpdate(queue_state) => {
-                println!("[QUEUE] Received new QUEUE STATE");
                 self.queue_state = Some(queue_state);
                 Task::none()
             }

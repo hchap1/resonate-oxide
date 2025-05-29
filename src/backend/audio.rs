@@ -100,15 +100,15 @@ fn load_audio(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework
     if let Some(queue_item) = queue.songs.get(queue.position) {
         let decoder = match Decoder::new(queue_item.audio.clone()) {
             Ok(decoder) => decoder,
-            Err(_) => return
+            Err(_) => return update_queue(sink, queue, queue_upstream)
         };
 
         sink.clear();
         sink.append(decoder);
         sink.play();
-        
-        update_queue(sink, queue, queue_upstream);
     }
+
+    update_queue(sink, queue, queue_upstream);
 }
 
 fn audio_thread(
@@ -179,6 +179,7 @@ fn audio_thread(
                         queue.position = 0;
                         queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
                         sink.play();
+                        load_audio(&sink, &queue, &queue_upstream);
                     }
                     AudioTask::EndThread => return
                 }

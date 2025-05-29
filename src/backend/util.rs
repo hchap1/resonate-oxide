@@ -3,6 +3,9 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::mem::replace;
 use std::task::Waker;
+use std::task::Context;
+use std::task::Poll;
+use std::pin::Pin;
 use std::thread::spawn;
 use std::thread::JoinHandle;
 use crossbeam_channel::Receiver;
@@ -49,10 +52,8 @@ impl<T: Send + 'static, F: Fn(T) -> M, M> Relay<T, F, M> {
 fn relay<T>(waker: AMO<Waker>, queue: AMV<T>, receiver: Receiver<T>) {
     loop {
         if let Ok(data) = receiver.recv() {
-            println!("[RELAY] Received data.");
             desync(&queue).push(data);
             if let Some(waker) = desync(&waker).as_ref() { waker.wake_by_ref(); }
-            else { println!("[RELAY] Failed to wake"); }
         }
     }
 }
@@ -60,17 +61,15 @@ fn relay<T>(waker: AMO<Waker>, queue: AMV<T>, receiver: Receiver<T>) {
 impl<T, F: Fn(T) -> M, M> Stream for Relay<T, F, M> {
     type Item = M;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, context: &mut std::task::Context<'_>)
-    -> std::task::Poll<Option<M>> {
-        println!("[RELAY] Polled");
+    fn poll_next(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
         *desync(&self.waker) = Some(context.waker().to_owned());
 
         if let Some(val) = desync(&self.queue).pop() {
-            std::task::Poll::Ready(Some(
+            Poll::Ready(Some(
                 (self.map_fn)(val)
             ))
         } else {
-            std::task::Poll::Pending
+            Poll::Pending
         }
     }
 }

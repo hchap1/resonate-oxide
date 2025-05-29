@@ -10,7 +10,6 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::bounded;
 
-use iced::widget::shader::wgpu::core::id;
 use rodio::Decoder;
 use rodio::OutputStream;
 use rodio::OutputStreamHandle;
@@ -23,7 +22,8 @@ use crate::backend::error::ResonateError;
 pub struct QueueFramework {
     pub songs: Vec<Song>,
     pub position: usize,
-    pub playing: bool
+    pub playing: bool,
+    pub repeat: bool
 }
 
 pub struct QueueItem {
@@ -60,19 +60,22 @@ impl QueueItem {
 
 pub struct Queue {
     songs: Vec<QueueItem>,
-    position: usize
+    position: usize,
+    repeat: bool
 }
 
 impl Queue {
     pub fn new() -> Queue {
         Queue {
             songs: Vec::new(),
-            position: 0
+            position: 0,
+            repeat: false
         }
     }
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum AudioTask {
     TogglePlayback,
     Play,
@@ -85,7 +88,9 @@ pub enum AudioTask {
     Move(usize),
     SetQueue(Vec<Song>),
     RemoveSongById(usize),
-    RemoveSongByIdx(usize)
+    RemoveSongByIdx(usize),
+    ToggleRepeat
+
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -93,7 +98,8 @@ fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramewo
         QueueFramework {
             songs: queue.songs.iter().map(|qi| qi.song.clone()).collect(),
             position: queue.position,
-            playing: !sink.is_paused()
+            playing: !sink.is_paused(),
+            repeat: queue.repeat
         }
     );
 }
@@ -211,6 +217,10 @@ fn audio_thread(
                         queue.songs.remove(idx);
                         load_audio(&sink, &queue, &queue_upstream);
                     }
+                    AudioTask::ToggleRepeat => {
+                        queue.repeat = !queue.repeat;
+                        update_queue(&sink, &queue, &queue_upstream);
+                    }
                     AudioTask::EndThread => return
                 }
             },
@@ -222,7 +232,7 @@ fn audio_thread(
         }
 
         if sink.empty() && queue.songs.len() != 0 {
-            if queue.position < queue.songs.len() - 1 {
+            if queue.position < queue.songs.len() - 1 && !queue.repeat {
                 queue.position += 1;
             }
             load_audio(&sink, &queue, &queue_upstream);

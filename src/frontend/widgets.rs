@@ -191,6 +191,10 @@ impl ResonateWidget {
                     Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipForward)
                     )
+                ).push(
+                    Self::button_widget(crate::frontend::assets::cloud_icon()).on_press(
+                        Message::AudioTask(AudioTask::ToggleRepeat)
+                    )
                 )
             ).align_x(Horizontal::Center)
         ).style(|_| ResonateStyle::list_container()).into()
@@ -224,7 +228,17 @@ impl ResonateWidget {
                     Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
                         Message::AudioTask(AudioTask::SkipForward)
                     )
-                )).align_x(Horizontal::Center)
+                ).push(
+                    Self::button_widget(
+                        match queue_state.repeat {
+                            true => crate::frontend::assets::downloading_icon(), // TODO: Change to purple repeat
+                            false => crate::frontend::assets::cloud_icon()       // TODO: Change to gray repeat
+                        }
+                    ).on_press(
+                            Message::AudioTask(AudioTask::ToggleRepeat)
+                        )
+                )
+            ).align_x(Horizontal::Center)
         ).style(|_| ResonateStyle::list_container()).into()
     }
 

@@ -174,12 +174,22 @@ impl ResonateWidget {
                 let mut column = Column::new().spacing(10);
 
                 column = column.push(
-                    Row::new().spacing(20).push(
-                        match notify {
-                            SearchState::Searching => text("Internet Search Active").color(ResonateColour::yellow()),
-                            SearchState::SearchFailed => text("Internet Search Failed").color(ResonateColour::red()),
-                            SearchState::Received(_) => text("Internet Search Successful").color(ResonateColour::green())
-                        }.size(25).width(Length::Fill)
+                    Row::new().spacing(20)
+                        .push(
+                            match notify {
+                                SearchState::Searching => svg(crate::frontend::assets::yellow_cloud_icon()),
+                                SearchState::SearchFailed => svg(crate::frontend::assets::red_cloud_icon()),
+                                SearchState::Received(_) => svg(crate::frontend::assets::green_cloud_icon())
+                            }.width(32).height(32)
+                        ).push(
+                            match notify {
+                                SearchState::Searching => text("Internet Search Active")
+                                    .color(ResonateColour::yellow()),
+                                SearchState::SearchFailed => text("Internet Search Failed")
+                                    .color(ResonateColour::red()),
+                                SearchState::Received(_) => text("Internet Search Successful")
+                                    .color(ResonateColour::green())
+                            }.size(25).width(Length::Fill)
                     ).push(
                         Self::button_widget(crate::frontend::assets::close())
                             .on_press(Message::RemoveSearchStatus)
@@ -411,7 +421,7 @@ impl ResonateWidget {
                             .push(
                                 (if is_downloading { svg(crate::frontend::assets::downloading_icon()) }
                                 else if is_downloaded { svg(crate::frontend::assets::tick_icon()) }
-                                else { svg(crate::frontend::assets::cloud_icon()) }).width(Length::Fixed(32f32))
+                                else { svg(crate::frontend::assets::red_cloud_icon()) }).width(Length::Fixed(32f32))
                             )
                             .push(text(&song.artist).width(Length::FillPortion(2)))
                     )

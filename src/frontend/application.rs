@@ -166,7 +166,7 @@ impl Application<'_> {
                 Task::none()
             }
 
-            Message::SearchResult(song) => {
+            Message::SearchResult(song, from_online) => {
                 let id = song.yt_id.clone();
                 let album = song.album.clone();
 
@@ -178,7 +178,7 @@ impl Application<'_> {
                 let require_thumbnail_download = song.thumbnail_path.is_none() && !self.current_thumbnail_downloads.contains(&search_string);
 
                 if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::SearchResult(song));
+                    let _ = page.update(Message::SearchResult(song, from_online));
                 }
 
                 if require_thumbnail_download {
@@ -193,7 +193,7 @@ impl Application<'_> {
             }
 
             Message::MultiSearchResult(songs) => {
-                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song))))
+                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song, false))))
             }
 
             Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },

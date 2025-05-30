@@ -12,7 +12,7 @@ pub enum Message {
     LoadSearchResults(Vec<String>),      // Create a batch of tasks to pull down metadata for each ID and queue into search results buffer
     DLPWarning,                          // Notify the user that the current action requires yt-dlp.
     CollectMetadata(String),             // Task created by LoadSearchResults
-    SearchResult(Song),                  // Final task in the search process - actually adds a finished song to the buffer
+    SearchResult(Song, bool),            // Final task in the search process - actually adds a finished song to the buffer
     MultiSearchResult(Vec<Song>),        // ^ Option extension allowing for parallel metadata collection in batches or all at once
     UpdateThumbnails,                    // On any page that contains thumbnails, update them
     Download(Song),                      // Download a song asynchronously. Relies on the frontend to manage concurrency
@@ -33,6 +33,8 @@ pub enum Message {
     QueueUpdate(QueueFramework),         // Queue change
     LoadAudio,
     LoadEntirePlaylist(usize, bool),     // Id, whether to shuffle
+
+    RemoveSearchStatus
 }
 
 #[derive(Clone, Debug)]

@@ -13,10 +13,11 @@ use crate::backend::music::{Playlist, Song};
 use crate::backend::audio::{AudioTask, QueueFramework};
 
 use super::message::PageType;
+use super::search_page::SearchState;
 
+#[allow(dead_code)]
 struct ResonateColour;
 impl ResonateColour {
-    fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
     fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
 
     fn background()     -> Color { Self::hex("#1f2335") }
@@ -144,10 +145,60 @@ impl ResonateStyle {
             shadow: Shadow::default()
         }
     }
+
+    fn icon_button_with_background(status: iced::widget::button::Status, on: bool) -> button::Style {
+        button::Style {
+            background: Some(iced::Background::Color(
+                match status {
+                    button::Status::Active => 
+                        if on { ResonateColour::colour() } else { ResonateColour::background() }
+                    button::Status::Disabled => ResonateColour::background(),
+                    _ => if on { ResonateColour::lighter_colour() } else { ResonateColour::accent() }
+                }
+            )),
+            text_color: ResonateColour::text(),
+            border: Border::default().rounded(10),
+            shadow: Shadow::default()
+        }
+    }
 }
 
 pub struct ResonateWidget;
 impl ResonateWidget {
+
+    pub fn search_notify<'a>(
+        notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize
+    ) -> Element<'a, Message> {
+        Container::new(
+            {
+                let mut column = Column::new().spacing(10);
+
+                column = column.push(
+                    Row::new().spacing(20).push(
+                        match notify {
+                            SearchState::Searching => text("Internet Search Active").color(ResonateColour::yellow()),
+                            SearchState::SearchFailed => text("Internet Search Failed").color(ResonateColour::red()),
+                            SearchState::Received(_) => text("Internet Search Successful").color(ResonateColour::green())
+                        }.size(25).width(Length::Fill)
+                    ).push(
+                        Self::button_widget(crate::frontend::assets::close())
+                            .on_press(Message::RemoveSearchStatus)
+                    )
+                );
+
+                if let SearchState::Received(songs) = notify {
+                    for song in songs.iter() {
+                        column = column.push(
+                            Self::song(song, default_thumbnail, false, None)
+                                .on_press(Message::AddSongToPlaylist(song.clone(), playlist_id))
+                        )
+                    }
+                }
+
+                column
+            }
+        ).style(|_| ResonateStyle::list_container()).width(Length::Fill).padding(5).into()
+    }
 
     pub fn queue_bar<'a>(
         queue_state: Option<&'a QueueFramework>, default_thumbnail: &'a Path
@@ -192,7 +243,7 @@ impl ResonateWidget {
                         Message::AudioTask(AudioTask::SkipForward)
                     )
                 ).push(
-                    Self::button_widget(crate::frontend::assets::cloud_icon()).on_press(
+                    Self::toggle_button_widget(crate::frontend::assets::repeat(), false).on_press(
                         Message::AudioTask(AudioTask::ToggleRepeat)
                     )
                 )
@@ -229,11 +280,9 @@ impl ResonateWidget {
                         Message::AudioTask(AudioTask::SkipForward)
                     )
                 ).push(
-                    Self::button_widget(
-                        match queue_state.repeat {
-                            true => crate::frontend::assets::downloading_icon(), // TODO: Change to purple repeat
-                            false => crate::frontend::assets::cloud_icon()       // TODO: Change to gray repeat
-                        }
+                    Self::toggle_button_widget(
+                        crate::frontend::assets::repeat(),
+                        queue_state.repeat
                     ).on_press(
                             Message::AudioTask(AudioTask::ToggleRepeat)
                         )
@@ -246,6 +295,12 @@ impl ResonateWidget {
         button(
             svg(icon).width(32).height(32)
         ).style(|_,state| ResonateStyle::icon_button(state))
+    }
+
+    pub fn toggle_button_widget<'a>(icon: Handle, state: bool) -> Button<'a, Message> {
+        button(
+            svg(icon).width(32).height(32)
+        ).style(move |_,status| ResonateStyle::icon_button_with_background(status, state))
     }
 
     pub fn header<'a>(value: &'a str) -> Element<'a, Message> {

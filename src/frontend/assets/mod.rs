@@ -19,5 +19,7 @@ svg!(play, "icons/play.svg");
 svg!(pause, "icons/pause.svg");
 svg!(shuffle, "icons/shuffle.svg");
 
+svg!(repeat, "icons/repeat_gray.svg");
+
 svg!(back, "icons/back.svg");
 svg!(close, "icons/delete.svg");

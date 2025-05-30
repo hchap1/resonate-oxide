@@ -21,6 +21,12 @@ use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
 
+pub enum SearchState {
+    Searching,
+    SearchFailed,
+    Received(Vec<Song>)
+}
+
 pub struct SearchPage {
     query: String,
     directories: DataDir,
@@ -29,7 +35,9 @@ pub struct SearchPage {
     search_handles: Vec<Handle>,
     playlist: Option<Playlist>,
 
-    existing_songs: HashSet<usize>
+    existing_songs: HashSet<usize>,
+
+    search_notify: Option<SearchState>
 }
 
 impl SearchPage {
@@ -56,7 +64,8 @@ impl SearchPage {
             search_results: Some(songs),
             search_handles: Vec::new(),
             playlist,
-            existing_songs
+            existing_songs,
+            search_notify: None
         }
     }
 }
@@ -70,7 +79,24 @@ impl Page for SearchPage {
                     .on_submit(Message::SubmitSearch)
             );
 
-        let mut column = Column::new().spacing(20);
+        let mut column = Column::new().spacing(20)
+            .push_maybe(
+                match self.search_notify.as_ref() {
+                    Some(notify) => {
+                        if let Some(playlist) = self.playlist.as_ref() {
+                            Some(ResonateWidget::search_notify(
+                                notify,
+                                self.directories.get_default_thumbnail(),
+                                playlist.id
+                            ))
+                        } else {
+                            None
+                        }
+                    },
+                    None => None
+                }
+            );
+
 
         if let Some(search_results) = self.search_results.as_ref() {
             for song in search_results {
@@ -112,6 +138,8 @@ impl Page for SearchPage {
 
             Message::SubmitSearch => {
 
+                self.search_notify = Some(SearchState::Searching);
+
                 if let Some(search_results) = self.search_results.as_mut() { search_results.clear(); }
                 for handle in &self.search_handles { handle.abort(); }
 
@@ -124,10 +152,14 @@ impl Page for SearchPage {
                 let music_path = self.directories.get_music_ref().to_path_buf();
                 let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
 
-                let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(async_flatsearch(dlp_path, self.query.clone())).abortable();
+                let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(
+                    async_flatsearch(dlp_path, self.query.clone())
+                ).abortable();
                 self.search_handles.push(flatsearch_handle);
 
-                Task::<Message>::stream(DatabaseSearchQuery::new(database, music_path, thumbnail_path, consume(&mut self.query))).chain(
+                Task::<Message>::stream(
+                    DatabaseSearchQuery::new(database, music_path, thumbnail_path, consume(&mut self.query))
+                ).chain(
                     flatsearch_task
                 )
             }
@@ -152,11 +184,42 @@ impl Page for SearchPage {
                 metadata_collector
             }
 
-            Message::SearchResult(song) => {
+            Message::SearchResult(song, from_online) => {
+                if from_online {
+                    if let Some(notify) = self.search_notify.as_mut() {
+                        let mut current = match notify {
+                            SearchState::Received(songs) => songs.clone(),
+                            _ => vec![]
+                        };
+                        current.push(song);
+                        *notify = SearchState::Received(current);
+
+                        return Task::none();
+                    }
+                }
+
                 match self.search_results.as_mut() {
                     Some(search_results) => search_results.push(song),
                     None => self.search_results = Some(vec![song])
                 }
+                Task::none()
+            }
+            
+            Message::DLPWarning => {
+                match self.search_notify.as_mut() {
+                    Some(notify) => match notify {
+                        SearchState::Received(songs) => {
+                            match self.search_results.as_mut() {
+                                Some(search_results) => search_results.append(songs),
+                                None => self.search_results = Some(songs.to_vec())
+                            }
+                        },
+                        _ => {}
+                    }
+                    None => {}
+                }
+
+                self.search_notify = Some(SearchState::SearchFailed);
                 Task::none()
             }
 
@@ -169,6 +232,24 @@ impl Page for SearchPage {
 
             Message::SongAddedToPlaylist(song_id) => {
                 self.existing_songs.insert(song_id);
+                Task::none()
+            }
+
+            Message::RemoveSearchStatus => {
+                match self.search_notify.as_mut() {
+                    Some(notify) => match notify {
+                        SearchState::Received(songs) => {
+                            match self.search_results.as_mut() {
+                                Some(search_results) => search_results.append(songs),
+                                None => self.search_results = Some(songs.to_vec())
+                            }
+                        },
+                        _ => {}
+                    }
+                    None => {}
+                }
+
+                self.search_notify = None;
                 Task::none()
             }
 

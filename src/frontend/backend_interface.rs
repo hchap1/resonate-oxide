@@ -7,8 +7,6 @@ use std::thread::JoinHandle;
 
 use iced::futures::Stream;
 
-use crate::backend::filemanager::install_dlp;
-use crate::backend::web::download_song;
 use crate::frontend::message::Message;
 
 use crate::backend::web::{collect_metadata, flatsearch};
@@ -18,6 +16,8 @@ use crate::backend::error::ResonateError;
 use crate::backend::util::{sync, desync, AM};
 use crate::backend::database::Database;
 use crate::backend::music::Song;
+use crate::backend::filemanager::install_dlp;
+use crate::backend::web::download_song;
 
 pub async fn async_flatsearch(executable_dir: PathBuf, query: String) -> Message {
     match flatsearch(executable_dir, &query).await {
@@ -78,7 +78,7 @@ pub fn collect_metadata_and_notify_executor(
         None => {}
     }
 
-    Message::SearchResult(song)
+    Message::SearchResult(song, true)
 }
 
 pub struct AsyncMetadataCollectionPool {
@@ -184,7 +184,7 @@ impl Stream for AsyncMetadataCollectionPool {
         match results {
             Some(results) => std::task::Poll::Ready(Some(Message::MultiSearchResult(
                 results.into_iter().filter_map(|message| match message {
-                    Message::SearchResult(song) => Some(song),
+                    Message::SearchResult(song, true) => Some(song),
                     _ => None
                 }).collect()
             ))),

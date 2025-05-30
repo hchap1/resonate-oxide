@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::backend::audio::{AudioTask, QueueFramework};
+use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use crate::backend::music::Song;
 
 #[derive(Clone, Debug)]
@@ -13,7 +13,7 @@ pub enum Message {
     DLPWarning,                          // Notify the user that the current action requires yt-dlp.
     CollectMetadata(String),             // Task created by LoadSearchResults
     SearchResult(Song, bool),            // Final task in the search process - actually adds a finished song to the buffer
-    MultiSearchResult(Vec<Song>),        // ^ Option extension allowing for parallel metadata collection in batches or all at once
+    MultiSearchResult(Vec<Song>, bool),        // ^ Option extension allowing for parallel metadata collection in batches or all at once
     UpdateThumbnails,                    // On any page that contains thumbnails, update them
     Download(Song),                      // Download a song asynchronously. Relies on the frontend to manage concurrency
     SongDownloaded(Song),
@@ -31,6 +31,7 @@ pub enum Message {
     
     AudioTask(AudioTask),
     QueueUpdate(QueueFramework),         // Queue change
+    ProgressUpdate(ProgressUpdate),
     LoadAudio,
     LoadEntirePlaylist(usize, bool),     // Id, whether to shuffle
 

@@ -11,6 +11,7 @@ use iced::Length;
 use iced::Task;
 
 use crate::backend::audio::AudioTask;
+use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
 use crate::backend::util::Relay;
 
@@ -47,6 +48,7 @@ pub struct Application<'a> {
 
     audio_player: Option<AudioPlayer>,
     queue_state: Option<QueueFramework>,
+    progress_state: Option<ProgressUpdate>,
 
     last_page: (PageType, Option<usize>),
     current_page: (PageType, Option<usize>),
@@ -83,6 +85,7 @@ impl Application<'_> {
 
             audio_player: None,
             queue_state: None,
+            progress_state: None,
 
             last_page: (PageType::Playlists, None),
             current_page: (PageType::Playlists, None)
@@ -111,7 +114,8 @@ impl Application<'_> {
                         match self.page.as_ref() {
                             Some(page) => page.back(self.last_page.clone()),
                             None => self.last_page.clone()
-                        }
+                        },
+                        self.progress_state.clone()
                     ))
                     .into()
                 )
@@ -192,8 +196,8 @@ impl Application<'_> {
                 } else { Task::none() }
             }
 
-            Message::MultiSearchResult(songs) => {
-                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song, false))))
+            Message::MultiSearchResult(songs, is_online) => {
+                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song, is_online))))
             }
 
             Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
@@ -218,13 +222,20 @@ impl Application<'_> {
             }
             
             Message::LoadAudio => {
-                let (audio_player, receiver) = match AudioPlayer::new() {
+                let (audio_player, queue_receiver, progress_receiver) = match AudioPlayer::new() {
                     Ok(data) => data,
                     Err(_) => return Task::none()
                 };
 
                 self.audio_player = Some(audio_player);
-                Task::stream(Relay::consume_receiver(receiver, |message| Message::QueueUpdate(message)))
+                Task::batch(vec![
+                    Task::stream(
+                        Relay::consume_receiver(queue_receiver, |message| Message::QueueUpdate(message))
+                    ),
+                    Task::stream(
+                        Relay::consume_receiver(progress_receiver, |message| Message::ProgressUpdate(message))
+                    )
+                ])
             }
 
             Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
@@ -268,6 +279,11 @@ impl Application<'_> {
                 if let Some(page) = self.page.as_mut() {
                     let _ = page.update(Message::DownloadFailed(song));
                 }
+                Task::none()
+            }
+
+            Message::ProgressUpdate(update) => {
+                self.progress_state = Some(update);
                 Task::none()
             }
 

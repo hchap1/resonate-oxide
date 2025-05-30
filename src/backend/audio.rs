@@ -74,6 +74,12 @@ impl Queue {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ProgressUpdate {
+    Nothing,
+    Seconds(f32, f32)
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum AudioTask {
@@ -89,8 +95,7 @@ pub enum AudioTask {
     SetQueue(Vec<Song>),
     RemoveSongById(usize),
     RemoveSongByIdx(usize),
-    ToggleRepeat
-
+    ToggleRepeat,
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -121,12 +126,23 @@ fn load_audio(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework
 }
 
 fn audio_thread(
-    sink: Sink, task_downstream: Receiver<AudioTask>, queue_upstream: Sender<QueueFramework>) {
+    sink: Sink, task_downstream: Receiver<AudioTask>,
+    queue_upstream: Sender<QueueFramework>,
+    progress_upstream: Sender<ProgressUpdate>
+) {
 
     let mut queue: Queue = Queue::new();
 
     loop {
         sleep(Duration::from_millis(200));
+
+        let _ = progress_upstream.send(match queue.songs.get(queue.position) {
+            Some(song) => ProgressUpdate::Seconds(
+                sink.get_pos().as_secs_f32(),
+                song.song.duration.as_secs_f32()
+            ),
+            None => ProgressUpdate::Nothing
+        });
 
         match task_downstream.try_recv() {
             Ok(task) => {
@@ -248,10 +264,13 @@ pub struct AudioPlayer {
 }
 
 impl AudioPlayer {
-    pub fn new() -> Result<(AudioPlayer, Receiver<QueueFramework>), ResonateError> {
+    pub fn new() -> Result<(
+        AudioPlayer, Receiver<QueueFramework>, Receiver<ProgressUpdate>
+    ), ResonateError> {
 
         let (task_upstream, task_downstream) = bounded::<AudioTask>(256);
         let (queue_upstream, queue_downstream) = bounded::<QueueFramework>(256);
+        let (progress_upstream, progress_downstream) = bounded::<ProgressUpdate>(256);
 
         let (_stream, handle) = match OutputStream::try_default() {
             Ok(data) => data,
@@ -263,14 +282,18 @@ impl AudioPlayer {
             Err(_) => return Err(ResonateError::AudioStreamError)
         };
 
-        let _thread_handle = spawn(move || audio_thread(sink, task_downstream, queue_upstream));
+        let _thread_handle = spawn(
+            move || audio_thread(sink, task_downstream, queue_upstream, progress_upstream)
+        );
 
         Ok((AudioPlayer {
             _stream,
             _handle: handle,
             _thread_handle,
             task_upstream,
-        }, queue_downstream))
+        }, queue_downstream,
+           progress_downstream
+        ))
     }
 
     pub fn send_task(&self, task: AudioTask) -> Result<(), ()> {

@@ -2,15 +2,14 @@ use std::path::Path;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
-use iced::widget::{button, text_input, Button};
+use iced::widget::{button, progress_bar, text_input, Button};
 use iced::widget::scrollable::Scroller;
-use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg};
-use iced::{Background, Border, Color, Element, Length, Shadow};
+use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
+use iced::{Background, Border, Color, Element, Gradient, Length, Shadow};
 
 use crate::frontend::message::Message;
-
 use crate::backend::music::{Playlist, Song};
-use crate::backend::audio::{AudioTask, QueueFramework};
+use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 
 use super::message::PageType;
 use super::search_page::SearchState;
@@ -161,6 +160,14 @@ impl ResonateStyle {
             shadow: Shadow::default()
         }
     }
+
+    fn progress_bar() -> progress_bar::Style {
+        progress_bar::Style {
+            background: Background::Color(ResonateColour::accent()),
+            bar: Background::Color(ResonateColour::colour()),
+            border: Border::default().rounded(10)
+        }
+    }
 }
 
 pub struct ResonateWidget;
@@ -236,7 +243,7 @@ impl ResonateWidget {
 
     pub fn blank_control_bar<'a>(last_page: (PageType, Option<usize>)) -> Element<'a, Message> {
         Container::new(
-            Column::new().width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
+            Column::new().spacing(10).width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
                     Self::button_widget(crate::frontend::assets::back())
                         .on_press(Message::LoadPage(last_page.0 ,last_page.1))
@@ -257,18 +264,25 @@ impl ResonateWidget {
                         Message::AudioTask(AudioTask::ToggleRepeat)
                     )
                 )
-            ).align_x(Horizontal::Center)
-        ).style(|_| ResonateStyle::list_container()).into()
+            ).align_x(Horizontal::Center).push(
+                ProgressBar::new(0f32..=1000f32, 0f32)
+                    .width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
+            )
+        ).style(|_| ResonateStyle::list_container()).padding(10).into()
     }
 
-    pub fn control_bar<'a>(queue_state: Option<&QueueFramework>, last_page: (PageType, Option<usize>)) -> Element<'a, Message> {
+    pub fn control_bar<'a>(
+        queue_state: Option<&QueueFramework>,
+        last_page: (PageType, Option<usize>),
+        progress_update: Option<ProgressUpdate>
+    ) -> Element<'a, Message> {
         let queue_state = match queue_state {
             Some(queue_state) => queue_state,
             None => return Self::blank_control_bar(last_page)
         };
 
         Container::new(
-            Column::new().width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
+            Column::new().spacing(10).width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
                 .push(
                     Self::button_widget(crate::frontend::assets::back())
                         .on_press(Message::LoadPage(last_page.0 ,last_page.1))
@@ -294,11 +308,19 @@ impl ResonateWidget {
                         crate::frontend::assets::repeat(),
                         queue_state.repeat
                     ).on_press(
-                            Message::AudioTask(AudioTask::ToggleRepeat)
-                        )
+                        Message::AudioTask(AudioTask::ToggleRepeat)
+                    )
                 )
-            ).align_x(Horizontal::Center)
-        ).style(|_| ResonateStyle::list_container()).into()
+            ).align_x(Horizontal::Center).push(
+                ProgressBar::new(0f32..=1000f32, match progress_update {
+                    Some(update) => match update {
+                        ProgressUpdate::Nothing => 0f32,
+                        ProgressUpdate::Seconds(current, length) => (current as f32 / length as f32) * 1000f32
+                    },
+                    None => 0f32
+                }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
+            )
+        ).style(|_| ResonateStyle::list_container()).padding(10).into()
     }
 
     pub fn button_widget<'a>(icon: Handle) -> Button<'a, Message> {

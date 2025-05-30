@@ -186,7 +186,7 @@ impl Stream for AsyncMetadataCollectionPool {
                 results.into_iter().filter_map(|message| match message {
                     Message::SearchResult(song, true) => Some(song),
                     _ => None
-                }).collect()
+                }).collect(), true
             ))),
             None => std::task::Poll::Pending
         }
@@ -249,13 +249,13 @@ impl Stream for DatabaseSearchQuery {
                 if results.len() == 0 {
                     return std::task::Poll::Ready(None);
                 } else {
-                    return std::task::Poll::Ready(Some(Message::MultiSearchResult(results)));
+                    return std::task::Poll::Ready(Some(Message::MultiSearchResult(results, false)));
                 }
             }
             if results.len() == 0 {
                 return std::task::Poll::Pending;
             } else {
-                return std::task::Poll::Ready(Some(Message::MultiSearchResult(results)));
+                return std::task::Poll::Ready(Some(Message::MultiSearchResult(results, false)));
             }
         }
 
@@ -277,7 +277,7 @@ impl Stream for DatabaseSearchQuery {
 
         match results.len() {
             0 => std::task::Poll::Pending,
-            _ => std::task::Poll::Ready(Some(Message::MultiSearchResult(results)))
+            _ => std::task::Poll::Ready(Some(Message::MultiSearchResult(results, false)))
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use iced::alignment::Vertical;
 use rand::rng;
 use rand::seq::SliceRandom;
 
@@ -106,7 +107,15 @@ impl Application<'_> {
                                 .push(page.view(&self.current_song_downloads))
                                 .width(Length::FillPortion(3))
                             ).push(
-                                Column::new().spacing(20).push(ResonateWidget::header("Queue"))
+                                Column::new().spacing(20)
+                                    .push(
+                                        Row::new().align_y(Vertical::Center)
+                                            .push(ResonateWidget::header("Queue"))
+                                            .push(
+                                                ResonateWidget::inline_button("Clear")
+                                                    .on_press(Message::AudioTask(AudioTask::ClearQueue))
+                                            )
+                                    )
                                     .push(
                                         ResonateWidget::queue_bar(
                                             self.queue_state.as_ref(),

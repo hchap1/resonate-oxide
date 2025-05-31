@@ -356,7 +356,7 @@ impl ResonateWidget {
     }
 
     pub fn header<'a>(value: &'a str) -> Element<'a, Message> {
-        text(value).size(30).color(ResonateColour::colour()).into()
+        text(value).size(30).color(ResonateColour::colour()).width(Length::Fill).into()
     }
 
     pub fn inline_button<'a>(text: &'a str) -> Button<'a, Message> {

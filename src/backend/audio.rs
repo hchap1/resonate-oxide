@@ -111,6 +111,7 @@ pub enum AudioTask {
     RemoveSongByIdx(usize),
     ToggleRepeat,
     SetVolume(f32),
+    ClearQueue
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -256,6 +257,11 @@ fn audio_thread(
                     sink.set_volume(volume);
                     update_queue(&sink, &queue, &queue_upstream);
                 }
+                AudioTask::ClearQueue => {
+                    queue.songs.clear();
+                    queue.position = 0;
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
                 AudioTask::EndThread => return
             }
         }
@@ -263,6 +269,8 @@ fn audio_thread(
         if sink.empty() && queue.songs.len() != 0 {
             if queue.position < queue.songs.len() - 1 && !queue.repeat {
                 queue.position += 1;
+            } else if queue.position == queue.songs.len() - 1 && !queue.repeat {
+                queue.position = 0;
             }
             load_audio(&sink, &queue, &queue_upstream);
         }

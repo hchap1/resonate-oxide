@@ -5,6 +5,7 @@ use std::io::Cursor;
 use std::io::Read;
 use std::fs::File;
 use std::time::Duration;
+use std::default::Default;
 
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
@@ -23,7 +24,20 @@ pub struct QueueFramework {
     pub songs: Vec<Song>,
     pub position: usize,
     pub playing: bool,
-    pub repeat: bool
+    pub repeat: bool,
+    pub volume: f32
+}
+
+impl Default for QueueFramework {
+    fn default() -> QueueFramework {
+        QueueFramework {
+            songs: vec![],
+            position: 0,
+            playing: false,
+            repeat: false,
+            volume: 1f32
+        }
+    }
 }
 
 pub struct QueueItem {
@@ -69,7 +83,7 @@ impl Queue {
         Queue {
             songs: Vec::new(),
             position: 0,
-            repeat: false
+            repeat: false,
         }
     }
 }
@@ -96,6 +110,7 @@ pub enum AudioTask {
     RemoveSongById(usize),
     RemoveSongByIdx(usize),
     ToggleRepeat,
+    SetVolume(f32),
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
@@ -104,7 +119,8 @@ fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramewo
             songs: queue.songs.iter().map(|qi| qi.song.clone()).collect(),
             position: queue.position,
             playing: !sink.is_paused(),
-            repeat: queue.repeat
+            repeat: queue.repeat,
+            volume: sink.volume()
         }
     );
 }
@@ -144,107 +160,104 @@ fn audio_thread(
             None => ProgressUpdate::Nothing
         });
 
-        match task_downstream.try_recv() {
-            Ok(task) => {
-                match task {
-                    AudioTask::Play => {
-                        sink.play();
-                        update_queue(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::Pause => {
-                        sink.pause();
-                        update_queue(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::TogglePlayback => {
-                        if sink.is_paused() { sink.play() } else { sink.pause() }
-                        update_queue(&sink, &queue, &queue_upstream);
-                    },
-
-                    AudioTask::SkipForward => {
-                        if queue.position < queue.songs.len() - 1 { queue.position += 1 }
-                        load_audio(&sink, &queue, &queue_upstream);
-                    }
-
-                    AudioTask::SkipBackward => {
-                        if queue.position > 0 { queue.position -= 1 }
-                        load_audio(&sink, &queue, &queue_upstream);
-                    }
-                    
-                    AudioTask::Push(song) => {
-                        if let Some(queue_item) = QueueItem::new(song) {
-                            queue.songs.push(queue_item);
-                        }
-                        update_queue(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::Insert(song) => {
-                        if let Some(queue_item) = QueueItem::new(song) {
-                            queue.songs.insert(0, queue_item);
-                        }
-
-                        // Offsets all the other songs, thus account for this
-                        if queue.songs.len() != 1 {
-                            queue.position += 1;
-                        }
-                        update_queue(&sink, &queue, &queue_upstream);
-                    },
-                    AudioTask::Move(target) => {
-                        if queue.position == target {
-                            continue
-                        }
-
-                        if target >= queue.songs.len() {
-                            continue
-                        }
-
-                        queue.position = target;
-                        load_audio(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::SetQueue(songs) => {
-                        sink.clear();
-                        queue.position = 0;
-                        queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
-                        sink.play();
-                        load_audio(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::RemoveSongById(song_id) => {
-                        let idx = match queue.songs.iter().enumerate().find_map(|(i, qi)|
-                            if qi.song.id == song_id { Some(i) } else { None }
-                        ) {
-                            Some(idx) => idx,
-                            None => continue
-                        };
-
-                        if idx < queue.position {
-                            queue.position -= 1;
-                        }
-
-                        queue.songs.remove(idx);
-                        load_audio(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::RemoveSongByIdx(idx) => {
-                        if idx >= queue.songs.len() {
-                            continue
-                        }
-
-                        if idx < queue.position {
-                            queue.position -= 1;
-                        }
-
-                        queue.songs.remove(idx);
-                        load_audio(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::ToggleRepeat => {
-                        queue.repeat = !queue.repeat;
-                        update_queue(&sink, &queue, &queue_upstream);
-                    }
-                    AudioTask::EndThread => return
+        while let Ok(task) = task_downstream.try_recv() {
+            match task {
+                AudioTask::Play => {
+                    sink.play();
+                    update_queue(&sink, &queue, &queue_upstream);
                 }
-            },
-            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                eprintln!("[AUDIO] Task channel became unresponsive. Killing thread.");
-                return;
-            },
-            _ => {}
+                AudioTask::Pause => {
+                    sink.pause();
+                    update_queue(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::TogglePlayback => {
+                    if sink.is_paused() { sink.play() } else { sink.pause() }
+                    update_queue(&sink, &queue, &queue_upstream);
+                },
+
+                AudioTask::SkipForward => {
+                    if queue.position < queue.songs.len() - 1 { queue.position += 1 }
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
+
+                AudioTask::SkipBackward => {
+                    if queue.position > 0 { queue.position -= 1 }
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
+                
+                AudioTask::Push(song) => {
+                    if let Some(queue_item) = QueueItem::new(song) {
+                        queue.songs.push(queue_item);
+                    }
+                    update_queue(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::Insert(song) => {
+                    if let Some(queue_item) = QueueItem::new(song) {
+                        queue.songs.insert(0, queue_item);
+                    }
+
+                    // Offsets all the other songs, thus account for this
+                    if queue.songs.len() != 1 {
+                        queue.position += 1;
+                    }
+                    update_queue(&sink, &queue, &queue_upstream);
+                },
+                AudioTask::Move(target) => {
+                    if queue.position == target {
+                        continue
+                    }
+
+                    if target >= queue.songs.len() {
+                        continue
+                    }
+
+                    queue.position = target;
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::SetQueue(songs) => {
+                    sink.clear();
+                    queue.position = 0;
+                    queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
+                    sink.play();
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::RemoveSongById(song_id) => {
+                    let idx = match queue.songs.iter().enumerate().find_map(|(i, qi)|
+                        if qi.song.id == song_id { Some(i) } else { None }
+                    ) {
+                        Some(idx) => idx,
+                        None => continue
+                    };
+
+                    if idx < queue.position {
+                        queue.position -= 1;
+                    }
+
+                    queue.songs.remove(idx);
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::RemoveSongByIdx(idx) => {
+                    if idx >= queue.songs.len() {
+                        continue
+                    }
+
+                    if idx < queue.position {
+                        queue.position -= 1;
+                    }
+
+                    queue.songs.remove(idx);
+                    load_audio(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::ToggleRepeat => {
+                    queue.repeat = !queue.repeat;
+                    update_queue(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::SetVolume(volume) => {
+                    sink.set_volume(volume);
+                    update_queue(&sink, &queue, &queue_upstream);
+                }
+                AudioTask::EndThread => return
+            }
         }
 
         if sink.empty() && queue.songs.len() != 0 {

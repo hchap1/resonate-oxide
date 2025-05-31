@@ -49,9 +49,11 @@ pub struct Application<'a> {
     audio_player: Option<AudioPlayer>,
     queue_state: Option<QueueFramework>,
     progress_state: Option<ProgressUpdate>,
+    volume: f32,
 
     last_page: (PageType, Option<usize>),
     current_page: (PageType, Option<usize>),
+    default_queue: QueueFramework
 }
 
 impl<'a> Default for Application<'a> {
@@ -86,9 +88,11 @@ impl Application<'_> {
             audio_player: None,
             queue_state: None,
             progress_state: None,
+            volume: 1f32,
 
             last_page: (PageType::Playlists, None),
-            current_page: (PageType::Playlists, None)
+            current_page: (PageType::Playlists, None),
+            default_queue: QueueFramework::default()
         }
     }
 
@@ -115,7 +119,10 @@ impl Application<'_> {
                             Some(page) => page.back(self.last_page.clone()),
                             None => self.last_page.clone()
                         },
-                        self.progress_state.clone()
+                        self.progress_state.clone(),
+                        self.volume,
+                        self.directories.get_default_thumbnail(),
+                        &self.default_queue
                     ))
                     .into()
                 )
@@ -212,6 +219,7 @@ impl Application<'_> {
             }
 
             Message::AudioTask(task) => {
+                if let AudioTask::SetVolume(v) = task { self.volume = v; }
                 if let Some(ap) = self.audio_player.as_ref() { let _ = ap.send_task(task); }
                 Task::none()
             }

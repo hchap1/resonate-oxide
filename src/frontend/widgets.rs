@@ -1,11 +1,12 @@
 use std::path::Path;
+use std::time::Duration;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
-use iced::widget::{button, progress_bar, text_input, Button};
+use iced::widget::{button, progress_bar, slider, text_input, Button, Slider};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
-use iced::{Background, Border, Color, Element, Gradient, Length, Shadow};
+use iced::{Background, Border, Color, Element, Length, Shadow};
 
 use crate::frontend::message::Message;
 use crate::backend::music::{Playlist, Song};
@@ -241,84 +242,93 @@ impl ResonateWidget {
         ).into()
     }
 
-    pub fn blank_control_bar<'a>(last_page: (PageType, Option<usize>)) -> Element<'a, Message> {
-        Container::new(
-            Column::new().spacing(10).width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
-                .push(
-                    Self::button_widget(crate::frontend::assets::back())
-                        .on_press(Message::LoadPage(last_page.0 ,last_page.1))
-                ).push(
-                    Self::button_widget(crate::frontend::assets::back_skip()).on_press(
-                        Message::AudioTask(AudioTask::SkipBackward)
-                    )
-                ).push(
-                    Self::button_widget(crate::frontend::assets::play()).on_press(
-                        Message::AudioTask(AudioTask::TogglePlayback)
-                    )
-                ).push(
-                    Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
-                        Message::AudioTask(AudioTask::SkipForward)
-                    )
-                ).push(
-                    Self::toggle_button_widget(crate::frontend::assets::repeat(), false).on_press(
-                        Message::AudioTask(AudioTask::ToggleRepeat)
-                    )
-                )
-            ).align_x(Horizontal::Center).push(
-                ProgressBar::new(0f32..=1000f32, 0f32)
-                    .width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
-            )
-        ).style(|_| ResonateStyle::list_container()).padding(10).into()
-    }
-
     pub fn control_bar<'a>(
-        queue_state: Option<&QueueFramework>,
+        queue_state: Option<&'a QueueFramework>,
         last_page: (PageType, Option<usize>),
-        progress_update: Option<ProgressUpdate>
+        progress_update: Option<ProgressUpdate>,
+        volume: f32,
+        default_thumbnail: &'a Path,
+        default_queue: &'a QueueFramework
     ) -> Element<'a, Message> {
-        let queue_state = match queue_state {
-            Some(queue_state) => queue_state,
-            None => return Self::blank_control_bar(last_page)
+
+        let (real, queue_state) = match queue_state {
+            Some(queue_state) => (true, queue_state),
+            None => (false, default_queue)
         };
 
         Container::new(
-            Column::new().spacing(10).width(Length::Fill).push(Row::new().spacing(20).align_y(Vertical::Center)
-                .push(
-                    Self::button_widget(crate::frontend::assets::back())
-                        .on_press(Message::LoadPage(last_page.0 ,last_page.1))
-                ).push(
-                    Self::button_widget(crate::frontend::assets::back_skip()).on_press(
-                        Message::AudioTask(AudioTask::SkipBackward)
+            Row::new().spacing(20).push(
+                match real {
+                    true => match queue_state.songs.get(queue_state.position) {
+                        Some(song) => Self::simple_song(song, default_thumbnail, false),
+                        None => Self::dummy_song(default_thumbnail)
+                    }
+                    false => Self::dummy_song(default_thumbnail)
+                }
+            ).push(
+                Column::new().spacing(10).width(Length::Fill).push(
+                    Row::new().spacing(20).align_y(Vertical::Center)
+                    .push(
+                        Row::new().spacing(10).width(Length::FillPortion(1))
+                            .push(
+                                Self::button_widget(crate::frontend::assets::back())
+                                    .on_press(Message::LoadPage(last_page.0 ,last_page.1))
+                            ).push(
+                                Self::button_widget(crate::frontend::assets::back_skip()).on_press(
+                                    Message::AudioTask(AudioTask::SkipBackward)
+                                )
+                            ).push(
+                                Self::button_widget(
+                                    match queue_state.playing {
+                                        true => crate::frontend::assets::pause(),
+                                        false => crate::frontend::assets::play()
+                                    }
+                                ).on_press(
+                                    Message::AudioTask(AudioTask::TogglePlayback)
+                                )
+                            ).push(
+                                Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
+                                    Message::AudioTask(AudioTask::SkipForward)
+                                )
+                            ).push(
+                                Self::toggle_button_widget(
+                                    crate::frontend::assets::repeat(),
+                                    queue_state.repeat
+                                ).on_press(
+                                    Message::AudioTask(AudioTask::ToggleRepeat)
+                                )
+                            )
+                    ).push(
+                        Slider::new(0f32..=2f32, volume,
+                            |value| Message::AudioTask(AudioTask::SetVolume(value))
+                        ).style(|_,_| slider::Style {
+                            rail: slider::Rail {
+                                backgrounds: (
+                                    Background::Color(ResonateColour::colour()),
+                                    Background::Color(ResonateColour::accent())
+                                ),
+                                width: 15f32,
+                                border: Border::default().rounded(10)
+                            },
+                            handle: slider::Handle {
+                                shape: slider::HandleShape::Circle {
+                                    radius: 10f32
+                                },
+                                background: Background::Color(ResonateColour::colour()),
+                                border_width: 0f32,
+                                border_color: ResonateColour::colour()
+                            }
+                        }).step(0.01f32)
                     )
-                ).push(
-                    Self::button_widget(
-                        match queue_state.playing {
-                            true => crate::frontend::assets::pause(),
-                            false => crate::frontend::assets::play()
-                        }
-                    ).on_press(
-                        Message::AudioTask(AudioTask::TogglePlayback)
-                    )
-                ).push(
-                    Self::button_widget(crate::frontend::assets::forward_skip()).on_press(
-                        Message::AudioTask(AudioTask::SkipForward)
-                    )
-                ).push(
-                    Self::toggle_button_widget(
-                        crate::frontend::assets::repeat(),
-                        queue_state.repeat
-                    ).on_press(
-                        Message::AudioTask(AudioTask::ToggleRepeat)
-                    )
+                ).align_x(Horizontal::Center).push(
+                    ProgressBar::new(0f32..=1000f32, match progress_update {
+                        Some(update) => match update {
+                            ProgressUpdate::Nothing => 0f32,
+                            ProgressUpdate::Seconds(current, length) => (current as f32 / length as f32) * 1000f32
+                        },
+                        None => 0f32
+                    }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
                 )
-            ).align_x(Horizontal::Center).push(
-                ProgressBar::new(0f32..=1000f32, match progress_update {
-                    Some(update) => match update {
-                        ProgressUpdate::Nothing => 0f32,
-                        ProgressUpdate::Seconds(current, length) => (current as f32 / length as f32) * 1000f32
-                    },
-                    None => 0f32
-                }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
             )
         ).style(|_| ResonateStyle::list_container()).padding(10).into()
     }
@@ -392,6 +402,31 @@ impl ResonateWidget {
                 ))
             )
         ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
+    }
+
+    pub fn dummy_song<'a>(default_thumbnail: &'a Path) -> Button<'a, Message> {
+        button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
+            .push(Container::new(image(default_thumbnail)).style(|_|
+                ResonateStyle::thumbnail_container()).padding(10)
+            ).push(
+                Column::new().spacing(10)
+                    .push(
+                        text("-").width(Length::FillPortion(3)).size(20).color(ResonateColour::text())
+                    ).push(
+                        text("-").width(Length::FillPortion(2))
+                    )
+            )
+            .push(
+                text("-").size(20).color(ResonateColour::text())
+            )
+        ).padding(5).width(Length::Fill)).style(|_,_|
+            button::Style {
+                background: Some(Background::Color(ResonateColour::background())),
+                text_color: ResonateColour::text(),
+                border: Border::default().rounded(10),
+                shadow: Shadow::default()
+            }
+        )
     }
 
     pub fn simple_song<'a>(song: &'a Song, default_thumbnail: &'a Path, selected: bool) -> Button<'a, Message> {

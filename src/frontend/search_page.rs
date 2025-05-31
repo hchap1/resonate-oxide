@@ -225,8 +225,23 @@ impl Page for SearchPage {
 
             Message::UpdateThumbnails => {
                 if let Some(search_results) = self.search_results.as_mut() {
-                    search_results.iter_mut().for_each(|song| song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref()));
+                    search_results.iter_mut()
+                        .for_each(|song|
+                            song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref())
+                        );
                 }
+
+                if let Some(notify) = self.search_notify.as_mut() {
+                    if let SearchState::Received(songs) = notify {
+                        songs.iter_mut()
+                            .for_each(|song|
+                                song.load_paths(
+                                    self.directories.get_music_ref(),
+                                    self.directories.get_thumbnails_ref())
+                            );
+                    }
+                }
+
                 Task::none()
             }
 

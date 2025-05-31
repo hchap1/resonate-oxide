@@ -264,12 +264,12 @@ impl ResonateWidget {
                         None => Self::dummy_song(default_thumbnail)
                     }
                     false => Self::dummy_song(default_thumbnail)
-                }
+                }.width(Length::FillPortion(1))
             ).push(
-                Column::new().spacing(10).width(Length::Fill).push(
-                    Row::new().spacing(20).align_y(Vertical::Center)
+                Column::new().width(Length::FillPortion(2)).spacing(10).push(
+                    Row::new().spacing(20).align_y(Vertical::Center).width(Length::FillPortion(4))
                     .push(
-                        Row::new().spacing(10).width(Length::FillPortion(1))
+                        Column::new().push(Row::new().spacing(10).width(Length::Shrink)
                             .push(
                                 Self::button_widget(crate::frontend::assets::back())
                                     .on_press(Message::LoadPage(last_page.0 ,last_page.1))
@@ -298,6 +298,7 @@ impl ResonateWidget {
                                     Message::AudioTask(AudioTask::ToggleRepeat)
                                 )
                             )
+                        ).align_x(Horizontal::Center).width(Length::FillPortion(1))
                     ).push(
                         Slider::new(0f32..=2f32, volume,
                             |value| Message::AudioTask(AudioTask::SetVolume(value))
@@ -328,6 +329,7 @@ impl ResonateWidget {
                         },
                         None => 0f32
                     }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
+                            .height(Length::Fixed(45f32))
                 )
             )
         ).style(|_| ResonateStyle::list_container()).padding(10).into()

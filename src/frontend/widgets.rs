@@ -410,6 +410,9 @@ impl ResonateWidget {
                         text(&song.artist).width(Length::FillPortion(2))
                     )
             )
+            .push(
+                text(song.display_duration()).size(20).color(ResonateColour::text())
+            )
         ).padding(5).width(Length::Fill)).style(move |_, state| 
                 match selected {
                     true => ResonateStyle::hightlighted_button_wrapper(state),

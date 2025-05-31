@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::time::Duration;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
@@ -15,16 +14,25 @@ use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use super::message::PageType;
 use super::search_page::SearchState;
 
+const R: u8 = 78;
+const G: u8 = 62;
+const B: u8 = 116;
+
 #[allow(dead_code)]
 struct ResonateColour;
 impl ResonateColour {
+    fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
     fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
 
     fn background()     -> Color { Self::hex("#1f2335") }
     fn foreground()     -> Color { Self::hex("#24283b") }
     fn accent()         -> Color { Self::hex("#292e42") }
-    fn colour()         -> Color { Self::hex("#9d7cd8") }
-    fn lighter_colour() -> Color { Self::hex("#b992ff") }
+    fn colour()         -> Color { Self::new(R, G, B) } // { Self::hex("#9d7cd8") }
+    fn lighter_colour() -> Color { Self::new(
+        (R as f32 * 1.1 as f32).round() as u8,
+        (G as f32 * 1.1 as f32).round() as u8,
+        (B as f32 * 1.1 as f32).round() as u8,
+    )} // { Self::hex("#b992ff") }
     fn text()           -> Color { Self::hex("#c0caf5") }
     fn darker()         -> Color { Self::hex("#565f89") }
     fn yellow()         -> Color { Self::hex("#e0cf7e") }
@@ -57,18 +65,18 @@ impl ResonateStyle {
             container: ResonateStyle::background_wrapper(),
             vertical_rail: scrollable::Rail {
                 background: Some(iced::Background::Color(ResonateColour::foreground())),
-                border: Border::default(),
+                border: Border::default().rounded(10),
                 scroller: Scroller {
                     color: ResonateColour::colour(),
-                    border: Border::default()
+                    border: Border::default().rounded(10)
                 }
             },
             horizontal_rail: scrollable::Rail {
                 background: Some(iced::Background::Color(ResonateColour::colour())),
-                border: Border::default(),
+                border: Border::default().rounded(10),
                 scroller: Scroller {
                     color: ResonateColour::colour(),
-                    border: Border::default()
+                    border: Border::default().rounded(10)
                 }
             },
             gap: Some(iced::Background::Color(ResonateColour::text()))
@@ -78,7 +86,7 @@ impl ResonateStyle {
     fn thumbnail_container() -> container::Style {
         container::Style {
             text_color: None,
-            background: Some(iced::Background::Color(ResonateColour::accent())),
+            background: None,//Some(iced::Background::Color(ResonateColour::accent())),
             border: Border::default().rounded(15),
             shadow: Shadow::default()
         }

@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+use rspotify::model::{FullTrack, PlaylistItem};
+use rspotify::ClientCredsSpotify;
+
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use crate::backend::music::Song;
 
@@ -35,7 +38,13 @@ pub enum Message {
     LoadAudio,
     LoadEntirePlaylist(usize, bool),     // Id, whether to shuffle
 
-    RemoveSearchStatus
+    RemoveSearchStatus,
+
+    SpotifyCreds(Option<String>, Option<String>),
+    SpotifyAuth(Result<ClientCredsSpotify, ()>),
+    SpotifyPlaylist(String),
+    SpotifyPlaylistItem(PlaylistItem),
+    SpotifySongToYoutube(FullTrack),    // Search youtube to find the id of this song before pushing to stack
 }
 
 #[derive(Clone, Debug)]

@@ -11,10 +11,14 @@ use iced::widget::text;
 use iced::Length;
 use iced::Task;
 
+use rspotify::model::PlayableItem;
+
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
+use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
+use crate::backend::spotify::try_auth;
 
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
@@ -54,7 +58,9 @@ pub struct Application<'a> {
 
     last_page: (PageType, Option<usize>),
     current_page: (PageType, Option<usize>),
-    default_queue: QueueFramework
+    default_queue: QueueFramework,
+
+    spotify_credentials: Option<rspotify::ClientCredsSpotify>,
 }
 
 impl<'a> Default for Application<'a> {
@@ -93,7 +99,9 @@ impl Application<'_> {
 
             last_page: (PageType::Playlists, None),
             current_page: (PageType::Playlists, None),
-            default_queue: QueueFramework::default()
+            default_queue: QueueFramework::default(),
+            
+            spotify_credentials: None
         }
     }
 
@@ -302,6 +310,53 @@ impl Application<'_> {
             Message::ProgressUpdate(update) => {
                 self.progress_state = Some(update);
                 Task::none()
+            }
+
+            Message::SpotifyCreds(id, secret) => {
+                if let (Some(id), Some(secret)) = (id, secret) {
+                    Task::future(
+                        try_auth(
+                            rspotify::ClientCredsSpotify::new(
+                                rspotify::Credentials::new(
+                                    &id, &secret
+                                )
+                            )
+                        )
+                    ).map(|r| Message::SpotifyAuth(r))
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::SpotifyAuth(res) => {
+                match res {
+                    Ok(creds) => self.spotify_credentials = Some(creds),
+                    Err(_) => eprintln!("[SPOTIFY] Authentication Failed")
+                }
+
+                Task::none()
+            }
+
+            Message::SpotifyPlaylist(uri) => {
+                if let Some(creds) = self.spotify_credentials.as_ref() {
+                    Task::stream(SpotifySongStream::new(uri, creds.clone())).map(
+                        |item| Message::SpotifyPlaylistItem(item)
+                    )
+                } else {
+                    Task::none()
+                }
+            }
+
+            Message::SpotifyPlaylistItem(item) => {
+                let track = match item.track {
+                    Some(track) => match track {
+                        PlayableItem::Track(track) => track,
+                        _ => return Task::none()
+                    },
+                    None => return Task::none()
+                };
+
+                Task::done(Message::SpotifySongToYoutube(item))
             }
 
             other => match self.page.as_mut() {

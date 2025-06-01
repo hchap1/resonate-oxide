@@ -5,4 +5,5 @@ pub mod music;
 pub mod database;
 pub mod util;
 pub mod audio;
+pub mod spotify;
 mod sql;

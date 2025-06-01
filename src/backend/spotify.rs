@@ -1,4 +1,7 @@
+use std::path::PathBuf;
 use std::time::Duration;
+
+use std::process::Stdio;
 
 use std::pin::Pin;
 use std::task::Poll;
@@ -7,6 +10,7 @@ use std::task::Waker;
 
 use iced::futures::Stream;
 use iced::futures::StreamExt;
+use rspotify::model::FullTrack;
 use rspotify::model::Id;
 use rspotify::model::PlaylistId;
 use rspotify::model::PlaylistItem;
@@ -15,10 +19,18 @@ use rspotify::ClientCredsSpotify;
 
 use tokio::task::JoinHandle;
 use tokio::task::spawn;
+use tokio::process::Command;
+use tokio::io::BufReader;
+use tokio::io::AsyncBufReadExt;
 
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::unbounded;
+
+use super::music::Song;
+use super::database::Database;
+use super::util::AM;
+use super::util::desync;
 
 pub async fn try_auth(credentials: ClientCredsSpotify) -> Result<ClientCredsSpotify, ()> {
     match credentials.request_token().await {
@@ -156,4 +168,58 @@ impl Stream for SpotifySongStream {
 
         Poll::Pending
     }
+}
+
+pub async fn load_song(
+    item: FullTrack,
+    dlp_path: PathBuf,
+    database: AM<Database>,
+    music_path: PathBuf,
+    thumbnail_path: PathBuf
+) -> Result<Song, ()> {
+
+    let artist = item.artists.iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
+
+    let search = format!("\"ytsearch1:{} {}\"", item.name, artist);
+
+    let process = Command::new(dlp_path)
+        .arg(search)
+        .arg("--print")
+        .arg("\"id\"")
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|_| ())?;
+
+    let stdout = process.stdout.ok_or(())?;
+    let reader = BufReader::new(stdout);
+
+    let id = match reader.lines().next_line().await {
+        Ok(id) => match id {
+            Some(id) => id,
+            None => return Err(())
+        },
+        Err(_) => return Err(())
+    };
+
+    if id.len() != 11 {
+        return Err(());
+    }
+
+    let mut base_song = Song::load(0, id,
+        item.name,
+        artist,
+        Some(item.album.name),
+        item.duration.to_std().unwrap_or(Duration::from_secs(0)),
+        &music_path,
+        &thumbnail_path
+    );
+
+    let (_, id) = match desync(&database).emplace_song_and_record_id(&base_song, true) {
+        Ok(data) => data,
+        Err(_) => return Err(())
+    };
+
+    base_song.id = id;
+    Ok(base_song)
+    
 }

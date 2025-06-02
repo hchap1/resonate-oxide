@@ -20,6 +20,7 @@ use crate::backend::util::AM;
 use crate::backend::util::desync;
 
 use super::widgets::ResonateColour;
+use super::widgets::ResonateStyle;
 
 pub enum SpotifyNotification {
     NotAuthenticated,
@@ -80,45 +81,41 @@ impl Page for ImportPage {
 
         let column = column.push_maybe(
             self.notification.as_ref().map(
-                |n| match n {
+                |n| Container::new(match n {
                     SpotifyNotification::NoIdOrSecret => {
-                        Container::new(
-                            Row::new()
-                                .push(
-                                    text("No ID/SECRET").size(25).color(ResonateColour::red())
-                                        .width(Length::Fill)
-                                ).push(
-                                    Row::new().spacing(20).width(Length::Fill)
-                                        .push(
-                                            ResonateWidget::button_widget(crate::frontend::assets::close())
-                                                .on_press(Message::ClearNotification)
-                                        )
-                                )
-                        )
+                        Row::new()
+                            .push(
+                                text("No ID/SECRET").size(25).color(ResonateColour::red())
+                                    .width(Length::Fill)
+                            ).push(
+                                Row::new().spacing(20).width(Length::Fill)
+                                    .push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::close())
+                                            .on_press(Message::ClearNotification)
+                                    )
+                            )
                     }
                     SpotifyNotification::NotAuthenticated => {
-                        Container::new(
-                            Row::new()
-                                .push(
-                                    text("Not Authenticated").size(25).color(ResonateColour::yellow())
-                                        .width(Length::Fill)
-                                ).push(
-                                    Row::new().spacing(20).width(Length::Fill)
-                                        .push(
-                                            ResonateWidget::button_widget(crate::frontend::assets::refresh())
-                                                .on_press(Message::SpotifyCreds(
-                                                    self.spotify_id.clone(),
-                                                    self.spotify_client.clone()
-                                                )
+                        Row::new()
+                            .push(
+                                text("Not Authenticated").size(25).color(ResonateColour::yellow())
+                                    .width(Length::Fill)
+                            ).push(
+                                Row::new().spacing(20).width(Length::Fill)
+                                    .push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::refresh())
+                                            .on_press(Message::SpotifyCreds(
+                                                self.spotify_id.clone(),
+                                                self.spotify_client.clone()
                                             )
-                                        ).push(
-                                            ResonateWidget::button_widget(crate::frontend::assets::close())
-                                                .on_press(Message::ClearNotification)
                                         )
+                                    ).push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::close())
+                                            .on_press(Message::ClearNotification)
                                     )
                                 )
                     }
-                }
+                }).style(|_| ResonateStyle::list_container()).width(Length::Fill)
             )
         );
 

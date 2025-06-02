@@ -40,9 +40,9 @@ impl ResonateColour {
     pub fn green()          -> Color { Self::hex("#9ccc65") }
 }
 
-struct ResonateStyle;
+pub struct ResonateStyle;
 impl ResonateStyle {
-    fn background_wrapper() -> container::Style {
+    pub fn background_wrapper() -> container::Style {
         container::Style {
             background: Some(iced::Background::Color(ResonateColour::background())),
             border: Border::default(),
@@ -51,7 +51,7 @@ impl ResonateStyle {
         }
     }
 
-    fn list_container() -> container::Style {
+    pub fn list_container() -> container::Style {
         container::Style {
             background: Some(iced::Background::Color(ResonateColour::foreground())),
             border: Border::default().rounded(10),
@@ -60,7 +60,7 @@ impl ResonateStyle {
         }
     }
 
-    fn scrollable_list() -> scrollable::Style {
+    pub fn scrollable_list() -> scrollable::Style {
         scrollable::Style {
             container: ResonateStyle::background_wrapper(),
             vertical_rail: scrollable::Rail {
@@ -83,7 +83,7 @@ impl ResonateStyle {
         }
     }
 
-    fn thumbnail_container() -> container::Style {
+    pub fn thumbnail_container() -> container::Style {
         container::Style {
             text_color: None,
             background: None,//Some(iced::Background::Color(ResonateColour::accent())),
@@ -92,7 +92,7 @@ impl ResonateStyle {
         }
     }
 
-    fn search_bar(status: iced::widget::text_input::Status) -> text_input::Style {
+    pub fn search_bar(status: iced::widget::text_input::Status) -> text_input::Style {
         text_input::Style {
             background: iced::Background::Color(
                 match status {
@@ -109,7 +109,7 @@ impl ResonateStyle {
         }
     }
 
-    fn hightlighted_button_wrapper(status: iced::widget::button::Status) -> button::Style {
+    pub fn hightlighted_button_wrapper(status: iced::widget::button::Status) -> button::Style {
         button::Style {
             background: Some(iced::Background::Color(
                 match status {
@@ -124,7 +124,7 @@ impl ResonateStyle {
         }
     }
 
-    fn button_wrapper(status: iced::widget::button::Status) -> button::Style {
+    pub fn button_wrapper(status: iced::widget::button::Status) -> button::Style {
         button::Style {
             background: Some(iced::Background::Color(
                 match status {
@@ -139,7 +139,7 @@ impl ResonateStyle {
         }
     }
 
-    fn icon_button(status: iced::widget::button::Status) -> button::Style {
+    pub fn icon_button(status: iced::widget::button::Status) -> button::Style {
         button::Style {
             background: Some(iced::Background::Color(
                 match status {
@@ -154,7 +154,7 @@ impl ResonateStyle {
         }
     }
 
-    fn icon_button_with_background(status: iced::widget::button::Status, on: bool) -> button::Style {
+    pub fn icon_button_with_background(status: iced::widget::button::Status, on: bool) -> button::Style {
         button::Style {
             background: Some(iced::Background::Color(
                 match status {
@@ -170,7 +170,7 @@ impl ResonateStyle {
         }
     }
 
-    fn progress_bar() -> progress_bar::Style {
+    pub fn progress_bar() -> progress_bar::Style {
         progress_bar::Style {
             background: Background::Color(ResonateColour::accent()),
             bar: Background::Color(ResonateColour::colour()),

@@ -16,9 +16,9 @@ use crate::backend::music::Playlist;
 
 pub struct Database {
     connection: Connection,
-    parent_directory: PathBuf
 }
 
+#[allow(dead_code)]
 impl Database {
     pub fn new(root_dir: &Path) -> Result<Self, ResonateError> {
         let db = Self {
@@ -26,9 +26,7 @@ impl Database {
             connection: match Connection::open(root_dir.join("data.db")) {
                 Ok(connection) => connection,
                 Err(_) => return Err(ResonateError::DatabaseCreationError)
-            },
-            // Store parent directory for future reference
-            parent_directory: root_dir.to_path_buf()
+            }
         };
 
         // Attempt to create the necessary tables.
@@ -227,7 +225,6 @@ impl Database {
             Playlist {
                 id,
                 name: row.get::<_, String>(1).unwrap(),
-                song_count: 0
             }
         )).unwrap().find(|p| p.is_ok());
         match playlist {
@@ -241,7 +238,6 @@ impl Database {
             Ok(Playlist {
                 id: row.get::<_, usize>(0).unwrap(),
                 name: row.get::<_, String>(1).unwrap(),
-                song_count: 0
             })
         }) {
             Ok(playlists) => playlists.filter_map(|playlist| match playlist {

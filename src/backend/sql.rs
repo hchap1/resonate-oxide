@@ -32,6 +32,7 @@ pub struct Query<'a> {
     connection: &'a Connection
 }
 
+#[allow(dead_code)]
 impl<'a> Query<'a> {
     pub fn new(connection: &'a Connection) -> Self { Self { connection } }
 

@@ -81,7 +81,6 @@ impl Page for PlaylistsPage {
                 let mut playlist: Playlist = Playlist {
                     id: 0,
                     name,
-                    song_count: 0
                 };
 
                 {

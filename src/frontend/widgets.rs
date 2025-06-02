@@ -222,7 +222,7 @@ impl ResonateWidget {
                 if let SearchState::Received(songs) = notify {
                     for song in songs.iter() {
                         column = column.push(
-                            Self::song(song, default_thumbnail, false, None)
+                            Self::song(song, default_thumbnail, false, None, false)
                                 .on_press(Message::AddSongToPlaylist(song.clone(), playlist_id))
                         )
                     }
@@ -483,7 +483,8 @@ impl ResonateWidget {
         song: &'a Song,
         default_thumbnail: &'a Path,
         is_downloading: bool,
-        playlist_id: Option<usize>
+        playlist_id: Option<usize>,
+        show_buttons: bool
     ) -> Button<'a, Message> {
 
         let is_downloaded = song.music_path.is_some();
@@ -517,10 +518,13 @@ impl ResonateWidget {
                 text(song.display_duration()).width(Length::FillPortion(1))
             ).push_maybe(
                 match playlist_id {
-                    Some(playlist_id) => Some(
-                        Self::button_widget(crate::frontend::assets::close())
-                            .on_press(Message::RemoveSongFromPlaylist(song.id, playlist_id))
-                    ),
+                    Some(playlist_id) =>
+                        if show_buttons {
+                            Some(
+                                Self::button_widget(crate::frontend::assets::close())
+                                    .on_press(Message::RemoveSongFromPlaylist(song.id, playlist_id))
+                            )
+                        } else { None }
                     None => None
                 }
             )

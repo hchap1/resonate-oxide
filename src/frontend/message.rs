@@ -7,6 +7,7 @@ use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use crate::backend::music::Song;
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum Message {
     None,                                // Empty message for map task
     LoadPage(PageType, Option<usize>),   // Loads a new page based on the PageType enum

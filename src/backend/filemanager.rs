@@ -5,7 +5,6 @@ use std::fs::read_dir;
 use std::fs::create_dir_all;
 use std::fs::create_dir;
 
-use essi_ffmpeg::FFmpeg;
 use image::Luma;
 use image::ImageBuffer;
 use directories::ProjectDirs;
@@ -138,8 +137,4 @@ pub async fn install_dlp(target: PathBuf) -> Result<PathBuf, ResonateError> {
         Ok(path) => Ok(path),
         Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
     }
-}
-
-pub async fn download_ffmpeg(target: PathBuf) -> Result<PathBuf, ResonateError> {
-    Ok(target)
 }

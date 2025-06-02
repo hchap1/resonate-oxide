@@ -97,7 +97,7 @@ async fn consume_stream(
     let duration = Duration::from_millis(100);
 
     let waker = 'outer: loop {
-        tokio::time::sleep(duration);
+        let _ = tokio::time::sleep(duration);
 
         while let Ok(message) = receiver.try_recv() {
             match message {
@@ -148,7 +148,7 @@ impl Stream for SpotifySongStream {
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<PlaylistItem>> {
         if !self.waker_received {
-            self.sender.send(InterThreadMessage::Waker(context.waker().to_owned()));
+            let _ = self.sender.send(InterThreadMessage::Waker(context.waker().to_owned()));
         }
 
         if self.handle.is_finished() {
@@ -179,7 +179,6 @@ pub async fn load_spotify_song(
 ) -> Result<Song, ()> {
 
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
-
     let search = format!("\"ytsearch1:{} {}\"", item.name, artist);
 
     let process = Command::new(dlp_path)

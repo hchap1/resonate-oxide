@@ -25,7 +25,6 @@ pub struct QueueFramework {
     pub position: usize,
     pub playing: bool,
     pub repeat: bool,
-    pub volume: f32
 }
 
 impl Default for QueueFramework {
@@ -35,7 +34,6 @@ impl Default for QueueFramework {
             position: 0,
             playing: false,
             repeat: false,
-            volume: 1f32
         }
     }
 }
@@ -121,7 +119,6 @@ fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramewo
             position: queue.position,
             playing: !sink.is_paused(),
             repeat: queue.repeat,
-            volume: sink.volume()
         }
     );
 }

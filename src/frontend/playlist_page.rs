@@ -24,7 +24,8 @@ pub struct PlaylistPage {
     songs: Vec<Song>,
     query: String,
     database: AM<Database>,
-    directories: DataDir
+    directories: DataDir,
+    hovered_song: Option<usize>
 }
 
 impl PlaylistPage {
@@ -55,7 +56,8 @@ impl PlaylistPage {
             songs,
             query: String::new(),
             database,
-            directories
+            directories,
+            hovered_song: None
         })
     }
 }
@@ -75,13 +77,22 @@ impl Page for PlaylistPage {
 
         for song in &self.songs {
             let is_downloading = current_song_downloads.contains(&song.yt_id);
-            let widget = ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading, Some(self.playlist.id));
+            let widget = ResonateWidget::song(
+                song,
+                self.directories.get_default_thumbnail(),
+                is_downloading,
+                Some(self.playlist.id),
+                if let Some(id) = self.hovered_song { id == song.id } else { false }
+            );
             column = column.push(
-                if song.music_path.is_none() {
-                    widget.on_press(Message::Download(song.clone()))
-                } else {
-                    widget.on_press(Message::AudioTask(crate::backend::audio::AudioTask::Push(song.clone())))
-                }
+                ResonateWidget::hover_area(
+                    if song.music_path.is_none() {
+                        widget.on_press(Message::Download(song.clone()))
+                    } else {
+                        widget.on_press(Message::AudioTask(crate::backend::audio::AudioTask::Push(song.clone())))
+                    }.into(),
+                    song.id
+                )
             );
         }
 
@@ -132,6 +143,12 @@ impl Page for PlaylistPage {
                     None => {}
                 }
             }
+
+            Message::Hover(id, hover) => {
+                if hover { self.hovered_song = Some(id) }
+                else { self.hovered_song = None; }
+            }
+
             _ => ()
         }.into()
     }

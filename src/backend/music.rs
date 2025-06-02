@@ -116,5 +116,4 @@ impl std::fmt::Display for Song {
 pub struct Playlist {
     pub id: usize,
     pub name: String,
-    pub song_count: usize
 }

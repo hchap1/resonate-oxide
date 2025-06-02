@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::path::Path;
-use std::process::ExitStatus;
 use std::time::Duration;
 
 use image::imageops::FilterType;

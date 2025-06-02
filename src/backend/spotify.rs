@@ -176,31 +176,31 @@ impl Stream for SpotifySongStream {
             println!("[SPOTIFY] Sending WAKER");
         }
 
-        match self.receiver.try_recv() {
-            Ok(message) => match message {
-                InterThreadMessage::Done => {
-                    println!("[SPOTIFY] Polling finished from receiving done.");
-                    return Poll::Ready(None) // done
-                }
-                InterThreadMessage::Result(res) => {
-                    println!("[SPOTIFY] Result!");
-                    return Poll::Ready(Some(res))
+        loop {
+            match self.receiver.try_recv() {
+                Ok(message) => match message {
+                    InterThreadMessage::Done => {
+                        println!("[SPOTIFY] Polling finished from receiving done.");
+                        return Poll::Ready(None) // done
+                    }
+                    InterThreadMessage::Result(res) => {
+                        println!("[SPOTIFY] Result!");
+                        return Poll::Ready(Some(res))
+                    },
+                    InterThreadMessage::WakerReceived => {
+                        println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
+                        self.waker_received = true;
+                    }
+                    _ => {
+                        println!("[SPOTIFY] Received useless message.");
+                    }
                 },
-                InterThreadMessage::WakerReceived => {
-                    println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
-                    self.waker_received = true;
-                    return Poll::Pending;
-                }
+                Err(crossbeam_channel::TryRecvError::Disconnected) => return Poll::Ready(None),
                 _ => {
-                    println!("[SPOTIFY] Received useless message.");
-                    return Poll::Pending;
+                    break;
                 }
-            },
-            Err(crossbeam_channel::TryRecvError::Disconnected) => return Poll::Ready(None),
-            _ => {
-                println!("[SPOTIFY] ----- Channel Empty ----");
-            }
-        };
+            };
+        }
 
         if self.handle.is_finished() {
             println!("[SPOTIFY] Handle is finished, thus ending stream");
@@ -221,7 +221,7 @@ pub async fn load_spotify_song(
 ) -> Result<Song, ()> {
 
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
-    let search = format!("\"ytsearch1:{} {}\"", item.name, artist);
+    let search = format!("ytsearch1:{} {}", item.name, artist);
 
     let process = Command::new(dlp_path)
         .arg(search)

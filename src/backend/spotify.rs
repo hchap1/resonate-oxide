@@ -188,10 +188,12 @@ impl Stream for SpotifySongStream {
                 },
                 InterThreadMessage::WakerReceived => {
                     println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
-                    self.waker_received = true
+                    self.waker_received = true;
+                    return Poll::Pending;
                 }
                 _ => {
                     println!("[SPOTIFY] Received useless message.");
+                    return Poll::Pending;
                 }
             },
             Err(crossbeam_channel::TryRecvError::Disconnected) => return Poll::Ready(None),

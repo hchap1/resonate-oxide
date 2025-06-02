@@ -19,6 +19,7 @@ use crate::backend::audio::QueueFramework;
 use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
 use crate::backend::spotify::try_auth;
+use crate::backend::spotify::load_spotify_song;
 
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
@@ -203,7 +204,8 @@ impl Application<'_> {
                     None => id.clone()
                 };
 
-                let require_thumbnail_download = song.thumbnail_path.is_none() && !self.current_thumbnail_downloads.contains(&search_string);
+                let require_thumbnail_download = song.thumbnail_path.is_none()
+                    && !self.current_thumbnail_downloads.contains(&search_string);
 
                 if let Some(page) = self.page.as_mut() {
                     let _ = page.update(Message::SearchResult(song, from_online));
@@ -356,7 +358,25 @@ impl Application<'_> {
                     None => return Task::none()
                 };
 
-                Task::done(Message::SpotifySongToYoutube(item))
+                Task::done(Message::SpotifySongToYoutube(track))
+            }
+
+            Message::SpotifySongToYoutube(track) => {
+                match self.directories.get_dlp_ref() {
+                    Some(dlp_path) => Task::future(
+                        load_spotify_song(
+                            track,
+                            dlp_path.to_path_buf(),
+                            self.database.clone(),
+                            self.directories.get_music_ref().to_owned(),
+                            self.directories.get_thumbnails_ref().to_owned()
+                        )
+                    ).map(|res| match res {
+                        Ok(song) => Message::SearchResult(song, true),
+                        Err(_) => Message::None
+                    }),
+                    None => Task::none()
+                }
             }
 
             other => match self.page.as_mut() {

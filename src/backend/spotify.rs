@@ -27,6 +27,8 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::unbounded;
 
+use crate::frontend::message::Message;
+
 use super::music::Song;
 use super::database::Database;
 use super::util::AM;
@@ -170,7 +172,7 @@ impl Stream for SpotifySongStream {
     }
 }
 
-pub async fn load_song(
+pub async fn load_spotify_song(
     item: FullTrack,
     dlp_path: PathBuf,
     database: AM<Database>,
@@ -221,5 +223,4 @@ pub async fn load_song(
 
     base_song.id = id;
     Ok(base_song)
-    
 }

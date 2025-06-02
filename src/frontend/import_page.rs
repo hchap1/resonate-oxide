@@ -153,7 +153,11 @@ impl Page for ImportPage {
             },
 
             Message::SpotifyAuthFailed => {
-                self.notification = Some(SpotifyNotification::NotAuthenticated)
+                if self.spotify_id.is_some() && self.spotify_client.is_some() {
+                    self.notification = Some(SpotifyNotification::NotAuthenticated)
+                } else {
+                    self.notification = Some(SpotifyNotification::NoIdOrSecret)
+                }
             }
 
             Message::ClearNotification => {

@@ -200,9 +200,18 @@ impl ResonateWidget {
                     Row::new().spacing(20)
                         .push(
                             match notify {
-                                SearchState::Searching => svg(crate::frontend::assets::yellow_cloud_icon()),
-                                SearchState::SearchFailed => svg(crate::frontend::assets::red_cloud_icon()),
+                                SearchState::Searching => svg(crate::frontend::assets::yellow_cloud_icon())
+                                    .style(|_,_| svg::Style {
+                                        color: Some(ResonateColour::yellow())
+                                    }),
+                                SearchState::SearchFailed => svg(crate::frontend::assets::red_cloud_icon())
+                                    .style(|_,_| svg::Style {
+                                        color: Some(ResonateColour::red())
+                                    }),
                                 SearchState::Received(_) => svg(crate::frontend::assets::green_cloud_icon())
+                                    .style(|_,_| svg::Style {
+                                        color: Some(ResonateColour::green())
+                                    })
                             }.width(32).height(32)
                         ).push(
                             match notify {
@@ -352,13 +361,13 @@ impl ResonateWidget {
 
     pub fn button_widget<'a>(icon: Handle) -> Button<'a, Message> {
         button(
-            svg(icon).width(32).height(32)
+            svg(icon).width(32).height(32).style(|_, _| svg::Style { color: Some(ResonateColour::text()) } )
         ).style(|_,state| ResonateStyle::icon_button(state))
     }
 
     pub fn toggle_button_widget<'a>(icon: Handle, state: bool) -> Button<'a, Message> {
         button(
-            svg(icon).width(32).height(32)
+            svg(icon).width(32).height(32).style(|_, _| svg::Style { color: Some(ResonateColour::text()) } )
         ).style(move |_,status| ResonateStyle::icon_button_with_background(status, state))
     }
 
@@ -503,8 +512,12 @@ impl ResonateWidget {
                     ).push(
                         Row::new().spacing(10).align_y(Vertical::Center)
                             .push(
-                                (if is_downloading { svg(crate::frontend::assets::downloading_icon()) }
-                                else if is_downloaded { svg(crate::frontend::assets::tick_icon()) }
+                                (if is_downloading {
+                                    svg(crate::frontend::assets::downloading_icon())
+                                }
+                                else if is_downloaded {
+                                    svg(crate::frontend::assets::tick_icon())
+                                }
                                 else { svg(crate::frontend::assets::red_cloud_icon()) }).width(Length::Fixed(32f32))
                             )
                             .push(text(&song.artist).width(Length::FillPortion(2)))

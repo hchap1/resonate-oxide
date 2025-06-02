@@ -57,6 +57,9 @@ impl Page for PlaylistsPage {
                 .push(
                     ResonateWidget::inline_button("+ Create Playlist")
                         .on_press(Message::CreatePlaylist)
+                ).push(
+                    ResonateWidget::inline_button("+ Import Spotify Playlist")
+                        .on_press(Message::LoadPage(PageType::ImportSpotify, None))
                 )
                 .into()
         );

@@ -54,5 +54,6 @@ pub enum Message {
 pub enum PageType {
     SearchSongs,
     Playlists,
-    ViewPlaylist
+    ViewPlaylist,
+    ImportSpotify
 }

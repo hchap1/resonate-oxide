@@ -8,6 +8,7 @@ mod widgets;
 mod playlists;
 mod search_page;
 mod playlist_page;
+mod import_page;
 
 // Icons
 mod assets;

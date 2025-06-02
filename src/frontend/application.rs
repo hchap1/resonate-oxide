@@ -25,6 +25,7 @@ use crate::backend::spotify::load_spotify_song;
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::playlists::PlaylistsPage;
 use crate::frontend::playlist_page::PlaylistPage;
+use crate::frontend::import_page::ImportPage;
 
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -398,7 +399,8 @@ impl Application<'_> {
                     Ok(page) => page,
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }
-            )
+            ),
+            PageType::ImportSpotify => Box::new(ImportPage::new(self.directories.clone(), self.database.clone()))
         });
     }
 }

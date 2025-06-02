@@ -19,25 +19,25 @@ const G: u8 = 62;
 const B: u8 = 116;
 
 #[allow(dead_code)]
-struct ResonateColour;
+pub struct ResonateColour;
 impl ResonateColour {
-    fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
-    fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
+    pub fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
+    pub fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
 
-    fn background()     -> Color { Self::hex("#1f2335") }
-    fn foreground()     -> Color { Self::hex("#24283b") }
-    fn accent()         -> Color { Self::hex("#292e42") }
-    fn colour()         -> Color { Self::new(R, G, B) } // { Self::hex("#9d7cd8") }
-    fn lighter_colour() -> Color { Self::new(
+    pub fn background()     -> Color { Self::hex("#1f2335") }
+    pub fn foreground()     -> Color { Self::hex("#24283b") }
+    pub fn accent()         -> Color { Self::hex("#292e42") }
+    pub fn colour()         -> Color { Self::new(R, G, B) } // { Self::hex("#9d7cd8") }
+    pub fn lighter_colour() -> Color { Self::new(
         (R as f32 * 1.1 as f32).round() as u8,
         (G as f32 * 1.1 as f32).round() as u8,
         (B as f32 * 1.1 as f32).round() as u8,
     )} // { Self::hex("#b992ff") }
-    fn text()           -> Color { Self::hex("#c0caf5") }
-    fn darker()         -> Color { Self::hex("#565f89") }
-    fn yellow()         -> Color { Self::hex("#e0cf7e") }
-    fn red()            -> Color { Self::hex("#b26b6a") }
-    fn green()          -> Color { Self::hex("#9ccc65") }
+    pub fn text()           -> Color { Self::hex("#c0caf5") }
+    pub fn darker()         -> Color { Self::hex("#565f89") }
+    pub fn yellow()         -> Color { Self::hex("#e0cf7e") }
+    pub fn red()            -> Color { Self::hex("#b26b6a") }
+    pub fn green()          -> Color { Self::hex("#9ccc65") }
 }
 
 struct ResonateStyle;

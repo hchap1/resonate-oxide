@@ -63,6 +63,8 @@ impl SpotifySongStream {
             thread_sender
         ));
 
+        println!("[SPOTIFY] Stream created");
+
         SpotifySongStream {
             handle,
             sender,
@@ -85,32 +87,48 @@ async fn consume_stream(
     receiver: Receiver<InterThreadMessage>,
     sender: Sender<InterThreadMessage>
 ) -> Result<(), ()> {
-    let playlist_id = match PlaylistId::from_uri(playlist_link.as_str()) {
-        Ok(playlist_id) => match PlaylistId::from_id(playlist_id.id().to_owned()) {
-            Ok(playlist_id) => playlist_id,
-            Err(_) => return Err(())
+    println!("[SPOTIFY] Stream consuming async thread spawned");
+    let playlist_id = match PlaylistId::from_id_or_uri(playlist_link.as_str()) {
+        Ok(playlist_id) => playlist_id,
+        Err(e) => {
+            println!("[SPOTIFY] Failed to parse URI: {e:?}");
+            return Err(())
         }
-        Err(_) => return Err(())
     };
 
-    let mut stream = credentials.playlist_items(playlist_id, None, None);
+    println!("[SPOTIFY] Async thread has valid ID");
+
+    let mut stream = credentials.playlist_items(
+        playlist_id,
+        None,
+        Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
+    );
+
+
     let duration = Duration::from_millis(100);
 
     let waker = 'outer: loop {
+        println!("[SPOTIFY] Async thread polling for waker");
         let _ = tokio::time::sleep(duration);
 
         while let Ok(message) = receiver.try_recv() {
             match message {
                 InterThreadMessage::Done => return Err(()), // shouldnt happen
-                InterThreadMessage::Waker(waker) => break 'outer waker,
+                InterThreadMessage::Waker(waker) => {
+                    println!("[SPOTIFY] Async thread has found waker");
+                    break 'outer waker
+                }
                 _ => continue
             }
         }
     };
 
+    println!("[SPOTIFY] Async thread starting to drain stream");
+
     match sender.send(InterThreadMessage::WakerReceived) {
         Ok(_) => {},
         Err(_) => {
+            println!("[SPOTIFY] Failed to send message confirming waker received");
             waker.wake_by_ref();
             return Err(())
         }
@@ -120,20 +138,25 @@ async fn consume_stream(
         match stream.next().await {
             Some(playlist_item) => match playlist_item {
                 Ok(playlist_item) => match sender.send(InterThreadMessage::Result(playlist_item)) {
-                    Ok(_) => {},
+                    Ok(_) => {
+                        println!("[SPOTIFY] Async thread, pushing a new result.");
+                    },
                     Err(_) => {
+                        println!("[SPOTIFY] Async thread exiting due to failure to send result");
                         waker.wake_by_ref();
                         return Err(())
                     }
                 },
                 Err(_) => {
                     let _ = sender.send(InterThreadMessage::Done);
+                    println!("[SPOTIFY] Async thread exiting because Paginator stream failed to produce item");
                     waker.wake_by_ref();
                     return Err(())
                 }
             }   
             None => {
                 let _ = sender.send(InterThreadMessage::Done);
+                println!("[SPOTIFY] Async thread exiting because Paginator stream failed");
                 waker.wake_by_ref();
                 return Err(())
             }
@@ -147,26 +170,43 @@ impl Stream for SpotifySongStream {
     type Item = PlaylistItem;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<PlaylistItem>> {
+        println!("[SPOTIFY] Polling: Polled");
         if !self.waker_received {
             let _ = self.sender.send(InterThreadMessage::Waker(context.waker().to_owned()));
-        }
-
-        if self.handle.is_finished() {
-            return Poll::Ready(None); // done
+            println!("[SPOTIFY] Sending WAKER");
         }
 
         match self.receiver.try_recv() {
             Ok(message) => match message {
-                InterThreadMessage::Done => return Poll::Ready(None), // done
-                InterThreadMessage::Result(res) => return Poll::Ready(Some(res)),
-                InterThreadMessage::WakerReceived => self.waker_received = true,
-                _ => {}
+                InterThreadMessage::Done => {
+                    println!("[SPOTIFY] Polling finished from receiving done.");
+                    return Poll::Ready(None) // done
+                }
+                InterThreadMessage::Result(res) => {
+                    println!("[SPOTIFY] Result!");
+                    return Poll::Ready(Some(res))
+                },
+                InterThreadMessage::WakerReceived => {
+                    println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
+                    self.waker_received = true
+                }
+                _ => {
+                    println!("[SPOTIFY] Received useless message.");
+                }
             },
             Err(crossbeam_channel::TryRecvError::Disconnected) => return Poll::Ready(None),
-            Err(crossbeam_channel::TryRecvError::Empty) => return Poll::Pending
+            _ => {
+                println!("[SPOTIFY] ----- Channel Empty ----");
+            }
         };
 
-        Poll::Pending
+        if self.handle.is_finished() {
+            println!("[SPOTIFY] Handle is finished, thus ending stream");
+            Poll::Ready(None)
+        } else {
+            println!("[SPOTIFY] Pending");
+            Poll::Pending
+        }
     }
 }
 

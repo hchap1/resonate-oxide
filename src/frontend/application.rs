@@ -63,6 +63,8 @@ pub struct Application<'a> {
     default_queue: QueueFramework,
 
     spotify_credentials: Option<rspotify::ClientCredsSpotify>,
+    spotify_id: Option<String>,
+    spotify_secret: Option<String>
 }
 
 impl<'a> Default for Application<'a> {
@@ -103,7 +105,9 @@ impl Application<'_> {
             current_page: (PageType::Playlists, None),
             default_queue: QueueFramework::default(),
             
-            spotify_credentials: None
+            spotify_credentials: None,
+            spotify_id: None,
+            spotify_secret: None
         }
     }
 
@@ -317,6 +321,8 @@ impl Application<'_> {
 
             Message::SpotifyCreds(id, secret) => {
                 if let (Some(id), Some(secret)) = (id, secret) {
+                    self.spotify_id = Some(id.clone());
+                    self.spotify_secret = Some(secret.clone());
                     Task::future(
                         try_auth(
                             rspotify::ClientCredsSpotify::new(
@@ -332,6 +338,7 @@ impl Application<'_> {
             }
 
             Message::SpotifyAuth(res) => {
+                println!("[SPOTIFY] Authentication received: IS_OK: {}", res.is_ok());
                 match res {
                     Ok(creds) => self.spotify_credentials = Some(creds),
                     Err(_) => eprintln!("[SPOTIFY] Authentication Failed")
@@ -342,11 +349,13 @@ impl Application<'_> {
 
             Message::SpotifyPlaylist(uri) => {
                 if let Some(creds) = self.spotify_credentials.as_ref() {
+                    println!("[SPOTIFY] Received creds, spawning stream");
                     Task::stream(SpotifySongStream::new(uri, creds.clone())).map(
                         |item| Message::SpotifyPlaylistItem(item)
                     )
                 } else {
-                    Task::none()
+                    println!("[SPOTIFY] Authentication failed when trying to make stream");
+                    Task::done(Message::SpotifyAuthFailed)
                 }
             }
 
@@ -400,7 +409,12 @@ impl Application<'_> {
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }
             ),
-            PageType::ImportSpotify => Box::new(ImportPage::new(self.directories.clone(), self.database.clone()))
+            PageType::ImportSpotify => Box::new(ImportPage::new(
+                self.directories.clone(),
+                self.database.clone(),
+                self.spotify_id.clone(),
+                self.spotify_secret.clone()
+            ))
         });
     }
 }

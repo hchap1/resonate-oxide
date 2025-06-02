@@ -38,7 +38,7 @@ impl Page for PlaylistsPage {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
             column = column.push(
-                iced::widget::MouseArea::new(
+                ResonateWidget::hover_area(
                     ResonateWidget::playlist(
                         &value.0,
                         value.1,
@@ -46,11 +46,8 @@ impl Page for PlaylistsPage {
                             Some((playlist, idx)) => if idx == i { Some(playlist) } else { None },
                             None => None
                         }, i
-                    ).on_press(Message::LoadPage(PageType::ViewPlaylist, Some(value.0.id)))
-                ).on_enter(
-                    Message::HoverPlaylist(i, true)
-                ).on_exit(
-                    Message::HoverPlaylist(i, false)
+                    ).on_press(Message::LoadPage(PageType::ViewPlaylist, Some(value.0.id))).into(),
+                    i
                 )
             );
         }
@@ -138,7 +135,7 @@ impl Page for PlaylistsPage {
                 Task::none()
             }
 
-            Message::HoverPlaylist(idx, hover) => {
+            Message::Hover(idx, hover) => {
                 if idx < self.playlists.len() {
                     self.playlists[idx].1 = hover;
                 }

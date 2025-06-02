@@ -46,7 +46,7 @@ pub enum Message {
     SpotifyPlaylistItem(PlaylistItem),
     SpotifySongToYoutube(FullTrack),    // Search youtube to find the id of this song before pushing to stack
 
-    HoverPlaylist(usize, bool),
+    Hover(usize, bool),
 }
 
 #[derive(Clone, Debug)]

@@ -182,6 +182,13 @@ impl ResonateStyle {
 pub struct ResonateWidget;
 impl ResonateWidget {
 
+    pub fn hover_area<'a>(element: Element<'a, Message>, id: usize) -> Element<'a, Message> {
+        iced::widget::MouseArea::new(element)
+            .on_enter(Message::Hover(id, true))
+            .on_exit(Message::Hover(id, false))
+            .into()
+    }
+
     pub fn search_notify<'a>(
         notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize
     ) -> Element<'a, Message> {
@@ -380,7 +387,7 @@ impl ResonateWidget {
     ) -> Button<'a, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(
-                text(&playlist.id).size(15).width(Length::FillPortion(1))
+                text(&playlist.id).size(32).width(Length::FillPortion(1))
             ).push({
                 let element: Element<'_, Message> = match input_field {
                     Some(current_value) => text_input("Name...", current_value)

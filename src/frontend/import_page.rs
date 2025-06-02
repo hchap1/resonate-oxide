@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
+use iced::alignment::Vertical;
 use iced::widget::Column;
 use iced::widget::Container;
 use iced::widget::Row;
 use iced::widget::text;
+use iced::widget::Space;
 use iced::Length;
 use iced::Task;
 
@@ -83,12 +85,15 @@ impl Page for ImportPage {
             self.notification.as_ref().map(
                 |n| Container::new(match n {
                     SpotifyNotification::NoIdOrSecret => {
-                        Row::new()
+                        Row::new().padding(10).align_y(Vertical::Center)
                             .push(
                                 text("No ID/SECRET").size(25).color(ResonateColour::red())
                                     .width(Length::Fill)
                             ).push(
                                 Row::new().spacing(20).width(Length::Fill)
+                                    .push(
+                                        Space::new(Length::Fill, Length::Fixed(32f32))
+                                    )
                                     .push(
                                         ResonateWidget::button_widget(crate::frontend::assets::close())
                                             .on_press(Message::ClearNotification)
@@ -96,12 +101,13 @@ impl Page for ImportPage {
                             )
                     }
                     SpotifyNotification::NotAuthenticated => {
-                        Row::new()
+                        Row::new().padding(10).align_y(Vertical::Center)
                             .push(
                                 text("Not Authenticated").size(25).color(ResonateColour::yellow())
                                     .width(Length::Fill)
                             ).push(
                                 Row::new().spacing(20).width(Length::Fill)
+                                    .push(Space::new(Length::Fill, Length::Fixed(32f32)))
                                     .push(
                                         ResonateWidget::button_widget(crate::frontend::assets::refresh())
                                             .on_press(Message::SpotifyCreds(
@@ -115,7 +121,7 @@ impl Page for ImportPage {
                                     )
                                 )
                     }
-                }).style(|_| ResonateStyle::list_container()).width(Length::Fill)
+                }).style(|_| ResonateStyle::list_container()).width(Length::Fill).align_y(Vertical::Center)
             )
         );
 
@@ -129,7 +135,7 @@ impl Page for ImportPage {
             )
             .push(ResonateWidget::padded_scrollable(column.into()))
             .push(
-                Row::new()
+                Row::new().height(Length::Fixed(32f32)).spacing(20).align_y(Vertical::Center)
                     .push(
                         ResonateWidget::search_bar("Enter share link...", &self.input)
                             .on_paste(Message::TextInput)

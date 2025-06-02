@@ -223,23 +223,23 @@ pub async fn load_spotify_song(
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
     let search = format!("ytsearch1:{} {}", item.name, artist);
 
-    let process = Command::new(dlp_path)
+    // Spawn yt-dlp process
+    let mut process = Command::new(dlp_path)
         .arg(search)
         .arg("--print")
-        .arg("\"id\"")
+        .arg("id") // no quotes!
         .stdout(Stdio::piped())
         .spawn()
         .map_err(|_| ())?;
 
-    let stdout = process.stdout.ok_or(())?;
-    let reader = BufReader::new(stdout);
+    // Access stdout as async reader
+    let stdout = process.stdout.take().ok_or(())?;
+    let mut reader = BufReader::new(stdout).lines();
 
-    let id = match reader.lines().next_line().await {
-        Ok(id) => match id {
-            Some(id) => id,
-            None => return Err(())
-        },
-        Err(_) => return Err(())
+    // Read the first line (video ID)
+    let id = match reader.next_line().await {
+        Ok(Some(line)) => line.trim().to_string(),
+        _ => return Err(()),
     };
 
     if id.len() != 11 {

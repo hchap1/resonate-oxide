@@ -14,7 +14,7 @@ use crate::backend::util::{AM, desync};
 
 pub struct PlaylistsPage {
     database: AM<Database>,
-    playlists: Vec<Playlist>,
+    playlists: Vec<(Playlist, bool)>,
     editing: Option<usize>
 }
 
@@ -23,7 +23,7 @@ impl PlaylistsPage {
         let playlists = {
             let unlocked_database = desync(&database);
             unlocked_database.retrieve_all_playlists()
-        };
+        }.into_iter().map(|playlist| (playlist, false)).collect();
 
         Self {
             database,
@@ -37,12 +37,21 @@ impl Page for PlaylistsPage {
     fn view(&self, _current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
-            column = column.push(ResonateWidget::playlist(value,
-            match self.editing.map(|idx| (self.playlists[idx].name.as_str(), idx)) {
-                Some((playlist, idx)) => if idx == i { Some(playlist) } else { None },
-                None => None
-            }, i)
-                .on_press(Message::LoadPage(PageType::ViewPlaylist, Some(value.id)))
+            column = column.push(
+                iced::widget::MouseArea::new(
+                    ResonateWidget::playlist(
+                        &value.0,
+                        value.1,
+                        match self.editing.map(|idx| (self.playlists[idx].0.name.as_str(), idx)) {
+                            Some((playlist, idx)) => if idx == i { Some(playlist) } else { None },
+                            None => None
+                        }, i
+                    ).on_press(Message::LoadPage(PageType::ViewPlaylist, Some(value.0.id)))
+                ).on_enter(
+                    Message::HoverPlaylist(i, true)
+                ).on_exit(
+                    Message::HoverPlaylist(i, false)
+                )
             );
         }
 
@@ -66,7 +75,7 @@ impl Page for PlaylistsPage {
                 let mut number: usize = 1;
                 let (_, name) = loop {
                     let name = format!("Playlist #{number}");
-                    if !self.playlists.iter().any(|playlist| playlist.name == name) {
+                    if !self.playlists.iter().any(|playlist| playlist.0.name == name) {
                         break (number, name);
                     }
                     number += 1;
@@ -87,7 +96,7 @@ impl Page for PlaylistsPage {
                     playlist.id = id;
                 }
 
-                self.playlists.push(playlist);
+                self.playlists.push((playlist, false));
 
                 Task::none()
             }
@@ -96,7 +105,7 @@ impl Page for PlaylistsPage {
                 match self.editing.as_ref() {
                     Some(playlist_idx) => {
                         match self.playlists.get_mut(*playlist_idx) {
-                            Some(playlist) => playlist.name = text,
+                            Some(playlist) => playlist.0.name = text,
                             None => {}
                         }
                     }
@@ -113,7 +122,7 @@ impl Page for PlaylistsPage {
             Message::StopEditing => {
                 let database = desync(&self.database);
                 match self.editing.take() {
-                    Some(idx) => database.set_playlist_name(self.playlists[idx].id, &self.playlists[idx].name),
+                    Some(idx) => database.set_playlist_name(self.playlists[idx].0.id, &self.playlists[idx].0.name),
                     None => {}
                 };
                 Task::none()
@@ -121,10 +130,17 @@ impl Page for PlaylistsPage {
 
             Message::DeletePlaylist(id) => {
                 if let Some(idx) = self.playlists.iter().enumerate().find_map(|p|
-                    if p.1.id == id { Some(p.0) }
+                    if p.1.0.id == id { Some(p.0) }
                     else { None }
                 ) {
                     self.playlists.remove(idx);
+                }
+                Task::none()
+            }
+
+            Message::HoverPlaylist(idx, hover) => {
+                if idx < self.playlists.len() {
+                    self.playlists[idx].1 = hover;
                 }
                 Task::none()
             }

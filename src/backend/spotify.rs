@@ -27,8 +27,6 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::unbounded;
 
-use crate::frontend::message::Message;
-
 use super::music::Song;
 use super::database::Database;
 use super::util::AM;
@@ -180,7 +178,7 @@ pub async fn load_spotify_song(
     thumbnail_path: PathBuf
 ) -> Result<Song, ()> {
 
-    let artist = item.artists.iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
+    let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
 
     let search = format!("\"ytsearch1:{} {}\"", item.name, artist);
 

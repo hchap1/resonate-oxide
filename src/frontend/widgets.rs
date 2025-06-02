@@ -372,7 +372,12 @@ impl ResonateWidget {
         text_input(default, current).style(|_, status| ResonateStyle::search_bar(status))
     }
 
-    pub fn playlist<'a>(playlist: &'a Playlist, input_field: Option<&'a str>, idx: usize) -> Button<'a, Message> {
+    pub fn playlist<'a>(
+        playlist: &'a Playlist,
+        hovered: bool,
+        input_field: Option<&'a str>,
+        idx: usize
+    ) -> Button<'a, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(
                 text(&playlist.id).size(15).width(Length::FillPortion(1))
@@ -395,21 +400,22 @@ impl ResonateWidget {
                     None => text(&playlist.name).size(20).color(ResonateColour::text()).width(Length::FillPortion(15)).into()
                 };
                 element}
-            ).push(
-                Self::button_widget(crate::frontend::assets::edit_icon())
-                    .on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))
-            ).push(
-                Self::button_widget(crate::frontend::assets::play()).on_press(Message::LoadEntirePlaylist(
-                    playlist.id, false
-                ))
-            ).push(
-                Self::button_widget(crate::frontend::assets::shuffle()).on_press(Message::LoadEntirePlaylist(
-                    playlist.id, true
-                ))
-            ).push(
-                Self::button_widget(crate::frontend::assets::close()).on_press(Message::DeletePlaylist(
-                    playlist.id
-                ))
+            ).push_maybe(
+                if hovered { Some(Self::button_widget(crate::frontend::assets::edit_icon())
+                    .on_press(Message::StartEditing(idx)).style(|_,state| ResonateStyle::icon_button(state))) }
+                else { None }
+            ).push_maybe(
+                if hovered { Some(Self::button_widget(crate::frontend::assets::play())
+                    .on_press(Message::LoadEntirePlaylist(playlist.id, false))) }
+                else { None }
+            ).push_maybe(
+                if hovered { Some(Self::button_widget(crate::frontend::assets::shuffle())
+                    .on_press(Message::LoadEntirePlaylist(playlist.id, true))) }
+                else { None }
+            ).push_maybe(
+                if hovered { Some(Self::button_widget(crate::frontend::assets::close())
+                    .on_press(Message::DeletePlaylist(playlist.id))) }
+                else { None }
             )
         ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
     }

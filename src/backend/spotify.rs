@@ -11,7 +11,6 @@ use std::task::Waker;
 use iced::futures::Stream;
 use iced::futures::StreamExt;
 use rspotify::model::FullTrack;
-use rspotify::model::Id;
 use rspotify::model::PlaylistId;
 use rspotify::model::PlaylistItem;
 use rspotify::clients::BaseClient;
@@ -78,7 +77,8 @@ enum InterThreadMessage {
     Done,
     Result(PlaylistItem),
     Waker(Waker),
-    WakerReceived
+    WakerReceived,
+    PlaylistName(String)
 }
 
 async fn consume_stream(
@@ -99,7 +99,7 @@ async fn consume_stream(
     println!("[SPOTIFY] Async thread has valid ID");
 
     let mut stream = credentials.playlist_items(
-        playlist_id,
+        playlist_id.clone(),
         None,
         Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
     );
@@ -134,6 +134,19 @@ async fn consume_stream(
         }
     }
 
+    let playlist = credentials.playlist(
+        playlist_id,
+        None,
+        Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
+    ).await;
+
+    match playlist {
+        Ok(playlist) => {
+            let _ = sender.send(InterThreadMessage::PlaylistName(playlist.name));
+        },
+        Err(_) => {}
+    }
+
     loop {
         match stream.next().await {
             Some(playlist_item) => match playlist_item {
@@ -166,10 +179,15 @@ async fn consume_stream(
     }
 }
 
-impl Stream for SpotifySongStream {
-    type Item = PlaylistItem;
+pub enum SpotifyEmmision {
+    PlaylistItem(PlaylistItem),
+    PlaylistName(String)
+}
 
-    fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<PlaylistItem>> {
+impl Stream for SpotifySongStream {
+    type Item = SpotifyEmmision;
+
+    fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<SpotifyEmmision>> {
         println!("[SPOTIFY] Polling: Polled");
         if !self.waker_received {
             let _ = self.sender.send(InterThreadMessage::Waker(context.waker().to_owned()));
@@ -185,11 +203,14 @@ impl Stream for SpotifySongStream {
                     }
                     InterThreadMessage::Result(res) => {
                         println!("[SPOTIFY] Result!");
-                        return Poll::Ready(Some(res))
+                        return Poll::Ready(Some(SpotifyEmmision::PlaylistItem(res)))
                     },
                     InterThreadMessage::WakerReceived => {
                         println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
                         self.waker_received = true;
+                    }
+                    InterThreadMessage::PlaylistName(name) => {
+                        return Poll::Ready(Some(SpotifyEmmision::PlaylistName(name)))
                     }
                     _ => {
                         println!("[SPOTIFY] Received useless message.");
@@ -223,20 +244,17 @@ pub async fn load_spotify_song(
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
     let search = format!("ytsearch1:{} {}", item.name, artist);
 
-    // Spawn yt-dlp process
     let mut process = Command::new(dlp_path)
         .arg(search)
         .arg("--print")
-        .arg("id") // no quotes!
+        .arg("id")
         .stdout(Stdio::piped())
         .spawn()
         .map_err(|_| ())?;
 
-    // Access stdout as async reader
     let stdout = process.stdout.take().ok_or(())?;
     let mut reader = BufReader::new(stdout).lines();
 
-    // Read the first line (video ID)
     let id = match reader.next_line().await {
         Ok(Some(line)) => line.trim().to_string(),
         _ => return Err(()),

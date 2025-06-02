@@ -4,10 +4,10 @@ use iced::widget::Column;
 use iced::widget::Container;
 use iced::widget::Row;
 use iced::widget::text;
-use iced::Color;
 use iced::Length;
 use iced::Task;
 
+use crate::backend::music::Playlist;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -17,6 +17,7 @@ use crate::backend::music::Song;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::util::AM;
+use crate::backend::util::desync;
 
 use super::widgets::ResonateColour;
 
@@ -33,7 +34,9 @@ pub struct ImportPage {
     notification: Option<SpotifyNotification>,
 
     spotify_id: Option<String>,
-    spotify_client: Option<String>
+    spotify_client: Option<String>,
+    
+    playlist_name: Option<String>
 }
 
 impl ImportPage {
@@ -50,7 +53,8 @@ impl ImportPage {
             input: String::new(),
             notification: None,
             spotify_id,
-            spotify_client
+            spotify_client,
+            playlist_name: None
         }
     }
 }
@@ -119,13 +123,26 @@ impl Page for ImportPage {
         );
 
         Column::new().spacing(20)
-            .push(ResonateWidget::header("Import Spotify Playlist"))
+            .push(ResonateWidget::header("Spotify Playlist Import"))
+            .push_maybe(
+                match self.playlist_name.as_ref() {
+                    Some(name) => Some(ResonateWidget::header(&name)),
+                    None => None
+                }
+            )
             .push(ResonateWidget::padded_scrollable(column.into()))
             .push(
-                ResonateWidget::search_bar("Enter share link...", &self.input)
-                    .on_paste(Message::TextInput)
-                    .on_input(Message::TextInput)
-                    .on_submit(Message::SpotifyPlaylist(self.input.clone()))
+                Row::new()
+                    .push(
+                        ResonateWidget::search_bar("Enter share link...", &self.input)
+                            .on_paste(Message::TextInput)
+                            .on_input(Message::TextInput)
+                            .on_submit(Message::SpotifyPlaylist(self.input.clone()))
+                            .width(Length::Fill)
+                    ).push(
+                        ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                            .on_press(Message::SavePlaylist)
+                    )
             )
     }
 
@@ -144,6 +161,32 @@ impl Page for ImportPage {
             }
 
             Message::TextInput(new_val) => self.input = new_val,
+            Message::SpotifyPlaylistName(name) => {
+                self.playlist_name = Some(name);
+            }
+
+            Message::SavePlaylist => {
+                let playlist_name = match self.playlist_name.as_ref() {
+                    Some(name) => name.clone(),
+                    None => return Task::none()
+                };
+
+                let mut playlist = Playlist {
+                    id: 0,
+                    name: playlist_name
+                };
+
+                let id = match desync(&self.database).emplace_playlist_and_record_id(&playlist) {
+                    Ok(id) => id,
+                    Err(_) => return Task::none()
+                };
+
+                playlist.id = id;
+
+                for song in self.songs.iter() {
+                    let _ = desync(&self.database).add_song_to_playlist(song.id, playlist.id);
+                }
+            }
 
             _ => {}
         }

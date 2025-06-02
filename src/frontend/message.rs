@@ -48,6 +48,8 @@ pub enum Message {
     SpotifySongToYoutube(FullTrack),    // Search youtube to find the id of this song before pushing to stack
     SpotifyAuthFailed,
     ClearNotification,
+    SavePlaylist,
+    SpotifyPlaylistName(String),
 
     Hover(usize, bool),
 }

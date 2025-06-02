@@ -20,6 +20,7 @@ use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
 use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
+use crate::backend::spotify::SpotifyEmmision;
 
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
@@ -351,7 +352,10 @@ impl Application<'_> {
                 if let Some(creds) = self.spotify_credentials.as_ref() {
                     println!("[SPOTIFY] Received creds, spawning stream");
                     Task::stream(SpotifySongStream::new(uri, creds.clone())).map(
-                        |item| Message::SpotifyPlaylistItem(item)
+                        |item| match item {
+                            SpotifyEmmision::PlaylistItem(item) => Message::SpotifyPlaylistItem(item),
+                            SpotifyEmmision::PlaylistName(name) => Message::SpotifyPlaylistName(name)
+                        }
                     )
                 } else {
                     println!("[SPOTIFY] Authentication failed when trying to make stream");

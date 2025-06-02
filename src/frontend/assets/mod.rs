@@ -26,3 +26,4 @@ svg!(refresh, "icons/refresh.svg");
 
 svg!(back, "icons/back.svg");
 svg!(close, "icons/delete.svg");
+svg!(save_icon, "icons/save.svg");

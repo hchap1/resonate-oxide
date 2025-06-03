@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use iced::alignment::Vertical;
 use iced::widget::Column;
+use iced::widget::Container;
 use iced::widget::Row;
+use iced::widget::text;
 use iced::Length;
 use iced::Task;
 
@@ -18,6 +20,9 @@ use crate::backend::database::Database;
 use crate::backend::util::AM;
 use crate::backend::util::desync;
 use crate::backend::util::consume;
+
+use super::widgets::ResonateColour;
+use super::widgets::ResonateStyle;
 
 pub struct PlaylistPage {
     playlist: Playlist,
@@ -125,6 +130,31 @@ impl Page for PlaylistPage {
             Column::new().spacing(20)
                 .push(Row::new()
                     .push(ResonateWidget::header(&self.playlist.name)))
+                .push_maybe(
+                    if self.downloaded < self.total_songs {Some(
+                        Container::new(Row::new().spacing(20).align_y(Vertical::Center)
+                            .push(
+                                text(
+                                    format!("{} / {} downloaded", self.downloaded, self.total_songs)
+                                ).color(ResonateColour::text()).size(32).width(Length::Fill)
+                            ).push(
+                                ResonateWidget::coloured_icon_button(
+                                    crate::frontend::assets::downloading_icon(),
+                                    ResonateColour::text()
+                                ).on_press(Message::DownloadAll(
+                                    self.songs
+                                        .iter()
+                                        .filter_map(
+                                            |song| if song.music_path.is_some() { None } else { Some(song.clone()) }
+                                        )
+                                        .collect::<Vec<Song>>()
+                                ))
+                            )
+                        ).style(|_| ResonateStyle::list_container()).width(Length::Fill)
+                    )} else {
+                        None
+                    }
+                )
                 .push(view_window)
                 .push(search_bar)
     }
@@ -148,15 +178,11 @@ impl Page for PlaylistPage {
             Message::SongDownloaded(song) => {
                 for s in &mut self.songs {
                     if s.id == song.id {
-                        let was_downloaded = song.music_path.is_some();
                         s.load_paths(
                             self.directories.get_music_ref(),
                             self.directories.get_thumbnails_ref()
                         );
-                        let is_downloaded = song.music_path.is_some();
-                        if !was_downloaded && is_downloaded {
-                            self.downloaded += 1;
-                        }
+                        self.downloaded += 1;
                     }
                 }
             }

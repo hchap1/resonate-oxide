@@ -373,6 +373,10 @@ impl ResonateWidget {
         ).style(|_,state| ResonateStyle::icon_button(state))
     }
 
+    pub fn coloured_icon_button<'a>(icon: Handle, colour: Color) -> Button<'a, Message> {
+        button(Self::svg(icon, colour)).width(32).height(32).style(|_, status| ResonateStyle::icon_button(status))
+    }
+
     pub fn toggle_button_widget<'a>(icon: Handle, state: bool) -> Button<'a, Message> {
         button(
             svg(icon).width(32).height(32).style(|_, _| svg::Style { color: Some(ResonateColour::text()) } )

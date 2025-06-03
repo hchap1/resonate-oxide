@@ -423,6 +423,18 @@ impl Application<'_> {
                 }
             }
 
+            Message::DownloadAll(mut songs) => {
+                if songs.len() == 0 { return Task::none(); }
+                let mut task = Task::done(Message::Download(songs.remove(0)));
+                songs.reverse();
+
+                while let Some(song) = songs.pop() {
+                    task = task.chain(Task::done(Message::Download(song)));
+                }
+
+                task
+            }
+
             other => match self.page.as_mut() {
                 Some(page) => page.update(other),
                 None => Task::none()

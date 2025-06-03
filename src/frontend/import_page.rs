@@ -189,13 +189,12 @@ impl Page for ImportPage {
             )
             .push(ResonateWidget::padded_scrollable(column.into()))
             .push(
-                Row::new().height(Length::Fixed(32f32)).spacing(20).align_y(Vertical::Center)
+                Row::new().spacing(20).align_y(Vertical::Center)
                     .push(
                         ResonateWidget::search_bar("Enter share link...", &self.input)
                             .on_paste(Message::TextInput)
                             .on_input(Message::TextInput)
                             .on_submit(Message::SpotifyPlaylist(self.input.clone()))
-                            .width(Length::Fill)
                     ).push_maybe(
                         if self.saved {
                             None
@@ -239,7 +238,10 @@ impl Page for ImportPage {
                 self.notification = None;
             }
 
-            Message::TextInput(new_val) => self.input = new_val,
+            Message::TextInput(new_val) => {
+                self.input = new_val
+            }
+
             Message::SpotifyPlaylistName(name, size) => {
                 self.playlist_name = Some(name);
                 self.playlist_size = Some(size);

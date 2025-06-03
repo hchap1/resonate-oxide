@@ -2,10 +2,11 @@ use std::path::Path;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
+use iced::widget::text::LineHeight;
 use iced::widget::{button, progress_bar, slider, text_input, Button, Slider};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
-use iced::{Background, Border, Color, Element, Length, Shadow};
+use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
 
 use crate::frontend::message::Message;
 use crate::backend::music::{Playlist, Song};
@@ -397,7 +398,10 @@ impl ResonateWidget {
     }
 
     pub fn search_bar<'a>(default: &str, current: &str) -> TextInput<'a, Message> {
-        text_input(default, current).style(|_, status| ResonateStyle::search_bar(status))
+        text_input(default, current)
+            .style(|_, status| ResonateStyle::search_bar(status))
+            .line_height(LineHeight::Absolute(Pixels::from(32)))
+            .size(32)
     }
 
     pub fn playlist<'a>(
@@ -559,7 +563,7 @@ impl ResonateWidget {
                     None => None
                 }
             )
-        ).padding(20).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
+        ).padding(10).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
     pub fn padded_scrollable<'a>(element: Element<'a, Message>) -> Scrollable<'a, Message> {
@@ -573,6 +577,6 @@ impl ResonateWidget {
     }
 
     pub fn window<'a>(element: Element<'a, Message>) -> Element<'a, Message> {
-        Container::new(element).padding(20).width(Length::Fill).height(Length::Fill).style(|_| ResonateStyle::background_wrapper()).into()
+        Container::new(element).padding(10).width(Length::Fill).height(Length::Fill).style(|_| ResonateStyle::background_wrapper()).into()
     }
 }

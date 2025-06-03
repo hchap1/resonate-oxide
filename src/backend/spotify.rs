@@ -42,7 +42,11 @@ pub struct SpotifySongStream {
     handle: JoinHandle<Result<(), ()>>,
     sender: Sender<InterThreadMessage>,
     receiver: Receiver<InterThreadMessage>,
-    waker_received: bool
+    waker_received: bool,
+
+    result_count: usize,
+    playlist_name: String,
+    has_streamed_result_count: bool
 }
 
 impl SpotifySongStream {
@@ -68,7 +72,10 @@ impl SpotifySongStream {
             handle,
             sender,
             receiver,
-            waker_received: false
+            waker_received: false,
+            result_count: 0,
+            playlist_name: String::new(),
+            has_streamed_result_count: false
         }
     }
 }
@@ -204,10 +211,18 @@ impl Stream for SpotifySongStream {
                 Ok(message) => match message {
                     InterThreadMessage::Done => {
                         println!("[SPOTIFY] Polling finished from receiving done.");
-                        return Poll::Ready(None) // done
+                        if self.has_streamed_result_count {
+                            return Poll::Ready(None) // done
+                        } else {
+                            self.has_streamed_result_count = true;
+                            return Poll::Ready(Some(SpotifyEmmision::PlaylistName(
+                                self.playlist_name.clone(), self.result_count
+                            )));
+                        }
                     }
                     InterThreadMessage::Result(res) => {
                         println!("[SPOTIFY] Result!");
+                        self.result_count += 1;
                         return Poll::Ready(Some(SpotifyEmmision::PlaylistItem(res)))
                     },
                     InterThreadMessage::WakerReceived => {
@@ -215,6 +230,7 @@ impl Stream for SpotifySongStream {
                         self.waker_received = true;
                     }
                     InterThreadMessage::PlaylistName(name, size) => {
+                        self.playlist_name = name.clone();
                         return Poll::Ready(Some(SpotifyEmmision::PlaylistName(name, size)))
                     }
                     InterThreadMessage::InvalidID => {

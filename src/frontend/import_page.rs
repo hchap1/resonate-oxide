@@ -217,7 +217,14 @@ impl Page for ImportPage {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::SearchResult(song, _) => {
-                self.songs.push(song)
+                self.songs.push(song);
+                self.notification = Some(SpotifyNotification::Waiting(self.songs.len()));
+                
+                if let Some(size) = self.playlist_size {
+                    if size == self.songs.len() {
+                        self.notification = Some(SpotifyNotification::Finished)
+                    }
+                }
             },
 
             Message::SpotifyAuthFailed => {

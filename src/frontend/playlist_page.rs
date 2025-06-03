@@ -132,7 +132,7 @@ impl Page for PlaylistPage {
                     .push(ResonateWidget::header(&self.playlist.name)))
                 .push_maybe(
                     if self.downloaded < self.total_songs {Some(
-                        Container::new(Row::new().spacing(20).align_y(Vertical::Center)
+                        Container::new(Row::new().spacing(20).padding(10).align_y(Vertical::Center)
                             .push(
                                 text(
                                     format!("{} / {} downloaded", self.downloaded, self.total_songs)
@@ -202,6 +202,13 @@ impl Page for PlaylistPage {
             Message::Hover(id, hover) => {
                 if hover { self.hovered_song = Some(id) }
                 else { self.hovered_song = None; }
+            }
+
+            Message::UpdateThumbnails => {
+                self.songs.iter_mut()
+                    .for_each(|song|
+                        song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref())
+                    );
             }
 
             _ => ()

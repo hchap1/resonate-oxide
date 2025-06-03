@@ -283,6 +283,13 @@ impl Page for ImportPage {
                 }
             }
 
+            Message::UpdateThumbnails => {
+                self.songs.iter_mut()
+                    .for_each(|song|
+                        song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref())
+                    );
+            }
+
             _ => {}
         }
         Task::none()

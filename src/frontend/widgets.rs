@@ -2,7 +2,7 @@ use std::path::Path;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
-use iced::widget::{button, progress_bar, slider, text_input, Button, Slider, Svg};
+use iced::widget::{button, progress_bar, slider, text_input, Button, Slider};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Shadow};

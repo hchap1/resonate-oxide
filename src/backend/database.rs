@@ -269,6 +269,22 @@ impl Database {
                 ).collect()
         )
     }
+
+    pub fn get_downloaded_info(
+        &self, playlist_id: usize, music_path: &Path, thumbnail_path: &Path
+    ) -> Option<(usize, usize)> {
+        let songs = match self.search_playlist(playlist_id, String::new(), music_path, thumbnail_path) {
+            Ok(songs) => songs,
+            Err(_) => return None
+        };
+
+        let downloaded = songs
+            .iter()
+            .map(|song| if song.music_path.is_some() { 1usize } else { 0usize })
+            .sum();
+
+        Some((downloaded, songs.len()))
+    }
 }
 
 pub fn search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String, waker: AM<Option<Waker>>) ->  Vec<Song> {

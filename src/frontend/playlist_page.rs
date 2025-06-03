@@ -25,7 +25,10 @@ pub struct PlaylistPage {
     query: String,
     database: AM<Database>,
     directories: DataDir,
-    hovered_song: Option<usize>
+    hovered_song: Option<usize>,
+    
+    total_songs: usize,
+    downloaded: usize
 }
 
 impl PlaylistPage {
@@ -51,13 +54,24 @@ impl PlaylistPage {
             _ => return Err(())
         };
 
+        let (downloaded, _) = match desync(&database).get_downloaded_info(
+            playlist.id, directories.get_music_ref(), directories.get_thumbnails_ref()
+        ) {
+            Some(n) => n,
+            None => (0, 0)
+        };
+
+        let total_songs = songs.len();
+
         Ok(PlaylistPage {
             playlist,
             songs,
             query: String::new(),
             database,
             directories,
-            hovered_song: None
+            hovered_song: None,
+            total_songs,
+            downloaded
         })
     }
 }
@@ -134,10 +148,15 @@ impl Page for PlaylistPage {
             Message::SongDownloaded(song) => {
                 for s in &mut self.songs {
                     if s.id == song.id {
+                        let was_downloaded = song.music_path.is_some();
                         s.load_paths(
                             self.directories.get_music_ref(),
                             self.directories.get_thumbnails_ref()
-                        )
+                        );
+                        let is_downloaded = song.music_path.is_some();
+                        if !was_downloaded && is_downloaded {
+                            self.downloaded += 1;
+                        }
                     }
                 }
             }

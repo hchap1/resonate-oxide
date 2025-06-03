@@ -1,8 +1,8 @@
 pub mod application;
 pub mod message;
+pub mod widgets;
 
 mod backend_interface;
-mod widgets;
 
 // Pages
 mod playlists;

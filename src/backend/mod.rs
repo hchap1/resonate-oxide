@@ -6,4 +6,5 @@ pub mod database;
 pub mod util;
 pub mod audio;
 pub mod spotify;
+pub mod settings;
 mod sql;

@@ -78,7 +78,8 @@ enum InterThreadMessage {
     Result(PlaylistItem),
     Waker(Waker),
     WakerReceived,
-    PlaylistName(String)
+    PlaylistName(String),
+    InvalidID
 }
 
 async fn consume_stream(
@@ -87,25 +88,8 @@ async fn consume_stream(
     receiver: Receiver<InterThreadMessage>,
     sender: Sender<InterThreadMessage>
 ) -> Result<(), ()> {
-    println!("[SPOTIFY] Stream consuming async thread spawned");
-    let playlist_id = match PlaylistId::from_id_or_uri(playlist_link.as_str()) {
-        Ok(playlist_id) => playlist_id,
-        Err(e) => {
-            println!("[SPOTIFY] Failed to parse URI: {e:?}");
-            return Err(())
-        }
-    };
-
-    println!("[SPOTIFY] Async thread has valid ID");
-
-    let mut stream = credentials.playlist_items(
-        playlist_id.clone(),
-        None,
-        Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
-    );
-
-
     let duration = Duration::from_millis(100);
+    println!("[SPOTIFY] Stream consuming async thread spawned");
 
     let waker = 'outer: loop {
         println!("[SPOTIFY] Async thread polling for waker");
@@ -122,6 +106,26 @@ async fn consume_stream(
             }
         }
     };
+
+    let playlist_id = match PlaylistId::from_id_or_uri(playlist_link.as_str()) {
+        Ok(playlist_id) => playlist_id,
+        Err(e) => {
+            println!("[SPOTIFY] Failed to parse ID: {e:?}");
+            let _ = sender.send(InterThreadMessage::InvalidID);
+            waker.wake_by_ref();
+            return Err(())
+        }
+    };
+
+    println!("[SPOTIFY] Async thread has valid ID");
+
+    let mut stream = credentials.playlist_items(
+        playlist_id.clone(),
+        None,
+        Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
+    );
+
+
 
     println!("[SPOTIFY] Async thread starting to drain stream");
 
@@ -181,7 +185,8 @@ async fn consume_stream(
 
 pub enum SpotifyEmmision {
     PlaylistItem(PlaylistItem),
-    PlaylistName(String)
+    PlaylistName(String),
+    PlaylistIDFailure
 }
 
 impl Stream for SpotifySongStream {
@@ -211,6 +216,9 @@ impl Stream for SpotifySongStream {
                     }
                     InterThreadMessage::PlaylistName(name) => {
                         return Poll::Ready(Some(SpotifyEmmision::PlaylistName(name)))
+                    }
+                    InterThreadMessage::InvalidID => {
+                        return Poll::Ready(Some(SpotifyEmmision::PlaylistIDFailure))
                     }
                     _ => {
                         println!("[SPOTIFY] Received useless message.");

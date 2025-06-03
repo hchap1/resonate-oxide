@@ -26,7 +26,8 @@ use super::widgets::ResonateStyle;
 
 pub enum SpotifyNotification {
     NotAuthenticated,
-    NoIdOrSecret
+    NoIdOrSecret,
+    InvalidID
 }
 
 pub struct ImportPage {
@@ -121,6 +122,19 @@ impl Page for ImportPage {
                                     )
                                 )
                     }
+                    SpotifyNotification::InvalidID => {
+                        Row::new().padding(10).align_y(Vertical::Center)
+                            .push(
+                                text("Not Authenticated").size(25).color(ResonateColour::red())
+                            ).push(
+                                Row::new().spacing(20).width(Length::Fill)
+                                    .push(Space::new(Length::Fill, Length::Fixed(32f32)))
+                                    .push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::close())
+                                            .on_press(Message::ClearNotification)
+                                    )
+                            )
+                    }
                 }).style(|_| ResonateStyle::list_container()).width(Length::Fill).align_y(Vertical::Center)
             )
         );
@@ -170,6 +184,10 @@ impl Page for ImportPage {
             Message::TextInput(new_val) => self.input = new_val,
             Message::SpotifyPlaylistName(name) => {
                 self.playlist_name = Some(name);
+            }
+
+            Message::SpotifyInvalidID => {
+                self.notification = Some(SpotifyNotification::InvalidID);
             }
 
             Message::SavePlaylist => {

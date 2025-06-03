@@ -64,16 +64,20 @@ impl ImportPage {
 }
 
 impl Page for ImportPage {
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
+    fn view(&self, current_song_downloads: &HashSet<String>, download_queue: &HashSet<Song>) -> Column<'_, Message> {
 
         let mut column = Column::new().spacing(20);
 
         for song in &self.songs {
+
             let is_downloading = current_song_downloads.contains(&song.yt_id);
+            let is_queued = download_queue.contains(&song);
+
             let widget = ResonateWidget::song(
                 song,
                 self.directories.get_default_thumbnail(),
                 is_downloading,
+                is_queued,
                 None,
                 false
             );

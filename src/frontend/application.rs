@@ -380,6 +380,11 @@ impl Application<'_> {
 
             Message::SpotifyPlaylist(uri) => {
 
+                if let Some(page) = self.page.as_mut() {
+                    // Let the page know the search has been received
+                    let _ = page.update(Message::SpotifyPlaylist(String::new()));
+                }
+
                 let id = if uri.len() != 11 {
                     match crate::backend::spotify::extract_spotify_playlist_id(uri.clone()) {
                         Some(id) => id,

@@ -226,6 +226,12 @@ impl Page for ImportPage {
                 }
             },
 
+            Message::SpotifyPlaylist(_) => {
+                self.input.clear();
+                self.songs.clear();
+                self.saved = false;
+            }
+
             Message::SpotifyAuthFailed => {
                 if self.spotify_id.is_some() && self.spotify_client.is_some() {
                     self.notification = Some(SpotifyNotification::NotAuthenticated)
@@ -252,6 +258,9 @@ impl Page for ImportPage {
             }
 
             Message::SavePlaylist => {
+
+                self.saved = true;
+
                 let playlist_name = match self.playlist_name.as_ref() {
                     Some(name) => name.clone(),
                     None => return Task::none()

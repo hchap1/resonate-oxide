@@ -8,7 +8,7 @@ use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
 use crate::frontend::message::PageType;
 
-use crate::backend::music::Playlist;
+use crate::backend::music::{Playlist, Song};
 use crate::backend::database::Database;
 use crate::backend::util::{AM, desync};
 
@@ -34,7 +34,7 @@ impl PlaylistsPage {
 }
 
 impl Page for PlaylistsPage {
-    fn view(&self, _current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
+    fn view(&self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>) -> Column<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
             column = column.push(

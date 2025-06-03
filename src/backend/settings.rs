@@ -1,4 +1,5 @@
-use std::default::Default
+#![allow(dead_code)]
+use std::default::Default;
 use std::path::Path;
 use std::fs::read_to_string;
 
@@ -7,8 +8,8 @@ use iced::Color;
 use crate::frontend::widgets::ResonateColour;
 
 pub struct Settings {
-    colour: Color,
-    max_download_concurrency: usize
+    pub colour: Color,
+    pub max_download_concurrency: usize
 }
 
 enum Setting {

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
-use iced::widget::{button, progress_bar, slider, text_input, Button, Slider};
+use iced::widget::{button, progress_bar, slider, text_input, Button, Slider, Svg};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Shadow};
@@ -182,6 +182,14 @@ impl ResonateStyle {
 pub struct ResonateWidget;
 impl ResonateWidget {
 
+    pub fn svg<'a>(handle: Handle, colour: Color) -> Element<'a, Message> {
+        svg(handle)
+            .style(move |_,_| svg::Style { color: Some(colour) })
+            .width(Length::Fixed(32f32))
+            .height(Length::Fixed(32f32))
+            .into()
+    }
+
     pub fn hover_area<'a>(element: Element<'a, Message>, id: usize) -> Element<'a, Message> {
         iced::widget::MouseArea::new(element)
             .on_enter(Message::Hover(id, true))
@@ -231,7 +239,7 @@ impl ResonateWidget {
                 if let SearchState::Received(songs) = notify {
                     for song in songs.iter() {
                         column = column.push(
-                            Self::song(song, default_thumbnail, false, None, false)
+                            Self::song(song, default_thumbnail, false, false, None, false)
                                 .on_press(Message::AddSongToPlaylist(song.clone(), playlist_id))
                         )
                     }
@@ -492,6 +500,7 @@ impl ResonateWidget {
         song: &'a Song,
         default_thumbnail: &'a Path,
         is_downloading: bool,
+        is_queued: bool,
         playlist_id: Option<usize>,
         show_buttons: bool
     ) -> Button<'a, Message> {
@@ -512,13 +521,18 @@ impl ResonateWidget {
                     ).push(
                         Row::new().spacing(10).align_y(Vertical::Center)
                             .push(
-                                (if is_downloading {
-                                    svg(crate::frontend::assets::downloading_icon())
+                                if is_downloading {
+                                    Self::svg(crate::frontend::assets::downloading_icon(), ResonateColour::yellow())
                                 }
                                 else if is_downloaded {
-                                    svg(crate::frontend::assets::tick_icon())
+                                    Self::svg(crate::frontend::assets::tick_icon(), ResonateColour::green())
                                 }
-                                else { svg(crate::frontend::assets::red_cloud_icon()) }).width(Length::Fixed(32f32))
+                                else if is_queued {
+                                    Self::svg(crate::frontend::assets::waiting(), ResonateColour::yellow())
+                                }
+                                else {
+                                    Self::svg(crate::frontend::assets::red_cloud_icon(), ResonateColour::red())
+                                }
                             )
                             .push(text(&song.artist).width(Length::FillPortion(2)))
                     )

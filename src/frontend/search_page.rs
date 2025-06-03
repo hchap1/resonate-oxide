@@ -71,7 +71,9 @@ impl SearchPage {
 }
 
 impl Page for SearchPage {
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
+    fn view(
+        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>
+    ) -> Column<'_, Message> {
         let search_bar = Row::new()
             .push(
                 ResonateWidget::search_bar("Search...", &self.query)
@@ -106,8 +108,20 @@ impl Page for SearchPage {
                 }
 
                 let is_downloading = current_song_downloads.contains(&song.yt_id);
+                let is_queued = queued_downloads.contains(&song);
+
+                if is_downloading && is_queued {
+                    println!("[ALERT] Queue / Download collision.");
+                }
+
                 column = column.push(
-                    ResonateWidget::song(song, self.directories.get_default_thumbnail(), is_downloading, None, false)
+                    ResonateWidget::song(
+                        song,
+                        self.directories.get_default_thumbnail(),
+                        is_downloading,
+                        is_queued,
+                        None,
+                        false)
                         .on_press(Message::AddSongToPlaylist(song.clone(), match self.playlist.as_ref() {
                             Some(playlist) => playlist.id,
                             None => 0

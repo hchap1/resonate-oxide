@@ -16,6 +16,8 @@ use rspotify::model::PlayableItem;
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
+use crate::backend::music::Song;
+use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
 use crate::backend::spotify::try_auth;
@@ -42,17 +44,19 @@ use crate::backend::audio::AudioPlayer;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message>;
+    fn view(&self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>) -> Column<'_, Message>;
     fn back(&self, previous_page: (PageType, Option<usize>)) -> (PageType, Option<usize>);
 }
 
 pub struct Application<'a> {
+    settings: Settings,
     page: Option<Box<dyn Page + 'a>>,
     directories: DataDir,
     database: AM<Database>,
 
     current_thumbnail_downloads: HashSet<String>,
     current_song_downloads: HashSet<String>,
+    download_queue: HashSet<Song>,
 
     audio_player: Option<AudioPlayer>,
     queue_state: Option<QueueFramework>,
@@ -90,12 +94,14 @@ impl Application<'_> {
         let database = sync(database);
 
         Self {
+            settings: Settings::default(),
             page: Some(Box::new(PlaylistsPage::new(database.clone()))),
             directories,
             database,
             
             current_thumbnail_downloads: HashSet::new(),
             current_song_downloads: HashSet::new(),
+            download_queue: HashSet::new(),
 
             audio_player: None,
             queue_state: None,
@@ -119,7 +125,7 @@ impl Application<'_> {
                     Column::new().spacing(20).push(
                         Row::new().spacing(20).push(
                             Column::new().spacing(20)
-                                .push(page.view(&self.current_song_downloads))
+                                .push(page.view(&self.current_song_downloads, &self.download_queue))
                                 .width(Length::FillPortion(3))
                             ).push(
                                 Column::new().spacing(20)
@@ -185,12 +191,25 @@ impl Application<'_> {
                 if self.current_song_downloads.contains(&song.yt_id) {
                     return Task::none();
                 }
-                self.current_song_downloads.insert(song.yt_id.clone());
-                Task::future(async_download_song(
-                    self.directories.get_dlp_ref().map(|x| x.to_path_buf()),
-                    self.directories.get_music_ref().to_path_buf(),
-                    song
-                ))
+
+                let is_space: bool = self.current_song_downloads.len() > self.settings.max_download_concurrency;
+
+                if self.download_queue.contains(&song) && !is_space {
+                    return Task::none();
+                }
+
+                if is_space {
+                    self.download_queue.insert(song.clone());
+                    Task::none()
+                } else {
+                    let _ = self.download_queue.remove(&song);
+                    self.current_song_downloads.insert(song.yt_id.clone());
+                    Task::future(async_download_song(
+                        self.directories.get_dlp_ref().map(|x| x.to_path_buf()),
+                        self.directories.get_music_ref().to_path_buf(),
+                        song
+                    ))
+                }
             }
 
             Message::SongDownloaded(song) => {
@@ -198,7 +217,17 @@ impl Application<'_> {
                 if let Some(page) = self.page.as_mut() {
                     let _ = page.update(Message::SongDownloaded(song));
                 }
-                Task::none()
+
+                if self.download_queue.len() > 0 {
+                    let song = match self.download_queue.iter().nth(0) {
+                        Some(song) => song.clone(),
+                        None => return Task::none()
+                    };
+                    let _ = self.download_queue.remove(&song);
+                    Task::done(Message::Download(song))
+                } else {
+                    Task::none()
+                }
             }
 
             Message::SearchResult(song, from_online) => {

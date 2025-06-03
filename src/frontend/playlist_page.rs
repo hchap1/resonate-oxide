@@ -63,7 +63,9 @@ impl PlaylistPage {
 }
 
 impl Page for PlaylistPage {
-    fn view(&self, current_song_downloads: &HashSet<String>) -> Column<'_, Message> {
+    fn view(
+        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>
+    ) -> Column<'_, Message> {
         let search_bar = Row::new().spacing(20).align_y(Vertical::Center).push(
             ResonateWidget::search_bar("Search...", &self.query)
                 .on_input(Message::TextInput)
@@ -76,11 +78,19 @@ impl Page for PlaylistPage {
         let mut column = Column::new().spacing(20);
 
         for song in &self.songs {
+
             let is_downloading = current_song_downloads.contains(&song.yt_id);
+            let is_queued = queued_downloads.contains(&song);
+
+            if is_downloading && is_queued {
+                println!("[ALERT] Queue / Download collision.");
+            }
+
             let widget = ResonateWidget::song(
                 song,
                 self.directories.get_default_thumbnail(),
                 is_downloading,
+                is_queued,
                 Some(self.playlist.id),
                 if let Some(id) = self.hovered_song { id == song.id } else { false }
             );

@@ -23,6 +23,7 @@ svg!(shuffle, "icons/shuffle.svg");
 
 svg!(repeat, "icons/repeat_gray.svg");
 svg!(refresh, "icons/refresh.svg");
+svg!(waiting, "icons/waiting.svg");
 
 svg!(back, "icons/back.svg");
 svg!(close, "icons/delete.svg");

@@ -36,6 +36,10 @@ pub struct Query<'a> {
 impl<'a> Query<'a> {
     pub fn new(connection: &'a Connection) -> Self { Self { connection } }
 
+    pub fn get_song_by_name_exact(self) -> Statement<'a> {
+        self.connection.prepare("SELECT id FROM Songs WHERE title = ?").unwrap()
+    }
+
     pub fn check_if_yt_id_exists(self) -> Statement<'a> { self.connection.prepare("SELECT yt_id FROM Songs WHERE yt_id = ?").unwrap() }
 
     pub fn check_if_song_in_playlist(self) -> Statement<'a> { self.connection.prepare("SELECT * FROM Entries WHERE playlist_id = ? AND song_id = ?").unwrap() }

@@ -270,6 +270,19 @@ impl Database {
         )
     }
 
+    pub fn get_song_by_name_exact(&self, name: String, music_path: &Path, thumbnail_path: &Path) -> Option<Song> {
+        let id = match Query::new(&self.connection).get_song_by_name_exact().query_map(
+            params![name],
+            |row| row.get::<_, usize>(0)
+        ) {
+            Ok(results) => results.into_iter().find_map(|x| x.ok()),
+            Err(_) => None
+        };
+
+        if id.is_none() { return None; }
+        self.get_song_by_id(id.unwrap(), music_path, thumbnail_path)
+    }
+
     pub fn get_downloaded_info(
         &self, playlist_id: usize, music_path: &Path, thumbnail_path: &Path
     ) -> Option<(usize, usize)> {

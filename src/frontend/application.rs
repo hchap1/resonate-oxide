@@ -20,6 +20,7 @@ use crate::backend::music::Song;
 use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
+use crate::backend::util::desync;
 use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
@@ -412,7 +413,13 @@ impl Application<'_> {
                     None => return Task::none()
                 };
 
-                Task::done(Message::SpotifySongToYoutube(track))
+                match desync(&self.database).get_song_by_name_exact(
+                    track.name.clone(), self.directories.get_music_ref(), self.directories.get_thumbnails_ref()
+                ) {
+                    Some(song) => Task::done(Message::SearchResult(song, true)),
+                    None => Task::done(Message::SpotifySongToYoutube(track))
+                }
+
             }
 
             Message::SpotifySongToYoutube(track) => {

@@ -93,7 +93,7 @@ impl Page for ImportPage {
             );
         }
 
-        let column = column.push_maybe(
+        let notification_widget =
             self.notification.as_ref().map(
                 |n| Container::new(match n {
                     SpotifyNotification::NoIdOrSecret => {
@@ -176,8 +176,7 @@ impl Page for ImportPage {
                             )
                     }
                 }).style(|_| ResonateStyle::list_container()).width(Length::Fill).align_y(Vertical::Center)
-            )
-        );
+            );
 
         Column::new().spacing(20)
             .push(ResonateWidget::header("Spotify Playlist Import"))
@@ -187,6 +186,7 @@ impl Page for ImportPage {
                     None => None
                 }
             )
+            .push_maybe(notification_widget)
             .push(ResonateWidget::padded_scrollable(column.into()))
             .push(
                 Row::new().spacing(20).align_y(Vertical::Center)

@@ -25,6 +25,8 @@ use super::widgets::ResonateColour;
 use super::widgets::ResonateStyle;
 
 pub enum SpotifyNotification {
+    Waiting(usize),
+    Finished,
     NotAuthenticated,
     NoIdOrSecret,
     InvalidID
@@ -40,7 +42,10 @@ pub struct ImportPage {
     spotify_id: Option<String>,
     spotify_client: Option<String>,
     
-    playlist_name: Option<String>
+    playlist_name: Option<String>,
+    playlist_size: Option<usize>,
+
+    saved: bool
 }
 
 impl ImportPage {
@@ -58,7 +63,9 @@ impl ImportPage {
             notification: None,
             spotify_id,
             spotify_client,
-            playlist_name: None
+            playlist_name: None,
+            playlist_size: None,
+            saved: false
         }
     }
 }
@@ -139,6 +146,35 @@ impl Page for ImportPage {
                                     )
                             )
                     }
+                    SpotifyNotification::Finished => {
+                        Row::new().padding(10).align_y(Vertical::Center)
+                            .push(
+                                text("Finished").size(25).color(ResonateColour::green())
+                            ).push(
+                                Row::new().spacing(20).width(Length::Fill)
+                                    .push(Space::new(Length::Fill, Length::Fixed(32f32)))
+                                    .push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::close())
+                                            .on_press(Message::ClearNotification)
+                                    )
+                            )
+                    }
+                    SpotifyNotification::Waiting(received) => {
+                        Row::new().padding(10).align_y(Vertical::Center)
+                            .push(
+                                text(
+                                    format!("Not ready: {} / {} received.", received,
+                                    self.playlist_size.unwrap_or(0))
+                                ).size(25).color(ResonateColour::yellow())
+                            ).push(
+                                Row::new().spacing(20).width(Length::Fill)
+                                    .push(Space::new(Length::Fill, Length::Fixed(32f32)))
+                                    .push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::close())
+                                            .on_press(Message::ClearNotification)
+                                    )
+                            )
+                    }
                 }).style(|_| ResonateStyle::list_container()).width(Length::Fill).align_y(Vertical::Center)
             )
         );
@@ -160,9 +196,20 @@ impl Page for ImportPage {
                             .on_input(Message::TextInput)
                             .on_submit(Message::SpotifyPlaylist(self.input.clone()))
                             .width(Length::Fill)
-                    ).push(
-                        ResonateWidget::button_widget(crate::frontend::assets::save_icon())
-                            .on_press(Message::SavePlaylist)
+                    ).push_maybe(
+                        if self.saved {
+                            None
+                        } else if self.playlist_size.is_some() {
+                            if self.playlist_size.unwrap() == self.songs.len() {
+                                Some(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                                    .on_press(Message::SavePlaylist)
+                                )
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
                     )
             )
     }
@@ -186,8 +233,9 @@ impl Page for ImportPage {
             }
 
             Message::TextInput(new_val) => self.input = new_val,
-            Message::SpotifyPlaylistName(name) => {
+            Message::SpotifyPlaylistName(name, size) => {
                 self.playlist_name = Some(name);
+                self.playlist_size = Some(size);
             }
 
             Message::SpotifyInvalidID => {

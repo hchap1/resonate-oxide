@@ -78,7 +78,7 @@ enum InterThreadMessage {
     Result(PlaylistItem),
     Waker(Waker),
     WakerReceived,
-    PlaylistName(String),
+    PlaylistName(String, usize),
     InvalidID
 }
 
@@ -146,7 +146,7 @@ async fn consume_stream(
 
     match playlist {
         Ok(playlist) => {
-            let _ = sender.send(InterThreadMessage::PlaylistName(playlist.name));
+            let _ = sender.send(InterThreadMessage::PlaylistName(playlist.name, playlist.tracks.items.len()));
         },
         Err(_) => {}
     }
@@ -185,7 +185,7 @@ async fn consume_stream(
 
 pub enum SpotifyEmmision {
     PlaylistItem(PlaylistItem),
-    PlaylistName(String),
+    PlaylistName(String, usize),
     PlaylistIDFailure
 }
 
@@ -214,8 +214,8 @@ impl Stream for SpotifySongStream {
                         println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
                         self.waker_received = true;
                     }
-                    InterThreadMessage::PlaylistName(name) => {
-                        return Poll::Ready(Some(SpotifyEmmision::PlaylistName(name)))
+                    InterThreadMessage::PlaylistName(name, size) => {
+                        return Poll::Ready(Some(SpotifyEmmision::PlaylistName(name, size)))
                     }
                     InterThreadMessage::InvalidID => {
                         return Poll::Ready(Some(SpotifyEmmision::PlaylistIDFailure))

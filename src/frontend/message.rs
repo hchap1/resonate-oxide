@@ -50,7 +50,7 @@ pub enum Message {
     SpotifyAuthFailed,
     ClearNotification,
     SavePlaylist,
-    SpotifyPlaylistName(String),
+    SpotifyPlaylistName(String, usize),
     SpotifyInvalidID,
 
     Hover(usize, bool),

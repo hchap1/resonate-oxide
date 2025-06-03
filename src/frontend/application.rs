@@ -394,7 +394,7 @@ impl Application<'_> {
                     Task::stream(SpotifySongStream::new(id, creds.clone())).map(
                         |item| match item {
                             SpotifyEmmision::PlaylistItem(item) => Message::SpotifyPlaylistItem(item),
-                            SpotifyEmmision::PlaylistName(name) => Message::SpotifyPlaylistName(name),
+                            SpotifyEmmision::PlaylistName(name, size) => Message::SpotifyPlaylistName(name, size),
                             SpotifyEmmision::PlaylistIDFailure => Message::SpotifyInvalidID
                         }
                     )

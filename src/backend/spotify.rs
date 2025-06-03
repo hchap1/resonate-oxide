@@ -289,3 +289,11 @@ pub async fn load_spotify_song(
     base_song.id = id;
     Ok(base_song)
 }
+
+pub fn extract_spotify_playlist_id(url: String) -> Option<String> {
+    url.split('/')
+        .nth(4)
+        .map(|s| s.split('?').next().unwrap_or(s))
+        .filter(|id| id.len() == 22)
+        .map(|id| id.to_string())
+}

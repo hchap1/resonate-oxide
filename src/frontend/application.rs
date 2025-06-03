@@ -378,9 +378,19 @@ impl Application<'_> {
             }
 
             Message::SpotifyPlaylist(uri) => {
+
+                let id = if uri.len() != 11 {
+                    match crate::backend::spotify::extract_spotify_playlist_id(uri.clone()) {
+                        Some(id) => id,
+                        None => uri
+                    }
+                } else {
+                    uri
+                };
+
                 if let Some(creds) = self.spotify_credentials.as_ref() {
                     println!("[SPOTIFY] Received creds, spawning stream");
-                    Task::stream(SpotifySongStream::new(uri, creds.clone())).map(
+                    Task::stream(SpotifySongStream::new(id, creds.clone())).map(
                         |item| match item {
                             SpotifyEmmision::PlaylistItem(item) => Message::SpotifyPlaylistItem(item),
                             SpotifyEmmision::PlaylistName(name) => Message::SpotifyPlaylistName(name),

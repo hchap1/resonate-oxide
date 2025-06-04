@@ -88,7 +88,7 @@ impl Settings {
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
-            colour: ResonateColour::colour(),
+            colour: Color::from_rgb8(255, 0, 0),
             max_download_concurrency: 4
         }
     }

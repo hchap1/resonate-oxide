@@ -339,10 +339,21 @@ impl Application<'_> {
             Message::DownloadFailed(song) => {
                 println!("[UPDATE] Download of {} failed.", song.title);
                 self.current_song_downloads.remove(&song.yt_id);
+
                 if let Some(page) = self.page.as_mut() {
                     let _ = page.update(Message::DownloadFailed(song));
                 }
-                Task::none()
+
+                if self.download_queue.len() > 0 {
+                    let song = match self.download_queue.iter().nth(0) {
+                        Some(song) => song.clone(),
+                        None => return Task::none()
+                    };
+                    let _ = self.download_queue.remove(&song);
+                    Task::done(Message::Download(song))
+                } else {
+                    Task::none()
+                }
             }
 
             Message::ProgressUpdate(update) => {

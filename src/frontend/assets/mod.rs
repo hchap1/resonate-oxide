@@ -28,3 +28,6 @@ svg!(waiting, "icons/waiting.svg");
 svg!(back, "icons/back.svg");
 svg!(close, "icons/delete.svg");
 svg!(save_icon, "icons/save.svg");
+
+svg!(mute_icon, "icons/mute.svg");
+svg!(volume_icon, "icons/volume.svg");

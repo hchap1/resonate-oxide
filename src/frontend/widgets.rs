@@ -3,7 +3,7 @@ use std::path::Path;
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, progress_bar, slider, text_input, Button, Slider};
+use iced::widget::{button, progress_bar, slider, text_input, Button, Slider, Space};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
@@ -332,27 +332,6 @@ impl ResonateWidget {
                                 )
                             )
                         ).align_x(Horizontal::Center).width(Length::FillPortion(1))
-                    ).push(
-                        Slider::new(0f32..=2f32, volume,
-                            |value| Message::AudioTask(AudioTask::SetVolume(value))
-                        ).style(|_,_| slider::Style {
-                            rail: slider::Rail {
-                                backgrounds: (
-                                    Background::Color(ResonateColour::colour()),
-                                    Background::Color(ResonateColour::accent())
-                                ),
-                                width: 15f32,
-                                border: Border::default().rounded(10)
-                            },
-                            handle: slider::Handle {
-                                shape: slider::HandleShape::Circle {
-                                    radius: 10f32
-                                },
-                                background: Background::Color(ResonateColour::colour()),
-                                border_width: 0f32,
-                                border_color: ResonateColour::colour()
-                            }
-                        }).step(0.01f32)
                     )
                 ).align_x(Horizontal::Center).push(
                     ProgressBar::new(0f32..=1000f32, match progress_update {
@@ -363,6 +342,39 @@ impl ResonateWidget {
                         None => 0f32
                     }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
                             .height(Length::Fixed(45f32))
+                )
+            ).push(
+                Row::new().spacing(10).align_y(Vertical::Center).push(
+                    Self::button_widget(match volume {
+                        0f32 => crate::frontend::assets::mute_icon(),
+                        _ => crate::frontend::assets::volume_icon()
+                    }).on_press(
+                        match volume {
+                            0f32 => Message::AudioTask(AudioTask::SetVolume(1f32)),
+                            _ => Message::AudioTask(AudioTask::SetVolume(0f32))
+                        }
+                    )
+                ).push(
+                    Slider::new(0f32..=2f32, volume,
+                        |value| Message::AudioTask(AudioTask::SetVolume(value))
+                    ).style(|_,_| slider::Style {
+                        rail: slider::Rail {
+                            backgrounds: (
+                                Background::Color(ResonateColour::colour()),
+                                Background::Color(ResonateColour::accent())
+                            ),
+                            width: 15f32,
+                            border: Border::default().rounded(10)
+                        },
+                        handle: slider::Handle {
+                            shape: slider::HandleShape::Circle {
+                                radius: 10f32
+                            },
+                            background: Background::Color(ResonateColour::colour()),
+                            border_width: 0f32,
+                            border_color: ResonateColour::colour()
+                        }
+                    }).step(0.01f32)
                 )
             )
         ).style(|_| ResonateStyle::list_container()).padding(10).into()
@@ -577,6 +589,6 @@ impl ResonateWidget {
     }
 
     pub fn window<'a>(element: Element<'a, Message>) -> Element<'a, Message> {
-        Container::new(element).padding(10).width(Length::Fill).height(Length::Fill).style(|_| ResonateStyle::background_wrapper()).into()
+        Container::new(element).padding(20).width(Length::Fill).height(Length::Fill).style(|_| ResonateStyle::background_wrapper()).into()
     }
 }

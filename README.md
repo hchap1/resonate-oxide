@@ -42,3 +42,10 @@
 ![Build](https://img.shields.io/github/actions/workflow/status/hchap1/resonate-oxide/build.yml)
 ![License](https://img.shields.io/github/license/hchap1/resonate-oxide)
 ![Stars](https://img.shields.io/github/stars/hchap1/resonate-oxide) 
+
+![Screenshot](playlists.png)
+![Screenshot](playlist_search.png)
+![Screenshot](internet_search.png)
+![Screenshot](successful_internet_search.png)
+![Screenshot](spotify_error.png)
+![Screenshot](successful_import.png)

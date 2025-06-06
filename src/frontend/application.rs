@@ -362,6 +362,11 @@ impl Application<'_> {
             }
 
             Message::SpotifyCreds(id, secret) => {
+
+                if let Some(page) = self.page.as_mut() {
+                    let _ = page.update(Message::SpotifyCreds(id.clone(), secret.clone()));
+                }
+
                 if let (Some(id), Some(secret)) = (id, secret) {
                     self.spotify_id = Some(id.clone());
                     self.spotify_secret = Some(secret.clone());
@@ -380,10 +385,21 @@ impl Application<'_> {
             }
 
             Message::SpotifyAuth(res) => {
+
                 println!("[SPOTIFY] Authentication received: IS_OK: {}", res.is_ok());
+
                 match res {
                     Ok(creds) => self.spotify_credentials = Some(creds),
-                    Err(_) => eprintln!("[SPOTIFY] Authentication Failed")
+                    Err(_) => {
+                        if let Some(page) = self.page.as_mut() {
+                            let _ = page.update(Message::SpotifyAuthenticationFailedAgain);
+                        }
+                        eprintln!("[SPOTIFY] Authentication Failed")
+                    }
+                }
+
+                if let Some(page) = self.page.as_mut() {
+                    let _ = page.update(Message::SpotifyAuthenticationSuccess);
                 }
 
                 Task::none()

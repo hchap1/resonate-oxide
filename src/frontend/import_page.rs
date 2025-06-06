@@ -29,7 +29,8 @@ pub enum SpotifyNotification {
     Finished,
     NotAuthenticated,
     NoIdOrSecret,
-    InvalidID
+    InvalidID,
+    Success
 }
 
 pub struct ImportPage {
@@ -45,7 +46,9 @@ pub struct ImportPage {
     playlist_name: Option<String>,
     playlist_size: Option<usize>,
 
-    saved: bool
+    saved: bool,
+
+    failed_again: bool
 }
 
 impl ImportPage {
@@ -65,7 +68,8 @@ impl ImportPage {
             spotify_client,
             playlist_name: None,
             playlist_size: None,
-            saved: false
+            saved: false,
+            failed_again: false
         }
     }
 }
@@ -115,7 +119,12 @@ impl Page for ImportPage {
                     SpotifyNotification::NotAuthenticated => {
                         Row::new().padding(10).align_y(Vertical::Center)
                             .push(
-                                text("Not Authenticated").size(25).color(ResonateColour::yellow())
+                                text("Not Authenticated").size(25).color(
+                                    match self.failed_again {
+                                        true => ResonateColour::red(),
+                                        false => ResonateColour::yellow()
+                                    }
+                                )
                                     .width(Length::Fill)
                             ).push(
                                 Row::new().spacing(20).width(Length::Fill)
@@ -150,6 +159,19 @@ impl Page for ImportPage {
                         Row::new().padding(10).align_y(Vertical::Center)
                             .push(
                                 text("Finished").size(25).color(ResonateColour::green())
+                            ).push(
+                                Row::new().spacing(20).width(Length::Fill)
+                                    .push(Space::new(Length::Fill, Length::Fixed(32f32)))
+                                    .push(
+                                        ResonateWidget::button_widget(crate::frontend::assets::close())
+                                            .on_press(Message::ClearNotification)
+                                    )
+                            )
+                    }
+                    SpotifyNotification::Success => {
+                        Row::new().padding(10).align_y(Vertical::Center)
+                            .push(
+                                text("Successfully Authenticated").size(25).color(ResonateColour::green())
                             ).push(
                                 Row::new().spacing(20).width(Length::Fill)
                                     .push(Space::new(Length::Fill, Length::Fixed(32f32)))
@@ -232,12 +254,25 @@ impl Page for ImportPage {
                 self.saved = false;
             }
 
+            Message::SpotifyAuthenticationFailedAgain => {
+                self.notification = Some(SpotifyNotification::NotAuthenticated);
+                self.failed_again = true;
+            }
+
+            Message::SpotifyAuthenticationSuccess => {
+
+            }
+
             Message::SpotifyAuthFailed => {
                 if self.spotify_id.is_some() && self.spotify_client.is_some() {
                     self.notification = Some(SpotifyNotification::NotAuthenticated)
                 } else {
                     self.notification = Some(SpotifyNotification::NoIdOrSecret)
                 }
+            }
+
+            Message::SpotifyCreds(_, _) => {
+                return Task::done(Message::ClearNotification);
             }
 
             Message::ClearNotification => {

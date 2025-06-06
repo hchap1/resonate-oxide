@@ -53,6 +53,9 @@ pub enum Message {
     SpotifyPlaylistName(String, usize),
     SpotifyInvalidID,
 
+    SpotifyAuthenticationSuccess,
+    SpotifyAuthenticationFailedAgain,
+
     FMAuth(), // KEY, SECRET, USERNAME, PASSWORD
 
     Hover(usize, bool),

@@ -260,7 +260,8 @@ impl Page for ImportPage {
             }
 
             Message::SpotifyAuthenticationSuccess => {
-
+                self.notification = Some(SpotifyNotification::Success);
+                self.failed_again = false;
             }
 
             Message::SpotifyAuthFailed => {

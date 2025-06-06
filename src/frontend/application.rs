@@ -394,7 +394,8 @@ impl Application<'_> {
                         if let Some(page) = self.page.as_mut() {
                             let _ = page.update(Message::SpotifyAuthenticationFailedAgain);
                         }
-                        eprintln!("[SPOTIFY] Authentication Failed")
+                        eprintln!("[SPOTIFY] Authentication Failed");
+                        return Task::none();
                     }
                 }
 

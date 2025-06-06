@@ -3,6 +3,8 @@
 - Runs asynchronously on the iced runtime
 - Full featureset for use as a complete music app, including offline playback
 
+</br>
+
 # FEATURES
 - Searching Youtube music for songs
 - Caching all search results, even those that are unused for faster searches later
@@ -33,6 +35,8 @@
   - Show status of song downloads
   - Show status of youtube authentication with an interactable notifcation allowing retrying
  
+</br>
+ 
 # FUTURE FEATURES
 - [x] YouTube integration
 - [x] Spotify integration
@@ -42,10 +46,32 @@
 ![Build](https://img.shields.io/github/actions/workflow/status/hchap1/resonate-oxide/build.yml)
 ![License](https://img.shields.io/github/license/hchap1/resonate-oxide)
 ![Stars](https://img.shields.io/github/stars/hchap1/resonate-oxide) 
+</br>
 
+## Playlist
 ![Screenshot](playlists.png)
+
+</br>
+
+## Search within a Playlist
 ![Screenshot](playlist_search.png)
+
+</br>
+
+## Search on Youtube Music
 ![Screenshot](internet_search.png)
+
+</br>
+
+## Search Result Container
 ![Screenshot](successful_internet_search.png)
+
+</br>
+
+## Spotify Error Container
 ![Screenshot](spotify_error.png)
+
+</br>
+
+## Spotify Import Success
 ![Screenshot](successful_import.png)

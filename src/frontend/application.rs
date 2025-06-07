@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::thread::spawn;
 
 use iced::alignment::Vertical;
 use rand::rng;
@@ -16,6 +17,7 @@ use rspotify::model::PlayableItem;
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
+use crate::backend::fm::LastFM;
 use crate::backend::music::Song;
 use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
@@ -24,6 +26,7 @@ use crate::backend::util::desync;
 use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
+use crate::backend::fm::scrobble_thread;
 
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
@@ -70,7 +73,10 @@ pub struct Application<'a> {
 
     spotify_credentials: Option<rspotify::ClientCredsSpotify>,
     spotify_id: Option<String>,
-    spotify_secret: Option<String>
+    spotify_secret: Option<String>,
+
+    fm_manager: Option<LastFM>,
+    fm_thread: Option<std::thread::JoinHandle<()>>
 }
 
 impl<'a> Default for Application<'a> {
@@ -115,7 +121,10 @@ impl Application<'_> {
             
             spotify_credentials: None,
             spotify_id: None,
-            spotify_secret: None
+            spotify_secret: None,
+
+            fm_manager: None,
+            fm_thread: None
         }
     }
 
@@ -280,8 +289,29 @@ impl Application<'_> {
             }
 
             Message::QueueUpdate(queue_state) => {
+
+                let old_id = if let Some(qs) = self.queue_state.as_ref() {
+                    match qs.songs.get(queue_state.position) {
+                        Some(song) => song.id,
+                        None => 0
+                    }
+                } else { 0 };
+
+                let new_song = match queue_state.songs.get(queue_state.position) {
+                    Some(song) => song.clone(),
+                    None => {
+                        self.queue_state = Some(queue_state);
+                        return Task::none();
+                    }
+                };
+
                 self.queue_state = Some(queue_state);
-                Task::none()
+
+                if old_id != 0 && new_song.id != 0 && new_song.id != old_id {
+                    Task::done(Message::FMMessage(crate::backend::fm::FMMessage::SetNowPlaying(new_song)))
+                } else {
+                    Task::none()
+                }
             }
             
             Message::LoadAudio => {
@@ -483,6 +513,27 @@ impl Application<'_> {
                 }
 
                 task
+            }
+
+            Message::FMAuth(auth) => Task::future(LastFM::new(auth)).map(|res| match res {
+                Ok((last_fm, receiver, sender)) => Message::RegisterFMManager(
+                    last_fm, receiver, sender
+                ),
+                Err(err) => Message::FMFailed(err)
+            }),
+
+            Message::RegisterFMManager(last_fm, receiver, sender) => {
+                let scrobble_ref = last_fm.scrobbler;
+                self.fm_manager = Some(last_fm);
+                self.fm_thread = Some(spawn(move || scrobble_thread(scrobble_ref, receiver, sender)));
+                Task::none()
+            }
+
+            Message::FMMessage(message) => {
+                if let Some(last_fm) = self.fm_manager.as_ref() {
+                    let _ = last_fm.send_task(message);
+                }
+                Task::none()
             }
 
             other => match self.page.as_mut() {

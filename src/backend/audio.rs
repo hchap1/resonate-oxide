@@ -165,6 +165,7 @@ fn audio_thread(
         });
 
         let mut should_audio_be_reloaded = false;
+        let mut do_not_skip = false;
 
         while let Ok(task) = task_downstream.try_recv() {
             let need_reload = match task {
@@ -230,6 +231,7 @@ fn audio_thread(
                     queue.position = 0;
                     queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
                     sink.play();
+                    do_not_skip = true;
                     true
                 }
                 AudioTask::RemoveSongById(song_id) => {
@@ -281,7 +283,7 @@ fn audio_thread(
         }
 
         if sink.empty() && queue.songs.len() != 0 {
-            if queue.position < queue.songs.len() - 1 && !queue.repeat {
+            if queue.position < queue.songs.len() - 1 && !queue.repeat && !do_not_skip {
                 queue.position += 1;
             } else if queue.position == queue.songs.len() - 1 && !queue.repeat {
                 queue.position = 0;
@@ -300,6 +302,7 @@ fn audio_thread(
         if should_audio_be_reloaded {
             now_playing = load_audio(&sink, &queue, &queue_upstream);
             if now_playing.is_none() {
+                queue.position = 0;
                 sink.clear();
             }
         }

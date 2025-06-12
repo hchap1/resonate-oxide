@@ -14,6 +14,8 @@ use iced::Task;
 use rspotify::model::PlayableItem;
 
 use rust_fm::auth::WebOAuth;
+use rust_fm::token::WebCallback;
+use rust_fm::session::WebSession;
 
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
@@ -523,8 +525,6 @@ impl Application<'_> {
                 let fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
                 let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
 
-                println!("ID: {spotify_id:?}");
-
                 self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
                 Task::done(Message::SpotifyCreds(spotify_id, spotify_secret))
             }
@@ -539,6 +539,56 @@ impl Application<'_> {
                 };
                 self.database.lock().unwrap().set_secret(n, v.as_str());
                 Task::done(Message::LoadSecrets)
+            }
+
+            Message::FMAuthenticate => {
+                let auth = match self.last_fm_auth.take() {
+                    Some(auth) => auth,
+                    None => return Task::done(Message::FMAuthFailed(None))
+                };
+
+                Task::future(WebCallback::oauth(auth)).map(
+                    |(auth, res)| match res {
+                        Ok(_) => {
+                            Message::FMGetSession(auth)
+                        },
+                        Err(_) => {
+                            Message::FMAuthFailed(Some(auth))
+                        }
+                    }
+                )
+            }
+
+            Message::FMGetSession(auth) => {
+                Task::future(WebSession::get(auth)).map(
+                    |(auth, res)| match res {
+                        Ok(_) => Message::FMAuthSuccess(auth),
+                        Err(_) => Message::FMAuthFailed(Some(auth))
+                    }
+                )
+            }
+
+            Message::FMAuthFailed(auth) => {
+                self.last_fm_auth = auth;
+                Task::none()
+            }
+
+            Message::FMAuthSuccess(auth) => {
+                self.last_fm_auth = Some(auth);
+                Task::done(Message::FMSaveSecrets)
+            }
+
+            Message::FMSaveSecrets => {
+                let auth = match self.last_fm_auth.as_ref() {
+                    Some(auth) => auth,
+                    None => return Task::none()
+                };
+
+                if let Some(x) = auth.get_key() { self.database.lock().unwrap().set_secret("FM_KEY", x) }
+                if let Some(x) = auth.get_secret() { self.database.lock().unwrap().set_secret("FM_SECRET", x) }
+                if let Some(x) = auth.get_session() { self.database.lock().unwrap().set_secret("FM_SESSION", x) }
+
+                Task::none()
             }
 
             other => {

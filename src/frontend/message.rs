@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
+use rust_fm::auth::WebOAuth;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use crate::backend::music::Song;
@@ -62,6 +63,12 @@ pub enum Message {
     ChangeSecret(Secret),
     SaveSecret(Secret),
     SubmitSecrets,
+
+    FMAuthenticate,
+    FMGetSession(WebOAuth),
+    FMAuthFailed(Option<WebOAuth>),
+    FMAuthSuccess(WebOAuth),
+    FMSaveSecrets,
 
     Hover(usize, bool),
 }

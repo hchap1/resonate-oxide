@@ -315,6 +315,7 @@ impl Database {
     }
 
     pub fn set_secret(&self, name: String, value: String) {
+        let _ = Query::new(&self.connection).del_secret_by_name().execute(params![name, value]);
         let _ = Query::new(&self.connection).set_secret_by_name().execute(params![name, value]);
     }
 }

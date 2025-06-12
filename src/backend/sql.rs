@@ -112,6 +112,10 @@ impl<'a> Query<'a> {
         self.connection.prepare("SELECT value FROM Secrets WHERE name = ?").unwrap()
     }
 
+    pub fn del_secret_by_name(self) -> Statement<'a> {
+        self.connection.prepare("DELETE FROM Secrets WHERE name = ?").unwrap()
+    }
+
     pub fn set_secret_by_name(self) -> Statement<'a> {
         self.connection.prepare("
             INSERT INTO Secrets

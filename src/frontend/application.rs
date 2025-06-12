@@ -519,10 +519,12 @@ impl Application<'_> {
             Message::LoadSecrets => {
                 let spotify_id = self.database.lock().unwrap().get_secret("SPOTIFY_ID");
                 let spotify_secret = self.database.lock().unwrap().get_secret("SPOTIFY_SECRET");
-
                 let fm_key = self.database.lock().unwrap().get_secret("FM_KEY");
                 let fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
                 let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
+
+                println!("ID: {spotify_id:?}");
+
                 self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
                 Task::done(Message::SpotifyCreds(spotify_id, spotify_secret))
             }
@@ -535,9 +537,8 @@ impl Application<'_> {
                     Secret::FMSecret(x) => ("FM_SECRET", x),
                     Secret::FMSession(x) => ("FM_SESSION", x),
                 };
-
                 self.database.lock().unwrap().set_secret(n, v.as_str());
-                Task::none()
+                Task::done(Message::LoadSecrets)
             }
 
             other => {

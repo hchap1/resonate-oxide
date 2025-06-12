@@ -344,37 +344,44 @@ impl ResonateWidget {
                             .height(Length::Fixed(45f32))
                 )
             ).push(
-                Row::new().spacing(10).align_y(Vertical::Center).push(
-                    Self::button_widget(match volume {
-                        0f32 => crate::frontend::assets::mute_icon(),
-                        _ => crate::frontend::assets::volume_icon()
-                    }).on_press(
-                        match volume {
-                            0f32 => Message::AudioTask(AudioTask::SetVolume(1f32)),
-                            _ => Message::AudioTask(AudioTask::SetVolume(0f32))
-                        }
+                Column::new().spacing(10).push(
+                    Row::new().spacing(10).align_y(Vertical::Center).push(
+                        Self::button_widget(match volume {
+                            0f32 => crate::frontend::assets::mute_icon(),
+                            _ => crate::frontend::assets::volume_icon()
+                        }).on_press(
+                            match volume {
+                                0f32 => Message::AudioTask(AudioTask::SetVolume(1f32)),
+                                _ => Message::AudioTask(AudioTask::SetVolume(0f32))
+                            }
+                        )
+                    ).push(
+                        Slider::new(0f32..=2f32, volume,
+                            |value| Message::AudioTask(AudioTask::SetVolume(value))
+                        ).style(|_,_| slider::Style {
+                            rail: slider::Rail {
+                                backgrounds: (
+                                    Background::Color(ResonateColour::colour()),
+                                    Background::Color(ResonateColour::accent())
+                                ),
+                                width: 15f32,
+                                border: Border::default().rounded(10)
+                            },
+                            handle: slider::Handle {
+                                shape: slider::HandleShape::Circle {
+                                    radius: 10f32
+                                },
+                                background: Background::Color(ResonateColour::colour()),
+                                border_width: 0f32,
+                                border_color: ResonateColour::colour()
+                            }
+                        }).step(0.01f32)
                     )
                 ).push(
-                    Slider::new(0f32..=2f32, volume,
-                        |value| Message::AudioTask(AudioTask::SetVolume(value))
-                    ).style(|_,_| slider::Style {
-                        rail: slider::Rail {
-                            backgrounds: (
-                                Background::Color(ResonateColour::colour()),
-                                Background::Color(ResonateColour::accent())
-                            ),
-                            width: 15f32,
-                            border: Border::default().rounded(10)
-                        },
-                        handle: slider::Handle {
-                            shape: slider::HandleShape::Circle {
-                                radius: 10f32
-                            },
-                            background: Background::Color(ResonateColour::colour()),
-                            border_width: 0f32,
-                            border_color: ResonateColour::colour()
-                        }
-                    }).step(0.01f32)
+                    Self::button_widget(crate::frontend::assets::settings())
+                        .on_press(Message::LoadPage(
+                            PageType::Settings, None
+                        ))
                 )
             )
         ).style(|_| ResonateStyle::list_container()).padding(10).into()

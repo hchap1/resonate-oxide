@@ -119,7 +119,7 @@ impl<'a> Query<'a> {
     pub fn set_secret_by_name(self) -> Statement<'a> {
         self.connection.prepare("
             INSERT INTO Secrets
-            VALUES(?, ?)
+            VALUES(null, ?, ?)
         ").unwrap()
     }
 }

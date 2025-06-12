@@ -108,7 +108,7 @@ impl Page for SettingsPage {
                             .on_input(|x| Message::ChangeSecret(Secret::FMSession(x)))
                             .on_paste(|x| Message::ChangeSecret(Secret::FMSession(x)))
                     )
-            )
+            ).push(Column::new().spacing(20)
                 .push(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
                     .on_press_maybe(self.spotify_id.as_ref().map(|x| Message::SaveSecret(
                         Secret::SpotifyID(x.clone())
@@ -129,6 +129,7 @@ impl Page for SettingsPage {
                     .on_press_maybe(self.fm_session.as_ref().map(|x| Message::SaveSecret(
                         Secret::FMSession(x.clone())
                 ))))
+            )
         )
     }
 

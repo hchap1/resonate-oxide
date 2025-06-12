@@ -525,8 +525,13 @@ impl Application<'_> {
                 let fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
                 let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
 
+                let ready = fm_key.is_some() && fm_secret.is_some() && !fm_session.is_some();
                 self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
-                Task::done(Message::SpotifyCreds(spotify_id, spotify_secret))
+
+                Task::batch(vec![
+                    Task::done(Message::SpotifyCreds(spotify_id, spotify_secret)),
+                    if ready { Task::done(Message::FMAuthenticate) } else { Task::none() }
+                ])
             }
 
             Message::SaveSecret(secret) => {

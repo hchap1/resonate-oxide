@@ -304,7 +304,7 @@ impl Database {
         Some((downloaded, songs.len()))
     }
 
-    pub fn get_secret(&self, name: String) -> Option<String> {
+    pub fn get_secret(&self, name: &str) -> Option<String> {
         match Query::new(&self.connection).get_secret_by_name().query_map(
             params![name],
             |row| row.get::<_, String>(0)

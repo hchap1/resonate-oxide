@@ -56,6 +56,8 @@ pub enum Message {
     SpotifyAuthenticationSuccess,
     SpotifyAuthenticationFailedAgain,
 
+    LoadSecrets,
+
     Hover(usize, bool),
 }
 

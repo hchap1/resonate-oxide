@@ -20,4 +20,4 @@ rusqlite = { version = "0.34.0", features = ["bundled"] }
 tokio = { version = "1.44.1", features = ["full"] }
 youtube_dl = { version = "0.10.0", features = ["downloader-native-tls", "tokio"] }
 webbrowser = "*"
-rust_fm = "0.1.0"
+rust_fm = "0.1.3"

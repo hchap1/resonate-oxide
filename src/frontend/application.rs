@@ -13,6 +13,8 @@ use iced::Task;
 
 use rspotify::model::PlayableItem;
 
+use rust_fm::auth::WebOAuth;
+
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
@@ -71,6 +73,8 @@ pub struct Application<'a> {
     spotify_credentials: Option<rspotify::ClientCredsSpotify>,
     spotify_id: Option<String>,
     spotify_secret: Option<String>,
+
+    last_fm_auth: Option<WebOAuth>
 }
 
 impl<'a> Default for Application<'a> {
@@ -116,6 +120,8 @@ impl Application<'_> {
             spotify_credentials: None,
             spotify_id: None,
             spotify_secret: None,
+
+            last_fm_auth: None
         }
     }
 
@@ -505,6 +511,19 @@ impl Application<'_> {
                 }
 
                 task
+            }
+
+            Message::LoadSecrets => {
+                let spotify_id = self.database.lock().unwrap().get_secret("SPOTIFY_ID");
+                let spotify_secret = self.database.lock().unwrap().get_secret("SPOTIFY_SECRET");
+
+                let fm_key = self.database.lock().unwrap().get_secret("FM_KEY");
+                let fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
+                let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
+
+                self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
+
+                Task::done(Message::SpotifyCreds(spotify_id, spotify_secret))
             }
 
             other => {

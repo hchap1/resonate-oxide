@@ -647,7 +647,6 @@ impl Application<'_> {
             }
 
             Message::ScrobbleRequest(scrobble_request) => {
-                println!("Scrobble Request: {:?}", scrobble_request);
                 match scrobble_request {
                     ScrobbleRequest::NowPlaying(song) => Task::done(Message::FMSetNowPlaying(song)),
                     ScrobbleRequest::Scrobble(song) => Task::done(Message::FMPushScrobble(song))

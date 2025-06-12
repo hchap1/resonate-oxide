@@ -4284,7 +4284,6 @@ dependencies = [
  "async-channel",
  "crossbeam-channel",
  "directories",
- "dotenvy",
  "essi-ffmpeg",
  "iced",
  "iced_toasts",

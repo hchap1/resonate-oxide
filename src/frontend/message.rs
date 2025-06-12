@@ -4,7 +4,7 @@ use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
 
-use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
+use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
 use crate::backend::music::Song;
 
 use super::settings_page::Secret;
@@ -69,6 +69,12 @@ pub enum Message {
     FMAuthFailed(Option<WebOAuth>),
     FMAuthSuccess(WebOAuth),
     FMSaveSecrets,
+
+    FMSetNowPlaying(Song),
+    FMPushScrobble(Song),
+    FMScrobbleSuccess,
+    FMScrobbleFailure,
+    ScrobbleRequest(ScrobbleRequest),
 
     Hover(usize, bool),
 }

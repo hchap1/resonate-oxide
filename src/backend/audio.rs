@@ -86,6 +86,12 @@ impl Queue {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ScrobbleRequest {
+    NowPlaying(Song),
+    Scrobble(Song)
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ProgressUpdate {
     Nothing,
@@ -123,7 +129,9 @@ fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramewo
     );
 }
 
-fn load_audio(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) -> Option<usize> {
+fn load_audio(
+    sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>, scrobble_upstream: &Sender<ScrobbleRequest>
+) -> Option<usize> {
     // assume position has already been adjusted
     let changed_audio = if let Some(queue_item) = queue.songs.get(queue.position) {
         let decoder = match Decoder::new(queue_item.audio.clone()) {
@@ -137,6 +145,9 @@ fn load_audio(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework
         sink.clear();
         sink.append(decoder);
         sink.play();
+
+        let _ = scrobble_upstream.send(ScrobbleRequest::NowPlaying(queue_item.song.clone()));
+
         Some(queue_item.song.id)
     } else { None };
 
@@ -147,7 +158,8 @@ fn load_audio(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework
 fn audio_thread(
     sink: Sink, task_downstream: Receiver<AudioTask>,
     queue_upstream: Sender<QueueFramework>,
-    progress_upstream: Sender<ProgressUpdate>
+    progress_upstream: Sender<ProgressUpdate>,
+    scrobble_upstream: Sender<ScrobbleRequest>
 ) {
 
     let mut queue: Queue = Queue::new();
@@ -300,7 +312,7 @@ fn audio_thread(
         }
         
         if should_audio_be_reloaded {
-            now_playing = load_audio(&sink, &queue, &queue_upstream);
+            now_playing = load_audio(&sink, &queue, &queue_upstream, &scrobble_upstream);
             if now_playing.is_none() {
                 queue.position = 0;
                 sink.clear();
@@ -318,12 +330,13 @@ pub struct AudioPlayer {
 
 impl AudioPlayer {
     pub fn new() -> Result<(
-        AudioPlayer, Receiver<QueueFramework>, Receiver<ProgressUpdate>
+        AudioPlayer, Receiver<QueueFramework>, Receiver<ProgressUpdate>, Receiver<ScrobbleRequest>
     ), ResonateError> {
 
         let (task_upstream, task_downstream) = bounded::<AudioTask>(256);
         let (queue_upstream, queue_downstream) = bounded::<QueueFramework>(256);
         let (progress_upstream, progress_downstream) = bounded::<ProgressUpdate>(256);
+        let (scrobble_upstream, scrobble_downstream) = bounded::<ScrobbleRequest>(256);
 
         let (_stream, handle) = match OutputStream::try_default() {
             Ok(data) => data,
@@ -336,7 +349,9 @@ impl AudioPlayer {
         };
 
         let _thread_handle = spawn(
-            move || audio_thread(sink, task_downstream, queue_upstream, progress_upstream)
+            move || audio_thread(
+                sink, task_downstream, queue_upstream, progress_upstream, scrobble_upstream
+            )
         );
 
         Ok((AudioPlayer {
@@ -344,8 +359,10 @@ impl AudioPlayer {
             _handle: handle,
             _thread_handle,
             task_upstream,
-        }, queue_downstream,
-           progress_downstream
+        },
+            queue_downstream,
+            progress_downstream,
+            scrobble_downstream
         ))
     }
 

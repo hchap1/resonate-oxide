@@ -14,12 +14,15 @@ use iced::Task;
 use rspotify::model::PlayableItem;
 
 use rust_fm::auth::WebOAuth;
+use rust_fm::playing::Scrobble;
 use rust_fm::token::WebCallback;
 use rust_fm::session::WebSession;
+use rust_fm::playing::NowPlaying;
 
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
+use crate::backend::audio::ScrobbleRequest;
 use crate::backend::music::Song;
 use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
@@ -318,7 +321,7 @@ impl Application<'_> {
             }
             
             Message::LoadAudio => {
-                let (audio_player, queue_receiver, progress_receiver) = match AudioPlayer::new() {
+                let (audio_player, queue_receiver, progress_receiver, scrobble_receiver) = match AudioPlayer::new() {
                     Ok(data) => data,
                     Err(_) => return Task::none()
                 };
@@ -330,6 +333,9 @@ impl Application<'_> {
                     ),
                     Task::stream(
                         Relay::consume_receiver(progress_receiver, |message| Message::ProgressUpdate(message))
+                    ),
+                    Task::stream(
+                        Relay::consume_receiver(scrobble_receiver, |message| Message::ScrobbleRequest(message))
                     )
                 ])
             }
@@ -594,6 +600,36 @@ impl Application<'_> {
                 if let Some(x) = auth.get_session() { self.database.lock().unwrap().set_secret("FM_SESSION", x) }
 
                 Task::none()
+            }
+
+            Message::FMSetNowPlaying(song) => {
+                let scrobble = Scrobble::new(
+                    song.title.clone(),
+                    song.artist.clone(),
+                    song.album.clone()
+                );
+
+                let auth = match self.last_fm_auth.clone() {
+                    Some(auth) => auth,
+                    None => return Task::none()
+                };
+
+                let auth_clone = auth.clone();
+
+                Task::future(NowPlaying::set_now_playing(auth_clone, scrobble)).map(
+                    |x| match x {
+                        Ok(_) => Message::FMScrobbleSuccess,
+                        Err(_) => Message::FMScrobbleFailure
+                    }
+                )
+            }
+
+            Message::ScrobbleRequest(scrobble_request) => {
+                println!("Scrobble Request: {:?}", scrobble_request);
+                match scrobble_request {
+                    ScrobbleRequest::NowPlaying(song) => Task::done(Message::FMSetNowPlaying(song)),
+                    ScrobbleRequest::Scrobble(song) => Task::done(Message::FMPushScrobble(song))
+                }
             }
 
             other => {

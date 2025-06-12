@@ -6,6 +6,8 @@ use rspotify::ClientCredsSpotify;
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use crate::backend::music::Song;
 
+use super::settings_page::Secret;
+
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum Message {
@@ -57,6 +59,8 @@ pub enum Message {
     SpotifyAuthenticationFailedAgain,
 
     LoadSecrets,
+    ChangeSecret(Secret),
+    SubmitSecrets,
 
     Hover(usize, bool),
 }
@@ -66,5 +70,6 @@ pub enum PageType {
     SearchSongs,
     Playlists,
     ViewPlaylist,
-    ImportSpotify
+    ImportSpotify,
+    Settings
 }

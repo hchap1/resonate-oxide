@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use iced::widget::Column;
+use iced::widget::Row;
 use iced::Task;
 
 use crate::frontend::application::Page;
@@ -58,53 +59,77 @@ impl SettingsPage {
 
 impl Page for SettingsPage {
     fn view(&self, _: &HashSet<String>, _: &HashSet<Song>) -> Column<Message> {
-        Column::new().spacing(20)
-            .push(
-                ResonateWidget::search_bar(
-                    "SPOTIFY ID", match self.spotify_id.as_ref() {
-                        Some(val) => val.as_str(),
-                        None => ""
-                    }
-                )
-                    .on_input(|x| Message::ChangeSecret(Secret::SpotifyID(x)))
-                    .on_paste(|x| Message::ChangeSecret(Secret::SpotifyID(x)))
-            ).push(
-                ResonateWidget::search_bar(
-                    "SPOTIFY SECRET", match self.spotify_secret.as_ref() {
-                        Some(val) => val.as_str(),
-                        None => ""
-                    }
-                )
-                    .on_input(|x| Message::ChangeSecret(Secret::SpotifySecret(x)))
-                    .on_paste(|x| Message::ChangeSecret(Secret::SpotifySecret(x)))
-            ).push(
-                ResonateWidget::search_bar(
-                    "FM KEY", match self.fm_key.as_ref() {
-                        Some(val) => val.as_str(),
-                        None => ""
-                    }
-                )
-                    .on_input(|x| Message::ChangeSecret(Secret::FMKey(x)))
-                    .on_paste(|x| Message::ChangeSecret(Secret::FMKey(x)))
-            ).push(
-                ResonateWidget::search_bar(
-                    "FM SECRET", match self.fm_secret.as_ref() {
-                        Some(val) => val.as_str(),
-                        None => ""
-                    }
-                )
-                    .on_input(|x| Message::ChangeSecret(Secret::FMSecret(x)))
-                    .on_paste(|x| Message::ChangeSecret(Secret::FMSecret(x)))
-            ).push(
-                ResonateWidget::search_bar(
-                    "FM SESSION", match self.fm_session.as_ref() {
-                        Some(val) => val.as_str(),
-                        None => ""
-                    }
-                )
-                    .on_input(|x| Message::ChangeSecret(Secret::FMSession(x)))
-                    .on_paste(|x| Message::ChangeSecret(Secret::FMSession(x)))
+        Column::new().push(
+            Row::new().spacing(10).push(
+                Column::new().spacing(20)
+                    .push(
+                        ResonateWidget::search_bar(
+                            "SPOTIFY ID", match self.spotify_id.as_ref() {
+                                Some(val) => val.as_str(),
+                                None => ""
+                            }
+                        )
+                            .on_input(|x| Message::ChangeSecret(Secret::SpotifyID(x)))
+                            .on_paste(|x| Message::ChangeSecret(Secret::SpotifyID(x)))
+                    ).push(
+                        ResonateWidget::search_bar(
+                            "SPOTIFY SECRET", match self.spotify_secret.as_ref() {
+                                Some(val) => val.as_str(),
+                                None => ""
+                            }
+                        )
+                            .on_input(|x| Message::ChangeSecret(Secret::SpotifySecret(x)))
+                            .on_paste(|x| Message::ChangeSecret(Secret::SpotifySecret(x)))
+                    ).push(
+                        ResonateWidget::search_bar(
+                            "FM KEY", match self.fm_key.as_ref() {
+                                Some(val) => val.as_str(),
+                                None => ""
+                            }
+                        )
+                            .on_input(|x| Message::ChangeSecret(Secret::FMKey(x)))
+                            .on_paste(|x| Message::ChangeSecret(Secret::FMKey(x)))
+                    ).push(
+                        ResonateWidget::search_bar(
+                            "FM SECRET", match self.fm_secret.as_ref() {
+                                Some(val) => val.as_str(),
+                                None => ""
+                            }
+                        )
+                            .on_input(|x| Message::ChangeSecret(Secret::FMSecret(x)))
+                            .on_paste(|x| Message::ChangeSecret(Secret::FMSecret(x)))
+                    ).push(
+                        ResonateWidget::search_bar(
+                            "FM SESSION", match self.fm_session.as_ref() {
+                                Some(val) => val.as_str(),
+                                None => ""
+                            }
+                        )
+                            .on_input(|x| Message::ChangeSecret(Secret::FMSession(x)))
+                            .on_paste(|x| Message::ChangeSecret(Secret::FMSession(x)))
+                    )
             )
+                .push(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                    .on_press_maybe(self.spotify_id.as_ref().map(|x| Message::SaveSecret(
+                        Secret::SpotifyID(x.clone())
+                ))))
+                .push(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                    .on_press_maybe(self.spotify_secret.as_ref().map(|x| Message::SaveSecret(
+                        Secret::SpotifySecret(x.clone())
+                ))))
+                .push(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                    .on_press_maybe(self.fm_key.as_ref().map(|x| Message::SaveSecret(
+                        Secret::FMKey(x.clone())
+                ))))
+                .push(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                    .on_press_maybe(self.fm_secret.as_ref().map(|x| Message::SaveSecret(
+                        Secret::FMSecret(x.clone())
+                ))))
+                .push(ResonateWidget::button_widget(crate::frontend::assets::save_icon())
+                    .on_press_maybe(self.fm_session.as_ref().map(|x| Message::SaveSecret(
+                        Secret::FMSession(x.clone())
+                ))))
+        )
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {

@@ -60,6 +60,7 @@ pub enum Message {
 
     LoadSecrets,
     ChangeSecret(Secret),
+    SaveSecret(Secret),
     SubmitSecrets,
 
     Hover(usize, bool),

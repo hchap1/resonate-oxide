@@ -45,6 +45,7 @@ use crate::backend::database::Database;
 use crate::backend::util::{sync, AM};
 use crate::backend::audio::AudioPlayer;
 
+use super::settings_page::Secret;
 use super::settings_page::SettingsPage;
 
 pub trait Page {
@@ -524,6 +525,19 @@ impl Application<'_> {
                 let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
                 self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
                 Task::done(Message::SpotifyCreds(spotify_id, spotify_secret))
+            }
+
+            Message::SaveSecret(secret) => {
+                let (n, v) = match secret {
+                    Secret::SpotifyID(x) => ("SPOTIFY_ID", x),
+                    Secret::SpotifySecret(x) => ("SPOTIFY_SECRET", x),
+                    Secret::FMKey(x) => ("FM_KEY", x),
+                    Secret::FMSecret(x) => ("FM_SECRET", x),
+                    Secret::FMSession(x) => ("FM_SESSION", x),
+                };
+
+                self.database.lock().unwrap().set_secret(n, v.as_str());
+                Task::none()
             }
 
             other => {

@@ -28,6 +28,14 @@ pub const CREATE_PLAYLIST_ENTRIES_TABLE: &str = "
     );
 ";
 
+pub const CREATE_SECRETS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS Secrets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        value TEXT NOT NULL
+    );
+";
+
 pub struct Query<'a> {
     connection: &'a Connection
 }
@@ -98,5 +106,16 @@ impl<'a> Query<'a> {
 
     pub fn delete_all_songs_in_playlist(self) -> Statement<'a> {
         self.connection.prepare("DELETE FROM Entries WHERE playlist_id = ?").unwrap()
+    }
+
+    pub fn get_secret_by_name(self) -> Statement<'a> {
+        self.connection.prepare("SELECT value FROM Secrets WHERE name = ?").unwrap()
+    }
+
+    pub fn set_secret_by_name(self) -> Statement<'a> {
+        self.connection.prepare("
+            INSERT INTO Secrets
+            VALUES(?, ?)
+        ").unwrap()
     }
 }

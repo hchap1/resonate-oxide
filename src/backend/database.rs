@@ -46,6 +46,11 @@ impl Database {
             Err(_) => return Err(ResonateError::TableCreationError)
         }
 
+        match db.connection.execute(CREATE_SECRETS_TABLE,[])  {
+            Ok(_) => {},
+            Err(_) => return Err(ResonateError::TableCreationError)
+        }
+
         Ok(db)
     }
 
@@ -297,6 +302,20 @@ impl Database {
             .sum();
 
         Some((downloaded, songs.len()))
+    }
+
+    pub fn get_secret(&self, name: String) -> Option<String> {
+        match Query::new(&self.connection).get_secret_by_name().query_map(
+            params![name],
+            |row| row.get::<_, String>(0)
+        ) {
+            Ok(results) => results.filter_map(|x| x.ok()).nth(0),
+            Err(_) => None
+        }
+    }
+
+    pub fn set_secret(&self, name: String, value: String) {
+        let _ = Query::new(&self.connection).set_secret_by_name().execute(params![name, value]);
     }
 }
 

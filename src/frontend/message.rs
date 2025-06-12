@@ -3,14 +3,8 @@ use std::path::PathBuf;
 use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
 
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-
-use rustfm_scrobble::Scrobbler;
-
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
 use crate::backend::music::Song;
-use crate::backend::fm::{FMAuth, FMError, LastFM, FMMessage};
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
@@ -61,11 +55,6 @@ pub enum Message {
 
     SpotifyAuthenticationSuccess,
     SpotifyAuthenticationFailedAgain,
-
-    FMAuth(FMAuth), // KEY, SECRET, USERNAME, PASSWORD
-    RegisterFMManager(LastFM, Receiver<FMMessage>, Sender<FMMessage>),
-    FMFailed(FMError),
-    FMMessage(FMMessage),
 
     Hover(usize, bool),
 }

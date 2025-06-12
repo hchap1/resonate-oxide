@@ -23,6 +23,7 @@ pub struct DataDir {
 }
 
 impl DataDir {
+
     pub fn create_or_load() -> Result<Self, ResonateError> {
         let root = match ProjectDirs::from("com", "hchap1", "ResonateData") {
             Some(dir_builder) => dir_builder.data_dir().to_path_buf(),

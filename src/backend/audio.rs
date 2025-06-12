@@ -323,6 +323,7 @@ fn audio_thread(
         
         if should_audio_be_reloaded {
             now_playing = load_audio(&sink, &queue, &queue_upstream, &scrobble_upstream);
+            scrobble_applied = false;
             if now_playing.is_none() {
                 queue.position = 0;
                 sink.clear();

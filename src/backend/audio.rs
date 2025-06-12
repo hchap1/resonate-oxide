@@ -164,6 +164,7 @@ fn audio_thread(
 
     let mut queue: Queue = Queue::new();
     let mut now_playing: Option<usize> = None;
+    let mut scrobble_applied = false;
 
     loop {
         sleep(Duration::from_millis(200));
@@ -308,6 +309,15 @@ fn audio_thread(
                 if song.song.id != playing {
                     should_audio_be_reloaded = true;
                 }
+            }
+
+            let seconds_in = sink.get_pos().as_secs_f32();
+            let total_seconds = song.song.duration.as_secs_f32();
+            let ratio = seconds_in / total_seconds;
+
+            if !scrobble_applied && ratio > 0.2f32 {
+                scrobble_applied = true;
+                let _ = scrobble_upstream.send(ScrobbleRequest::Scrobble(song.song.clone()));
             }
         }
         

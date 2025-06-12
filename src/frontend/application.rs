@@ -624,6 +624,28 @@ impl Application<'_> {
                 )
             }
 
+            Message::FMPushScrobble(song) => {
+                let scrobble = Scrobble::new(
+                    song.title.clone(),
+                    song.artist.clone(),
+                    song.album.clone()
+                );
+
+                let auth = match self.last_fm_auth.clone() {
+                    Some(auth) => auth,
+                    None => return Task::none()
+                };
+
+                let auth_clone = auth.clone();
+
+                Task::future(NowPlaying::push_scrobble(auth_clone, scrobble, None)).map(
+                    |x| match x {
+                        Ok(_) => Message::FMScrobbleSuccess,
+                        Err(_) => Message::FMScrobbleFailure
+                    }
+                )
+            }
+
             Message::ScrobbleRequest(scrobble_request) => {
                 println!("Scrobble Request: {:?}", scrobble_request);
                 match scrobble_request {

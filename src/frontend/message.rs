@@ -6,6 +6,7 @@ use rust_fm::auth::WebOAuth;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
 use crate::backend::music::Song;
+use crate::backend::rpc::RPCMessage;
 
 use super::settings_page::Secret;
 
@@ -75,6 +76,8 @@ pub enum Message {
     FMScrobbleSuccess,
     FMScrobbleFailure,
     ScrobbleRequest(ScrobbleRequest),
+
+    RPCMessage(RPCMessage),
 
     Hover(usize, bool),
 }

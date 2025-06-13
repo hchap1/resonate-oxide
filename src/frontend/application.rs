@@ -24,6 +24,8 @@ use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
 use crate::backend::audio::ScrobbleRequest;
 use crate::backend::music::Song;
+use crate::backend::rpc::RPCManager;
+use crate::backend::rpc::RPCMessage;
 use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
@@ -82,7 +84,9 @@ pub struct Application<'a> {
     spotify_id: Option<String>,
     spotify_secret: Option<String>,
 
-    last_fm_auth: Option<WebOAuth>
+    last_fm_auth: Option<WebOAuth>,
+    
+    rpc_manager: RPCManager
 }
 
 impl<'a> Default for Application<'a> {
@@ -129,7 +133,8 @@ impl Application<'_> {
             spotify_id: None,
             spotify_secret: None,
 
-            last_fm_auth: None
+            last_fm_auth: None,
+            rpc_manager: RPCManager::new()
         }
     }
 
@@ -616,12 +621,15 @@ impl Application<'_> {
 
                 let auth_clone = auth.clone();
 
-                Task::future(NowPlaying::set_now_playing(auth_clone, scrobble)).map(
+                let fm_task = Task::future(NowPlaying::set_now_playing(auth_clone, scrobble)).map(
                     |x| match x {
                         Ok(_) => Message::FMScrobbleSuccess,
                         Err(_) => Message::FMScrobbleFailure
                     }
-                )
+                );
+
+                let rpc_task = Task::done(Message::RPCMessage(RPCMessage::SetStatus(song)));
+                Task::batch(vec![fm_task, rpc_task])
             }
 
             Message::FMPushScrobble(song) => {
@@ -651,6 +659,11 @@ impl Application<'_> {
                     ScrobbleRequest::NowPlaying(song) => Task::done(Message::FMSetNowPlaying(song)),
                     ScrobbleRequest::Scrobble(song) => Task::done(Message::FMPushScrobble(song))
                 }
+            }
+
+            Message::RPCMessage(message) => {
+                self.rpc_manager.send(message);
+                Task::none()
             }
 
             other => {

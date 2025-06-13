@@ -13,6 +13,7 @@ pub enum RPCError {
     Failed
 }
 
+#[derive(Debug, Clone)]
 pub enum RPCMessage {
     SetStatus(Song)
 }
@@ -29,6 +30,10 @@ impl RPCManager {
             handle: spawn(|| rpc_thread(receiver)),
             sender
         }
+    }
+
+    pub fn send(&self, message: RPCMessage) {
+        let _ = self.sender.send(message);
     }
 }
 

@@ -20,7 +20,7 @@ pub enum Secret {
     SpotifySecret(String),
     FMKey(String),
     FMSecret(String),
-    FMSession(String)
+    FMSession(String),
 }
 
 pub struct SettingsPage {

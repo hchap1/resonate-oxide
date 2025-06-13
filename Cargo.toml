@@ -20,3 +20,4 @@ tokio = { version = "1.44.1", features = ["full"] }
 youtube_dl = { version = "0.10.0", features = ["downloader-native-tls", "tokio"] }
 webbrowser = "*"
 rust_fm = "0.1.4"
+discord-rpc-client = "0.4.0"

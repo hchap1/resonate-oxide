@@ -7,4 +7,5 @@ pub mod util;
 pub mod audio;
 pub mod spotify;
 pub mod settings;
+pub mod rpc;
 mod sql;

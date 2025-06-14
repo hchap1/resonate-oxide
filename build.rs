@@ -2,9 +2,7 @@
 fn main() {
     let mut res = winres::WindowsResource::new();
     res.set_icon("icon.ico");
-    let _ = res.compile();
-
-    println!("cargo:rustc-link-args=/SUBSYSTEM:WINDOWS");
+    res.compile().expect("Failed to compile Windows resources");
 }
 
 #[cfg(not(windows))]

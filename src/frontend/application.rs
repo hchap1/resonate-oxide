@@ -629,7 +629,7 @@ impl Application<'_> {
                 );
 
                 let rpc_task = Task::done(Message::RPCMessage(RPCMessage::SetStatus(song)));
-                Task::batch(vec![fm_task, rpc_task])
+                rpc_task.chain(fm_task)
             }
 
             Message::FMPushScrobble(song) => {

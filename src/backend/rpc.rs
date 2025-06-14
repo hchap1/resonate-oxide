@@ -42,13 +42,18 @@ use crate::backend::music::Song;
 
 fn rpc_thread(receiver: Receiver<RPCMessage>) -> Result<(), RPCError> {
     let mut drpc = Client::new(CLIENT_ID);
+    println!("[DRPC] Starting");
     drpc.start();
+    drpc.on_event(discord_rpc_client::Event::Ready, |_ctx| { println!("[DRPC] READY!") });
+    println!("[DRPC] Started");
 
     loop {
         let message = match receiver.recv() {
             Ok(message) => message,
             Err(_) => return Err(RPCError::ChannelDied)
         };
+
+        println!("[DRPC] Received");
 
         match message {
             RPCMessage::SetStatus(song) => {
@@ -59,7 +64,7 @@ fn rpc_thread(receiver: Receiver<RPCMessage>) -> Result<(), RPCError> {
                         "On Resonate-Oxide"
                     )
                 }) {
-                    Ok(_) => {}, Err(_) => return Err(RPCError::Failed)
+                    Ok(_) => {}, Err(e) => { println!("[DRPC] Died: {e:?}"); return Err(RPCError::Failed) }
                 }
             }
         }

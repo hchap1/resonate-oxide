@@ -1,4 +1,4 @@
-const CLIENT_ID: u64 = 1383062372746264648;
+const CLIENT_ID: &str = "1383062372746264648";
 
 use std::thread::JoinHandle;
 use std::thread::spawn;
@@ -37,15 +37,18 @@ impl RPCManager {
     }
 }
 
-use discord_rpc_client::Client;
+use discord_rich_presence::activity::Activity;
+use discord_rich_presence::DiscordIpc;
+use discord_rich_presence::DiscordIpcClient;
 use crate::backend::music::Song;
 
 fn rpc_thread(receiver: Receiver<RPCMessage>) -> Result<(), RPCError> {
-    let mut drpc = Client::new(CLIENT_ID);
-    println!("[DRPC] Starting");
-    drpc.start();
-    drpc.on_event(discord_rpc_client::Event::Ready, |_ctx| { println!("[DRPC] READY!") });
-    println!("[DRPC] Started");
+    let mut drpc = match DiscordIpcClient::new(CLIENT_ID) {
+        Ok(drpc) => drpc,
+        Err(_) => return Err(RPCError::Failed)
+    };
+
+    if drpc.connect().is_err() { return Err(RPCError::Failed) }
 
     loop {
         let message = match receiver.recv() {
@@ -53,19 +56,12 @@ fn rpc_thread(receiver: Receiver<RPCMessage>) -> Result<(), RPCError> {
             Err(_) => return Err(RPCError::ChannelDied)
         };
 
-        println!("[DRPC] Received");
-
         match message {
             RPCMessage::SetStatus(song) => {
-                match drpc.set_activity(|act| {
-                    act.state(
-                        format!("Listening to {} by {}", song.title, song.artist)
-                    ).details(
-                        "On Resonate-Oxide"
-                    )
-                }) {
-                    Ok(_) => {}, Err(e) => { println!("[DRPC] Died: {e:?}"); return Err(RPCError::Failed) }
-                }
+                let message = format!("Listening to {} by {}", song.title, song.artist);
+                let _ = drpc.set_activity(
+                    Activity::new().state(message.as_str())
+                );
             }
         }
     }

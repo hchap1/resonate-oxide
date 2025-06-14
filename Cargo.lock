@@ -1194,20 +1194,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "discord-rpc-client"
-version = "0.4.0"
+name = "discord-rich-presence"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5577407c3d8ec8db993e7dd256ba64557cd00239de84a352b9d329175c70df23"
+checksum = "a75db747ecd252c01bfecaf709b07fcb4c634adf0edb5fed47bc9c3052e7076b"
 dependencies = [
- "byteorder",
- "crossbeam-channel",
- "log",
- "named_pipe",
- "num-derive",
- "num-traits",
  "serde",
  "serde_derive",
  "serde_json",
+ "serde_repr",
  "uuid",
 ]
 
@@ -3089,15 +3084,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "named_pipe"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad9c443cce91fc3e12f017290db75dde490d685cdaaf508d7159d7cf41f0eb2b"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "native-tls"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4311,7 +4297,7 @@ dependencies = [
  "async-channel",
  "crossbeam-channel",
  "directories",
- "discord-rpc-client",
+ "discord-rich-presence",
  "essi-ffmpeg",
  "iced",
  "iced_toasts",
@@ -5658,13 +5644,11 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "uuid"
-version = "1.17.0"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
- "getrandom 0.3.2",
- "js-sys",
- "wasm-bindgen",
+ "getrandom 0.2.15",
 ]
 
 [[package]]

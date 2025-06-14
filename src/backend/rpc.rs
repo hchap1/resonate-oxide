@@ -19,7 +19,7 @@ pub enum RPCMessage {
 }
 
 pub struct RPCManager {
-    handle: JoinHandle<Result<(), RPCError>>,
+    _handle: JoinHandle<Result<(), RPCError>>,
     sender: Sender<RPCMessage>
 }
 
@@ -27,7 +27,7 @@ impl RPCManager {
     pub fn new() -> RPCManager {
         let (sender, receiver) = unbounded();
         Self {
-            handle: spawn(|| rpc_thread(receiver)),
+            _handle: spawn(|| rpc_thread(receiver)),
             sender
         }
     }

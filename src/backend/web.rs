@@ -36,7 +36,7 @@ pub async fn flatsearch(
         }
         Err(e) => {
             println!("{e:?}");
-            return Err(ResonateError::NetworkError(Box::new(String::from("Failed to search with yt-dlp"))))
+            return Err(ResonateError::NetworkError)
         }
     }
 }
@@ -50,7 +50,7 @@ pub fn collect_metadata(
 
     let path = match executable_path {
         Some(path) => path,
-        None => return Err(ResonateError::ExecNotFound(Box::new(String::from("yt-dlp not installed."))))
+        None => return Err(ResonateError::ExecNotFound)
     };
 
     let ytdl = YoutubeDl::new(id)
@@ -69,13 +69,13 @@ pub fn collect_metadata(
                         };
                         Ok(Song::load(0, entry.id, title, artist, entry.album.take(), Duration::from_secs(duration), music_path, thumbnail_path))
                     } else {
-                        Err(ResonateError::NetworkError(Box::new(String::from("Could not parse metadata from entry"))))
+                        Err(ResonateError::NetworkError)
                     }
                 }
-                None => Err(ResonateError::NetworkError(Box::new(String::from("Could not collect metadata from ID"))))
+                None => Err(ResonateError::NetworkError)
             }
         }
-        Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not collect metadata from ID"))))
+        Err(_) => Err(ResonateError::NetworkError)
     }
 }
 

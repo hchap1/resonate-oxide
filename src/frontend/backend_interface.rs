@@ -45,7 +45,7 @@ pub fn populate(executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_d
                 song.id = id;
                 Ok(song)
             } else {
-                Err(ResonateError::GenericError(Box::new(String::from("Song already exists in table."))))
+                Err(ResonateError::GenericError)
             }
         }
         Err(_) => return Err(ResonateError::SQLError)

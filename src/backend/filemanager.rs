@@ -30,7 +30,7 @@ impl DataDir {
             None => return Err(ResonateError::UnrecognisedHomeDir)
         };
 
-        let error = ResonateError::DirectoryNotFound(Box::new(format!("{root:?} could not be created")));
+        let error = ResonateError::DirectoryNotFound;
         let music = root.join("music");
         let dependencies = root.join("dependencies");
         let thumbnails = root.join("thumbnails");
@@ -69,7 +69,7 @@ impl DataDir {
 
         let mut matching_entry = match read_dir(&dependencies) {
             Ok(entries) => entries,
-            Err(_) => return Err(ResonateError::DirectoryNotFound(Box::new(String::from("Could not read from the dependencies directory."))))
+            Err(_) => return Err(ResonateError::DirectoryNotFound)
         }.find(|entry| match entry {
                 Err(_) => false,
                 Ok(entry) => {
@@ -123,7 +123,7 @@ pub async fn install_dlp(target: PathBuf) -> Result<PathBuf, ResonateError> {
                 false => false
             }
         }),
-        Err(e) => return Err(ResonateError::DirectoryNotFound(Box::new(e)))
+        Err(_) => return Err(ResonateError::DirectoryNotFound)
     };
 
     println!("[DIRECTORIES] Existing installation: {existing_path_option:?}");
@@ -136,6 +136,6 @@ pub async fn install_dlp(target: PathBuf) -> Result<PathBuf, ResonateError> {
     // If not, attempt to download
     match YoutubeDlFetcher::default().download(target).await {
         Ok(path) => Ok(path),
-        Err(_) => Err(ResonateError::NetworkError(Box::new(String::from("Could not download YT-DLP"))))
+        Err(_) => Err(ResonateError::NetworkError)
     }
 }

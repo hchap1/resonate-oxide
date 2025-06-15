@@ -63,26 +63,20 @@ pub struct Application<'a> {
     page: Box<dyn Page + 'a>,
     directories: DataDir,
     database: AM<Database>,
-
     current_thumbnail_downloads: HashSet<String>,
     current_song_downloads: HashSet<String>,
     download_queue: HashSet<Song>,
-
     audio_player: Option<AudioPlayer>,
     queue_state: Option<QueueFramework>,
     progress_state: Option<ProgressUpdate>,
     volume: f32,
-
     last_page: (PageType, Option<usize>),
     current_page: (PageType, Option<usize>),
     default_queue: QueueFramework,
-
     spotify_credentials: Option<rspotify::ClientCredsSpotify>,
     spotify_id: Option<String>,
     spotify_secret: Option<String>,
-
     last_fm_auth: Option<WebOAuth>,
-    
     rpc_manager: RPCManager
 }
 
@@ -112,24 +106,19 @@ impl Application<'_> {
             page: Box::new(PlaylistsPage::new(database.clone())),
             directories,
             database,
-            
             current_thumbnail_downloads: HashSet::new(),
             current_song_downloads: HashSet::new(),
             download_queue: HashSet::new(),
-
             audio_player: None,
             queue_state: None,
             progress_state: None,
             volume: 1f32,
-
             last_page: (PageType::Playlists, None),
             current_page: (PageType::Playlists, None),
             default_queue: QueueFramework::default(),
-            
             spotify_credentials: None,
             spotify_id: None,
             spotify_secret: None,
-
             last_fm_auth: None,
             rpc_manager: RPCManager::new()
         }
@@ -231,7 +220,7 @@ impl Application<'_> {
 
             Message::SongDownloaded(song) => {
                 self.current_song_downloads.remove(&song.yt_id);
-                self.page.update(Message::SongDownloaded(song));
+                let _ = self.page.update(Message::SongDownloaded(song));
 
                 if self.download_queue.len() > 0 {
                     let song = match self.download_queue.iter().nth(0) {

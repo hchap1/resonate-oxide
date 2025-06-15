@@ -34,15 +34,11 @@
   - Show status of a youtube search process
   - Show status of song downloads
   - Show status of youtube authentication with an interactable notifcation allowing retrying
- 
-</br>
- 
-# FUTURE FEATURES
-- [x] YouTube integration
-- [x] Spotify integration
-- [ ] Last.FM integration (SCROBBLING)
-- [ ] Discord RPC
-
+- LAST.FM Integration
+  - Push scrobbles
+  - Set now playing
+- Discord RPC
+  - Show what you are listening to
 ![Build](https://img.shields.io/github/actions/workflow/status/hchap1/resonate-oxide/build.yml)
 ![License](https://img.shields.io/github/license/hchap1/resonate-oxide)
 ![Stars](https://img.shields.io/github/stars/hchap1/resonate-oxide) 

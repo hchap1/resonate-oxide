@@ -8,7 +8,6 @@ use iced::Element;
 use iced::alignment::Vertical;
 use iced::widget::Column;
 use iced::widget::Row;
-use iced::widget::text;
 use iced::Length;
 use iced::Task;
 
@@ -61,7 +60,7 @@ pub trait Page {
 
 pub struct Application<'a> {
     settings: Settings,
-    page: Option<Box<dyn Page + 'a>>,
+    page: Box<dyn Page + 'a>,
     directories: DataDir,
     database: AM<Database>,
 
@@ -110,7 +109,7 @@ impl Application<'_> {
 
         Self {
             settings: Settings::default(),
-            page: Some(Box::new(PlaylistsPage::new(database.clone()))),
+            page: Box::new(PlaylistsPage::new(database.clone())),
             directories,
             database,
             
@@ -137,46 +136,38 @@ impl Application<'_> {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        match self.page.as_ref() {
-            Some(page) => {
-                ResonateWidget::window(
-                    Column::new().spacing(20).push(
-                        Row::new().spacing(20).push(
-                            Column::new().spacing(20)
-                                .push(page.view(&self.current_song_downloads, &self.download_queue))
-                                .width(Length::FillPortion(3))
-                            ).push(
-                                Column::new().spacing(20)
+        ResonateWidget::window(
+            Column::new().spacing(20).push(
+                Row::new().spacing(20).push(
+                    Column::new().spacing(20)
+                        .push(self.page.view(&self.current_song_downloads, &self.download_queue))
+                        .width(Length::FillPortion(3))
+                    ).push(
+                        Column::new().spacing(20)
+                            .push(
+                                Row::new().align_y(Vertical::Center)
+                                    .push(ResonateWidget::header("Queue"))
                                     .push(
-                                        Row::new().align_y(Vertical::Center)
-                                            .push(ResonateWidget::header("Queue"))
-                                            .push(
-                                                ResonateWidget::inline_button("Clear")
-                                                    .on_press(Message::AudioTask(AudioTask::ClearQueue))
-                                            )
-                                    )
-                                    .push(
-                                        ResonateWidget::queue_bar(
-                                            self.queue_state.as_ref(),
-                                            self.directories.get_default_thumbnail()
-                                        )
+                                        ResonateWidget::inline_button("Clear")
+                                            .on_press(Message::AudioTask(AudioTask::ClearQueue))
                                     )
                             )
-                    ).push(ResonateWidget::control_bar(self.queue_state.as_ref(), 
-                        match self.page.as_ref() {
-                            Some(page) => page.back(self.last_page.clone()),
-                            None => self.last_page.clone()
-                        },
-                        self.progress_state.clone(),
-                        self.volume,
-                        self.directories.get_default_thumbnail(),
-                        &self.default_queue
-                    ))
-                    .into()
-                )
-            }
-            None => text("404 - No page.").into()
-        }
+                            .push(
+                                ResonateWidget::queue_bar(
+                                    self.queue_state.as_ref(),
+                                    self.directories.get_default_thumbnail()
+                                )
+                            )
+                    )
+            ).push(ResonateWidget::control_bar(self.queue_state.as_ref(), 
+                self.page.back(self.last_page.clone()),
+                self.progress_state.clone(),
+                self.volume,
+                self.directories.get_default_thumbnail(),
+                &self.default_queue
+            ))
+            .into()
+        )
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -240,9 +231,7 @@ impl Application<'_> {
 
             Message::SongDownloaded(song) => {
                 self.current_song_downloads.remove(&song.yt_id);
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::SongDownloaded(song));
-                }
+                self.page.update(Message::SongDownloaded(song));
 
                 if self.download_queue.len() > 0 {
                     let song = match self.download_queue.iter().nth(0) {
@@ -268,9 +257,7 @@ impl Application<'_> {
                 let require_thumbnail_download = song.thumbnail_path.is_none()
                     && !self.current_thumbnail_downloads.contains(&search_string);
 
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::SearchResult(song, from_online));
-                }
+                let _ = self.page.update(Message::SearchResult(song, from_online));
 
                 if require_thumbnail_download {
                     self.current_thumbnail_downloads.insert(search_string);
@@ -376,27 +363,20 @@ impl Application<'_> {
 
             Message::RemoveSongFromPlaylist(song_id, playlist_id) => {
                 self.database.lock().unwrap().remove_song_from_playlist(song_id, playlist_id);
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::RemoveSongFromPlaylist(song_id, playlist_id));
-                }
+                let _ = self.page.update(Message::RemoveSongFromPlaylist(song_id, playlist_id));
                 Task::done(Message::AudioTask(AudioTask::RemoveSongById(song_id)))
             }
 
             Message::DeletePlaylist(playlist_id) => {
                 self.database.lock().unwrap().delete_playlist(playlist_id);
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::DeletePlaylist(playlist_id));
-                }
+                let _ = self.page.update(Message::DeletePlaylist(playlist_id));
                 Task::none()
             }
 
             Message::DownloadFailed(song) => {
                 println!("[UPDATE] Download of {} failed.", song.title);
                 self.current_song_downloads.remove(&song.yt_id);
-
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::DownloadFailed(song));
-                }
+                let _ = self.page.update(Message::DownloadFailed(song));
 
                 if self.download_queue.len() > 0 {
                     let song = match self.download_queue.iter().nth(0) {
@@ -416,10 +396,7 @@ impl Application<'_> {
             }
 
             Message::SpotifyCreds(id, secret) => {
-
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::SpotifyCreds(id.clone(), secret.clone()));
-                }
+                let _ = self.page.update(Message::SpotifyCreds(id.clone(), secret.clone()));
 
                 if let (Some(id), Some(secret)) = (id, secret) {
                     self.spotify_id = Some(id.clone());
@@ -445,27 +422,19 @@ impl Application<'_> {
                 match res {
                     Ok(creds) => self.spotify_credentials = Some(creds),
                     Err(_) => {
-                        if let Some(page) = self.page.as_mut() {
-                            let _ = page.update(Message::SpotifyAuthenticationFailedAgain);
-                        }
+                        let _ = self.page.update(Message::SpotifyAuthenticationFailedAgain);
                         eprintln!("[SPOTIFY] Authentication Failed");
                         return Task::none();
                     }
                 }
 
-                if let Some(page) = self.page.as_mut() {
-                    let _ = page.update(Message::SpotifyAuthenticationSuccess);
-                }
-
+                let _ = self.page.update(Message::SpotifyAuthenticationSuccess);
                 Task::none()
             }
 
             Message::SpotifyPlaylist(uri) => {
-
-                if let Some(page) = self.page.as_mut() {
-                    // Let the page know the search has been received
-                    let _ = page.update(Message::SpotifyPlaylist(String::new()));
-                }
+                // Let the page know the search has been received
+                let _ = self.page.update(Message::SpotifyPlaylist(String::new()));
 
                 let id = if uri.len() != 11 {
                     match crate::backend::spotify::extract_spotify_playlist_id(uri.clone()) {
@@ -677,10 +646,7 @@ impl Application<'_> {
             }
 
             other => {
-                match self.page.as_mut() {
-                    Some(page) => page.update(other),
-                    None => Task::none()
-                }
+                self.page.update(other)
             }
         }
     }
@@ -688,25 +654,32 @@ impl Application<'_> {
     fn load_page(&mut self, page_type: PageType, playlist_id: Option<usize>) {
         self.last_page = self.current_page.to_owned();
         self.current_page = (page_type.clone(), playlist_id.clone());
-        self.page = Some(match page_type {
+
+        self.page = match page_type {
+
             PageType::SearchSongs => Box::new(
-                SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())),
+                SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())
+            ),
+
             PageType::Playlists => Box::new(PlaylistsPage::new(self.database.clone())),
+
             PageType::ViewPlaylist => Box::new(
                 match PlaylistPage::new(playlist_id, self.database.clone(), self.directories.clone()) {
                     Ok(page) => page,
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }
             ),
+
             PageType::ImportSpotify => Box::new(ImportPage::new(
                 self.directories.clone(),
                 self.database.clone(),
                 self.spotify_id.clone(),
                 self.spotify_secret.clone()
             )),
+
             PageType::Settings => {
                 Box::new(SettingsPage::new(self.database.clone()))
             }
-        });
+        };
     }
 }

@@ -4302,6 +4302,7 @@ dependencies = [
  "iced",
  "iced_toasts",
  "image 0.25.6",
+ "pin-project",
  "rand 0.9.1",
  "rodio",
  "rspotify",

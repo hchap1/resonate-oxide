@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
-use iced::futures::FutureExt;
 use rand::rng;
 use rand::seq::SliceRandom;
 
 use iced::Element;
+use iced::futures::FutureExt;
 use iced::alignment::Vertical;
 use iced::widget::Column;
 use iced::widget::Row;
@@ -23,13 +23,11 @@ use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
 use crate::frontend::pages::settings_page::Secret;
-
 use crate::frontend::pages::playlist_page::PlaylistPage;
 use crate::frontend::pages::import_page::ImportPage;
 use crate::frontend::pages::settings_page::SettingsPage;
 use crate::frontend::pages::search_page::SearchPage;
 use crate::frontend::pages::playlists_page::PlaylistsPage;
-
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;

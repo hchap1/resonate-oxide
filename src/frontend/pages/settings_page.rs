@@ -7,12 +7,11 @@ use iced::Task;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
+use crate::frontend::widgets::ResonateWidget;
 
 use crate::backend::util::AM;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
-
-use super::widgets::ResonateWidget;
 
 #[derive(Clone, Debug)]
 pub enum Secret {

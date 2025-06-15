@@ -20,6 +20,17 @@ use rust_fm::token::WebCallback;
 use rust_fm::session::WebSession;
 use rust_fm::playing::NowPlaying;
 
+use crate::frontend::message::Message;
+use crate::frontend::message::PageType;
+use crate::frontend::widgets::ResonateWidget;
+use crate::frontend::pages::settings_page::Secret;
+
+use crate::frontend::pages::playlist_page::PlaylistPage;
+use crate::frontend::pages::import_page::ImportPage;
+use crate::frontend::pages::settings_page::SettingsPage;
+use crate::frontend::pages::search_page::SearchPage;
+use crate::frontend::pages::playlists_page::PlaylistsPage;
+
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
@@ -35,26 +46,12 @@ use crate::backend::util::desync;
 use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
-
 use crate::backend::web::download_song;
 use crate::backend::web::download_thumbnail;
-// GUI PAGES
-use crate::frontend::search_page::SearchPage;
-use crate::frontend::playlists::PlaylistsPage;
-use crate::frontend::playlist_page::PlaylistPage;
-use crate::frontend::import_page::ImportPage;
-
-use crate::frontend::message::Message;
-use crate::frontend::message::PageType;
-use crate::frontend::widgets::ResonateWidget;
-
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
 use crate::backend::util::{sync, AM};
 use crate::backend::audio::AudioPlayer;
-
-use super::settings_page::Secret;
-use super::settings_page::SettingsPage;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;

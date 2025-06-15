@@ -11,6 +11,8 @@ use iced::Task;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
+use crate::frontend::widgets::ResonateStyle;
+use crate::frontend::widgets::ResonateColour;
 use crate::frontend::message::PageType;
 
 use crate::backend::filemanager::DataDir;
@@ -20,9 +22,6 @@ use crate::backend::database::Database;
 use crate::backend::util::AM;
 use crate::backend::util::desync;
 use crate::backend::util::consume;
-
-use super::widgets::ResonateColour;
-use super::widgets::ResonateStyle;
 
 pub struct PlaylistPage {
     playlist: Playlist,

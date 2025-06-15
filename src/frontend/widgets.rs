@@ -9,11 +9,11 @@ use iced::widget::{container, image, scrollable, text, Column, Container, Row, S
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
 
 use crate::frontend::message::Message;
+use crate::frontend::message::PageType;
+use crate::frontend::pages::search_page::SearchState;
+
 use crate::backend::music::{Playlist, Song};
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
-
-use super::message::PageType;
-use super::search_page::SearchState;
 
 const R: u8 = 78;
 const G: u8 = 62;

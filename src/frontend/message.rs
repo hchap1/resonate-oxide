@@ -4,11 +4,11 @@ use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
 
+use crate::frontend::pages::settings_page::Secret;
+
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
 use crate::backend::music::Song;
 use crate::backend::rpc::RPCMessage;
-
-use super::settings_page::Secret;
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]

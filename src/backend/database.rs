@@ -3,12 +3,17 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::task::Waker;
 use std::time::Duration;
+use std::thread::JoinHandle;
+use std::thread::spawn;
+use std::pin::Pin;
 
+use iced::futures::Stream;
 use rusqlite::Connection;
 use rusqlite::params;
 
 use crate::backend::sql::*;
 use crate::backend::util::AM;
+use crate::backend::util::sync;
 use crate::backend::util::desync;
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
@@ -331,4 +336,92 @@ pub fn search_mutex(database: AM<Database>, music_path: PathBuf, thumbnail_path:
     }
 
     database_output
+}
+
+pub struct DatabaseSearchQuery {
+    database: AM<Database>,
+    music_path: PathBuf,
+    thumbnail_path: PathBuf,
+    items: Vec<String>,
+    waker: AM<Option<Waker>>,
+    handle: Option<JoinHandle<Vec<Song>>>,
+    has_performed_full_search: bool,
+    selected_songs: HashSet<usize>
+}
+
+impl DatabaseSearchQuery {
+    pub fn new(database: AM<Database>, music_path: PathBuf, thumbnail_path: PathBuf, query: String) -> Self {
+        Self {
+            database,
+            music_path,
+            thumbnail_path,
+            items: query.split(" ").map(|x| x.to_string()).collect(),
+            waker: sync(None),
+            handle: None,
+            has_performed_full_search: false,
+            selected_songs: HashSet::new()
+        }
+    }
+}
+
+impl Stream for DatabaseSearchQuery {
+    type Item = Vec<Song>;
+    fn poll_next(mut self: Pin<&mut Self>, context: &mut std::task::Context) -> std::task::Poll<Option<<Self as Stream>::Item>> {
+        'collect_waker: {
+            let mut waker = self.waker.lock().unwrap();
+            if waker.is_some() { break 'collect_waker; }
+            *waker = Some(context.waker().clone());
+        }
+
+        let results: Vec<Song> = match &self.handle {
+            Some(handle) => {
+                if handle.is_finished() {
+                    match self.handle.take().unwrap().join() {
+                        Ok(data) => data.into_iter().filter(|song| !self.selected_songs.contains(&song.id)).collect(),
+                        Err(_) => Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            }
+            None => Vec::new()
+        };
+
+        results.iter().for_each(|song| { self.selected_songs.insert(song.id); });
+
+        if self.items.len() == 0 {
+            if self.handle.is_none() {
+                if results.len() == 0 {
+                    return std::task::Poll::Ready(None);
+                } else {
+                    return std::task::Poll::Ready(Some(results));
+                }
+            }
+            if results.len() == 0 {
+                return std::task::Poll::Pending;
+            } else {
+                return std::task::Poll::Ready(Some(results));
+            }
+        }
+
+        let database = self.database.clone();
+        let music_path = self.music_path.clone();
+        let thumbnail_path = self.thumbnail_path.clone();
+
+        let query = match self.has_performed_full_search {
+            false => {
+                self.has_performed_full_search = true;
+                self.items.join(" ").to_string()
+            }
+            true => self.items.remove(0)
+        };
+
+        let waker = self.waker.clone();
+        self.handle = Some(spawn(move || search_mutex(database, music_path, thumbnail_path, query, waker)));
+
+        match results.len() {
+            0 => std::task::Poll::Pending,
+            _ => std::task::Poll::Ready(Some(results))
+        }
+    }
 }

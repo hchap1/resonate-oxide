@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use iced::alignment::Vertical;
+use iced::futures::FutureExt;
+use iced::futures::StreamExt;
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
@@ -8,9 +10,6 @@ use iced::Length;
 use iced::Task;
 
 use crate::frontend::application::Page;
-use crate::frontend::backend_interface::async_flatsearch;
-use crate::frontend::backend_interface::AsyncMetadataCollectionPool;
-use crate::frontend::backend_interface::DatabaseSearchQuery;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
 
@@ -19,7 +18,10 @@ use crate::backend::music::Playlist;
 use crate::frontend::message::Message;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database::Database;
+use crate::backend::database::DatabaseSearchQuery;
 use crate::backend::music::Song;
+use crate::backend::web::flatsearch;
+use crate::backend::web::AsyncMetadataCollectionPool;
 
 pub enum SearchState {
     Searching,
@@ -167,12 +169,17 @@ impl Page for SearchPage {
                 let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
 
                 let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(
-                    async_flatsearch(dlp_path, self.query.clone())
+                    flatsearch(dlp_path, self.query.clone()).map(|res| match res {
+                        Ok(results) => Message::LoadSearchResults(results),
+                        Err(_) => Message::DLPWarning
+                    })
                 ).abortable();
+
                 self.search_handles.push(flatsearch_handle);
 
                 Task::<Message>::stream(
                     DatabaseSearchQuery::new(database, music_path, thumbnail_path, consume(&mut self.query))
+                        .map(|song_batch| Message::MultiSearchResult(song_batch, false))
                 ).chain(
                     flatsearch_task
                 )
@@ -195,7 +202,7 @@ impl Page for SearchPage {
                 )).abortable();
 
                 self.search_handles.push(metadata_collection_handle);
-                metadata_collector
+                metadata_collector.map(|song_batch| Message::MultiSearchResult(song_batch, true))
             }
 
             Message::SearchResult(song, from_online) => {

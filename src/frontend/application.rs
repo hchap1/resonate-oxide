@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use iced::futures::FutureExt;
 use rand::rng;
 use rand::seq::SliceRandom;
 
@@ -23,6 +24,7 @@ use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
 use crate::backend::audio::ScrobbleRequest;
+use crate::backend::filemanager::install_dlp;
 use crate::backend::music::Song;
 use crate::backend::rpc::RPCManager;
 use crate::backend::rpc::RPCMessage;
@@ -34,6 +36,8 @@ use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
 
+use crate::backend::web::download_song;
+use crate::backend::web::download_thumbnail;
 // GUI PAGES
 use crate::frontend::search_page::SearchPage;
 use crate::frontend::playlists::PlaylistsPage;
@@ -42,9 +46,6 @@ use crate::frontend::import_page::ImportPage;
 
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
-use crate::frontend::backend_interface::async_download_thumbnail;
-use crate::frontend::backend_interface::async_download_song;
-use crate::frontend::backend_interface::async_install_dlp;
 use crate::frontend::widgets::ResonateWidget;
 
 use crate::backend::filemanager::DataDir;
@@ -187,7 +188,10 @@ impl Application<'_> {
                 println!("[UPDATE] Check if DLP is downloaded");
                 match self.directories.get_dlp_ref() {
                     Some(_) => { println!("ALREADY DOWNLOADED!"); Task::none() }
-                    None => Task::future(async_install_dlp(self.directories.get_dependencies_ref().to_path_buf()))
+                    None => Task::future(
+                        install_dlp(self.directories.get_dependencies_ref().to_path_buf())
+                            .map(|res| Message::DLPDownloaded(res.ok()))
+                    )
                 }
             }
 
@@ -224,11 +228,16 @@ impl Application<'_> {
                 } else {
                     let _ = self.download_queue.remove(&song);
                     self.current_song_downloads.insert(song.yt_id.clone());
-                    Task::future(async_download_song(
-                        self.directories.get_dlp_ref().map(|x| x.to_path_buf()),
-                        self.directories.get_music_ref().to_path_buf(),
-                        song
-                    ))
+                    Task::future(
+                        download_song(
+                            self.directories.get_dlp_ref().map(|x| x.to_path_buf()),
+                            self.directories.get_music_ref().to_path_buf(),
+                            song
+                        )
+                    ).map(move |res| match res {
+                        Ok(song) => Message::SongDownloaded(song),
+                        Err(song) => Message::DownloadFailed(song)
+                    })
                 }
             }
 
@@ -268,12 +277,16 @@ impl Application<'_> {
 
                 if require_thumbnail_download {
                     self.current_thumbnail_downloads.insert(search_string);
-                    Task::future(async_download_thumbnail(
-                        self.directories.get_dlp_ref().expect("DLP not installed").to_path_buf(),
-                        self.directories.get_thumbnails_ref().to_path_buf(),
-                        id,
-                        album
-                    ))
+                    Task::future(
+                        download_thumbnail(
+                            self.directories.get_dlp_ref().expect("DLP not installed").to_path_buf(),
+                            self.directories.get_thumbnails_ref().to_path_buf(),
+                            id.clone(),
+                            album.unwrap_or(id)
+                        )
+                    ).map(|res| match res {
+                            Ok(_) => Message::UpdateThumbnails, _ => Message::None
+                    })
                 } else { Task::none() }
             }
 

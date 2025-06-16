@@ -51,9 +51,9 @@ impl DatabaseParams {
         params_from_iter(params)
     }
 
-    fn empty() -> DatabaseParams { DatabaseParams { params: Vec::new() } }
-    fn new(params: Vec<DatabaseParam>) -> DatabaseParams { DatabaseParams { params } }
-    fn single(param: DatabaseParam) -> DatabaseParams { DatabaseParams { params: vec![param] } }
+    pub fn empty() -> DatabaseParams { DatabaseParams { params: Vec::new() } }
+    pub fn new(params: Vec<DatabaseParam>) -> DatabaseParams { DatabaseParams { params } }
+    pub fn single(param: DatabaseParam) -> DatabaseParams { DatabaseParams { params: vec![param] } }
 }
 
 pub struct Database {

@@ -23,7 +23,7 @@ impl DatabaseInterface {
 
     /// Delete a playlist by id
     pub fn delete_playlist(database: &Database, playlist_id: usize) {
-        let _ = database.execute(DELETE_ALL_SONGS_IN_PLAYLIST, DatabaseParams::new(vec![
+        let _ = database.execute(REMOVE_ALL_FROM_PLAYLIST, DatabaseParams::new(vec![
             DatabaseParam::Usize(playlist_id)
         ]));
     }

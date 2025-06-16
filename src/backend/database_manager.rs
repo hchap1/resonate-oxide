@@ -50,6 +50,10 @@ impl DatabaseParams {
         let params: Vec<Value> = self.params.iter().map(|x| x.to_sql()).collect();
         params_from_iter(params)
     }
+
+    fn empty() -> DatabaseParams { DatabaseParams { params: Vec::new() } }
+    fn new(params: Vec<DatabaseParam>) -> DatabaseParams { DatabaseParams { params } }
+    fn single(param: DatabaseParam) -> DatabaseParams { DatabaseParams { params: vec![param] } }
 }
 
 pub struct Database {
@@ -66,6 +70,10 @@ impl Database {
             handle: spawn(move || database_thread(root_dir, task_receiver)),
             task_sender
         }
+    }
+
+    pub fn execute(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
+        self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
     }
 
     pub async fn query_map(&self, query: &'static str, params: DatabaseParams) -> Result<Vec<DatabaseParam>, ()> {

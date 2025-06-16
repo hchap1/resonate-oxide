@@ -60,7 +60,9 @@ fn rpc_thread(receiver: Receiver<RPCMessage>) -> Result<(), RPCError> {
             RPCMessage::SetStatus(song) => {
                 let message = format!("Listening to {} by {}", song.title, song.artist);
                 let _ = drpc.set_activity(
-                    Activity::new().state(message.as_str())
+                    Activity::new()
+                        .state(message.as_str())
+                        .activity_type(discord_rich_presence::activity::ActivityType::Listening)
                 );
             }
         }

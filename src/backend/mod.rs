@@ -8,4 +8,5 @@ pub mod audio;
 pub mod spotify;
 pub mod settings;
 pub mod rpc;
+pub mod new_database;
 mod sql;

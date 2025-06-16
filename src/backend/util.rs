@@ -22,13 +22,14 @@ pub fn consume(string: &mut String) -> String {
     replace(string, String::new())
 }
 
-enum RelayPacket<T> {
+#[derive(Debug)]
+enum RelayPacket<T: std::fmt::Debug> {
     Data(T),
     Handshake
 }
 
 #[pin_project::pin_project]
-pub struct Relay<T, F, M>
+pub struct Relay<T: std::fmt::Debug, F, M>
 where
         F: Fn(T) -> M,
 {
@@ -37,10 +38,10 @@ where
     queue_receiver: Receiver<RelayPacket<T>>,
     _handle: JoinHandle<()>,
     map_fn: F,
-    packets: Vec<T>
+    packets: Vec<T>,
 }
 
-impl<T: Send + 'static, F: Fn(T) -> M, M> Relay<T, F, M> {
+impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> M, M> Relay<T, F, M> {
     pub fn consume_receiver(receiver: Receiver<T>, map_fn: F) -> Relay<T, F, M> {
         let (waker_sender, waker_receiver) = unbounded();
         let (queue_sender, queue_receiver) = unbounded();
@@ -51,14 +52,16 @@ impl<T: Send + 'static, F: Fn(T) -> M, M> Relay<T, F, M> {
             queue_receiver,
             _handle: spawn(move || relay(waker_receiver, queue_sender, receiver)),
             map_fn,
-            packets: Vec::new()
+            packets: Vec::new(),
         }
     }
 }
 
-fn relay<T>(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>>, receiver: Receiver<T>) {
+fn relay<T: std::fmt::Debug>(
+    waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>>, receiver: Receiver<T>
+) {
 
-    let waker = loop {
+    let mut waker = loop {
         match waker_receiver.recv() {
             Ok(waker) => break waker,
             Err(_) => return
@@ -74,19 +77,22 @@ fn relay<T>(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>
         };
 
         if queue_sender.send(RelayPacket::Data(packet)).is_err() { return; }
+
+        while let Ok(new_waker) = waker_receiver.try_recv() {
+            waker = new_waker;
+        }
+
         waker.wake_by_ref();
     }
 }
 
-impl<T, F: Fn(T) -> M, M> Stream for Relay<T, F, M> {
+impl<T: std::fmt::Debug, F: Fn(T) -> M, M> Stream for Relay<T, F, M> {
     type Item = M;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
-        if !self.waker_confirmed {
-            let waker = context.waker().to_owned();
-            if self.waker_sender.send(waker).is_err() {
-                return Poll::Ready(None);
-            }
+        let waker = context.waker().to_owned();
+        if self.waker_sender.send(waker).is_err() {
+            return Poll::Ready(None);
         }
 
         while let Ok(packet) = self.queue_receiver.try_recv() {

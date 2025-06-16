@@ -39,6 +39,7 @@ pub const CREATE_SECRETS_TABLE: &str = "
 pub const REMOVE_SONG_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE song_id = ? AND playlist_id = ?";
 pub const REMOVE_ALL_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE playlist_id = ?";
 pub const REMOVE_PLAYLIST: &str = "DELETE FROM Playlists WHERE id = ?";
+pub const SELECT_SONG_BY_SQL_ID: &str = "SELECT * FROM Songs WHERE id = ?";
 
 pub struct Query<'a> {
     connection: &'a Connection

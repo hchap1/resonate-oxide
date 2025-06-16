@@ -23,7 +23,6 @@ pub struct Database {
     connection: Connection,
 }
 
-#[allow(dead_code)]
 impl Database {
     pub fn new(root_dir: &Path) -> Result<Self, ResonateError> {
         let db = Self {
@@ -68,19 +67,6 @@ impl Database {
     pub fn delete_playlist(&self, playlist_id: usize) {
         let _ = Query::new(&self.connection).delete_all_songs_in_playlist().execute(params![playlist_id]);
         let _ = Query::new(&self.connection).delete_playlist().execute(params![playlist_id]);
-    }
-
-    /// Attempt to hash every song in the database by YT-ID for uniqueness check
-    pub fn hash_all_songs(&self) -> HashSet<String> {
-        match Query::new(&self.connection).retrieve_all_songs().query_map(params![], |row| {
-            row.get::<_, String>(0)
-        }) {
-            Ok(results) => HashSet::from_iter(results.filter_map(|potential_id| match potential_id {
-                Ok(id) => Some(id),
-                Err(_) => None
-            })),
-            Err(_) => HashSet::<String>::new()
-        }
     }
 
     /// Get songs by id (not yt-id)

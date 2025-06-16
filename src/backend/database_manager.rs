@@ -13,7 +13,7 @@ use rusqlite::ParamsFromIter;
 use rusqlite::types::ValueRef;
 
 enum ItemStream {
-    Value(DatabaseParam),
+    Value(Vec<DatabaseParam>),
     Error,
     End
 }
@@ -38,6 +38,21 @@ impl DatabaseParam {
             Self::Null => Value::Null,
             Self::F46(v) => Value::Real(*v)
         }
+    }
+    
+    pub fn usize(&self) -> usize {
+        if let Self::Usize(v) = self { return *v; }
+        panic!("Attempted to get a USIZE from a non-usize value");
+    }
+
+    pub fn string(&self) -> String {
+        if let Self::String(v) = self { return v.clone(); }
+        panic!("Attempted to get a STRING from a non-string value");
+    }
+
+    pub fn f64(&self) -> f64 {
+        if let Self::F46(v) = self { return *v; }
+        panic!("Attempted to get a F64 from a non-f64 value");
     }
 }
 
@@ -76,7 +91,10 @@ impl Database {
         self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
     }
 
-    pub async fn query_map(&self, query: &'static str, params: DatabaseParams) -> Result<Vec<DatabaseParam>, ()> {
+    /// Collect all results, then proceed
+    pub async fn query_map(
+        &self, query: &'static str, params: DatabaseParams
+    ) -> Result<Vec<Vec<DatabaseParam>>, ()> {
         let (sender, receiver) = unbounded();
         let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
         let handle = tokio::task::spawn_blocking(move || {
@@ -135,6 +153,8 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
 
                 let column_count = statement.column_count();
                 let _ = statement.query_map(params.to_params(), |row| {
+                    
+                    let mut values = Vec::new();
 
                     for idx in 0..column_count {
                         let value = match row.get_ref(idx) {
@@ -150,8 +170,10 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                             ValueRef::Blob(_) => DatabaseParam::Null
                         };
 
-                        let _ = sender.send(ItemStream::Value(value));
+                        values.push(value);
                     }
+
+                    let _ = sender.send(ItemStream::Value(values));
 
                     Ok(())
                 });

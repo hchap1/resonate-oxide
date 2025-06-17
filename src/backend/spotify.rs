@@ -293,8 +293,8 @@ pub async fn load_spotify_song(
         artist,
         Some(item.album.name),
         item.duration.to_std().unwrap_or(Duration::from_secs(0)),
-        &music_path,
-        &thumbnail_path
+        music_path,
+        thumbnail_path
     );
 
     let (_, id) = match desync(&database).emplace_song_and_record_id(&base_song, true) {

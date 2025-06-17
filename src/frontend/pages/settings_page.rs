@@ -12,15 +12,7 @@ use crate::frontend::widgets::ResonateWidget;
 use crate::backend::util::AM;
 use crate::backend::database::Database;
 use crate::backend::music::Song;
-
-#[derive(Clone, Debug)]
-pub enum Secret {
-    SpotifyID(String),
-    SpotifySecret(String),
-    FMKey(String),
-    FMSecret(String),
-    FMSession(String),
-}
+use crate::backend::settings::Secret;
 
 pub struct SettingsPage {
     database: AM<Database>,

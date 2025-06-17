@@ -12,6 +12,8 @@ use crate::backend::database_manager::ItemStream;
 use crate::backend::music::Playlist;
 use crate::backend::error::ResonateError;
 
+use super::settings::Secret;
+
 pub struct DatabaseInterface;
 impl DatabaseInterface {
     
@@ -193,5 +195,69 @@ impl DatabaseInterface {
         };
 
         Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
+    }
+
+    /// Expects an ItemStream that will yield every song in a playlist.
+    pub async fn get_download_statistics(
+        receiver: Receiver<ItemStream>, music_path: PathBuf, thumbnail_path: PathBuf
+    ) -> Result<(usize, usize), ResonateError> {
+
+        let mut rows = Vec::new();
+        let mut temp_receiver = receiver.clone();
+
+        while let Ok(result) = tokio::task::spawn_blocking(move || temp_receiver.recv()).await {
+            let message = match result {
+                Ok(result) => result,
+                Err(_) => return Err(ResonateError::GenericError)
+            };
+
+            match message {
+                ItemStream::Value(row) => rows.push(row),
+                ItemStream::End => break,
+                ItemStream::Error => return Err(ResonateError::GenericError)
+            }
+
+            temp_receiver = receiver.clone();
+        }
+
+        let songs = Self::construct_songs(rows, music_path, thumbnail_path).await;
+        Ok((
+            songs.iter().filter(|x| x.music_path.is_some()).count(),
+            songs.len()
+        ))
+    }
+
+    /// Create a handle to a task getting a secret by name
+    pub fn select_secret_by_name_handle<'a>(
+        database: &'a Database, name: String
+    ) -> impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>> + 'a {
+        database.query_map(SELECT_SECRET_BY_NAME, DatabaseParams::single(DatabaseParam::String(name)))
+    }
+
+    /// Await a handle yielding database rows and produce a secret
+    pub async fn select_secret_by_name(
+        handle: impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>>
+    ) -> Option<Secret> {
+        let rows = match handle.await {
+            Ok(rows) => rows,
+            Err(_) => return None
+        };
+
+        rows.into_iter().filter_map(|row| {
+            if row.len() != 3 {
+                None
+            } else {
+                let name = row[1].string();
+
+                Some(match name.as_str() {
+                    "SPOTIFY_ID" => Secret::SpotifyID(row[2].string()),
+                    "SPOTIFY_SECRET" => Secret::SpotifySecret(row[2].string()),
+                    "FM_KEY" => Secret::FMKey(row[2].string()),
+                    "FM_SECRET" => Secret::FMSecret(row[2].string()),
+                    "FM_SESSION" => Secret::FMSecret(row[2].string()),
+                    _ => return None
+                })
+            }
+        }).collect::<Vec<Secret>>().pop()
     }
 }

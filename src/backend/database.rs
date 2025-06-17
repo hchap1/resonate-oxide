@@ -97,8 +97,8 @@ impl Database {
                             artist,
                             Some(album),
                             Duration::from_secs(duration as u64),
-                            music_path,
-                            thumbnail_path
+                            music_path.to_path_buf(),
+                            thumbnail_path.to_path_buf()
                         )
                     )
                 } else {
@@ -122,7 +122,10 @@ impl Database {
             let album = row.get::<_, String>(4).unwrap();
             let duration = row.get::<_, usize>(5).unwrap();
 
-            Ok(Song::load(id, yt_id, title, artist, Some(album), Duration::from_secs(duration as u64), music_path, thumbnail_path))
+            Ok(Song::load(
+                id, yt_id, title, artist, Some(album), Duration::from_secs(duration as u64),
+                music_path.to_path_buf(), thumbnail_path.to_path_buf()
+            ))
         }).unwrap().filter_map(
             |res| match res {
                 Ok(song) => Some(song),
@@ -141,7 +144,10 @@ impl Database {
             let album = row.get::<_, String>(4).unwrap();
             let duration = row.get::<_, usize>(5).unwrap();
 
-            Ok(Song::load(id, yt_id, title, artist, Some(album), Duration::from_secs(duration as u64), music_path, thumbnail_path))
+            Ok(Song::load(
+                id, yt_id, title, artist, Some(album), Duration::from_secs(duration as u64),
+                music_path.to_path_buf(), thumbnail_path.to_path_buf()
+            ))
         }).unwrap().filter_map(
             |res| match res {
                 Ok(song) => Some(song),

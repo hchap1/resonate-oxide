@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use strsim::levenshtein;
-
 use crossbeam_channel::Receiver;
 
 use crate::backend::database_manager::Database;
@@ -10,7 +8,7 @@ use crate::backend::database_manager::DatabaseParams;
 use crate::backend::sql::*;
 use crate::backend::music::Song;
 use crate::backend::database_manager::ItemStream;
-use crate::backend::error::ResonateError;
+use crate::backend::music::Playlist;
 
 pub struct DatabaseInterface;
 impl DatabaseInterface {
@@ -130,5 +128,48 @@ impl DatabaseInterface {
             DatabaseParam::String(song.album.take().unwrap_or(String::from("none"))),
             DatabaseParam::Usize(song.duration.as_secs() as usize)
         ])).await
+    }
+
+    /// Inserts a playlist into the database, returning the new ID of said playlist.
+    /// Does not check for duplicates.
+    pub async fn insert_playlist(database: &Database, playlist: Playlist) -> Option<usize> {
+        database.insert(INSERT_PLAYLIST, DatabaseParams::single(DatabaseParam::String(playlist.name))).await
+    }
+
+    /// Change the name of a playlist
+    pub fn update_playlist_name(database: &Database, playlist: Playlist) {
+        let _ = database.execute(UPDATE_PLAYLIST_NAME, DatabaseParams::new(vec![
+            DatabaseParam::Usize(playlist.id),
+            DatabaseParam::String(playlist.name.clone())
+        ]));
+    }
+
+    /// Add song to playlist
+    pub fn add_song_to_playlist(database: &Database, song_id: usize, playlist_id: usize) {
+        let _ = database.execute(INSERT_ENTRY, DatabaseParams::new(vec![
+            DatabaseParam::Usize(playlist_id),
+            DatabaseParam::Usize(song_id)
+        ]));
+    }
+
+    /// Get playlist by id
+    pub async fn get_playlist_by_id(database: &Database, playlist_id: usize) -> Option<Playlist> {
+        let rows = match database.query_map(SELECT_PLAYLIST_BY_ID, DatabaseParams::single(
+            DatabaseParam::Usize(playlist_id)
+        )).await {
+            Ok(rows) => rows,
+            Err(_) => return None
+        };
+
+        match rows.into_iter().filter_map(|row| {
+            if row.len() != 2 {
+                None
+            } else {
+                Some(row[1].string())
+            }
+        }).collect::<Vec<String>>().pop() {
+            Some(name) => Some(Playlist { id: playlist_id, name }),
+            None => None
+        }
     }
 }

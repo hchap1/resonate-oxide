@@ -41,12 +41,24 @@ pub const INSERT_SONG: &str = "
     VALUES(null, ?, ?, ?, ?, ?)
 ";
 
+pub const INSERT_PLAYLIST: &str = "
+    INSERT INTO Playlists
+    VALUES(null, ?)
+";
+
+pub const INSERT_ENTRY: &str = "
+    INSERT INTO Entries
+    VALUES(?, ?)
+";
+
 pub const REMOVE_SONG_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE song_id = ? AND playlist_id = ?";
 pub const REMOVE_ALL_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE playlist_id = ?";
 pub const REMOVE_PLAYLIST: &str = "DELETE FROM Playlists WHERE id = ?";
 pub const SELECT_SONG_BY_SQL_ID: &str = "SELECT * FROM Songs WHERE id = ?";
 pub const SELECT_SONG_BY_YOUTUBE_ID: &str = "SELECT * FROM Songs WHERE yt_id = ?";
 pub const SELECT_ALL_SONGS: &str = "SELECT * FROM Songs";
+pub const UPDATE_PLAYLIST_NAME: &str = "UPDATE Playlists SET title = ? WHERE id = ?";
+pub const SELECT_PLAYLIST_BY_ID: &str = "SELECT * FROM Playlists WHERE id = ?";
 
 pub struct Query<'a> {
     connection: &'a Connection

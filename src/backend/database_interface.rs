@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::path::PathBuf;
 
 use crossbeam_channel::Receiver;
@@ -9,6 +10,7 @@ use crate::backend::sql::*;
 use crate::backend::music::Song;
 use crate::backend::database_manager::ItemStream;
 use crate::backend::music::Playlist;
+use crate::backend::error::ResonateError;
 
 pub struct DatabaseInterface;
 impl DatabaseInterface {
@@ -171,5 +173,35 @@ impl DatabaseInterface {
             Some(name) => Some(Playlist { id: playlist_id, name }),
             None => None
         }
+    }
+
+    /// Stream every playlist
+    pub fn select_all_playlists(database: &Database) -> Receiver<ItemStream> {
+        database.query_stream(SELECT_ALL_PLAYLISTS, DatabaseParams::empty())
+    }
+
+    /// Stream all songs in a playlist
+    pub fn select_all_songs_in_playlist(database: &Database, playlist_id: usize) -> Receiver<ItemStream> {
+        database.query_stream(SELECT_ALL_SONGS_IN_PLAYLIST, DatabaseParams::single(DatabaseParam::Usize(playlist_id)))
+    }
+
+    fn select_song_by_title_handle<'a>(
+        database: &'a Database, title: String
+    ) -> impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>> + 'a {
+        database.query_map(SELECT_SONG_BY_TITLE, DatabaseParams::single(DatabaseParam::String(title)))
+    }
+
+    /// Attempt to select a song by name
+    pub async fn select_song_by_title(
+        handle: impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>>,
+        music_path: PathBuf,
+        thumbnail_path: PathBuf
+    ) -> Option<Song> {
+        let rows = match handle.await {
+            Ok(rows) => rows,
+            Err(_) => return None
+        };
+
+        Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
     }
 }

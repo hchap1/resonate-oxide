@@ -28,6 +28,7 @@ pub async fn flatsearch(
         .youtube_dl_path(executable_path)
         .extra_arg("--skip-download")
         .extra_arg("--flat-playlist")
+        .extra_arg("--no-check-certificate")
         .run_async().await {
         Ok(result) => {
             match result.into_playlist() {
@@ -65,6 +66,7 @@ pub fn collect_metadata(
     let ytdl = YoutubeDl::new(id)
         .youtube_dl_path(path)
         .extra_arg("--skip-download")
+        .extra_arg("--no-check-certificate")
         .run();
 
     match ytdl {
@@ -76,7 +78,18 @@ pub fn collect_metadata(
                             Some(duration) => duration,
                             None => 0u64
                         };
-                        Ok(Song::load(0, entry.id, title, artist, entry.album.take(), Duration::from_secs(duration), music_path, thumbnail_path))
+                        Ok(
+                            Song::load(
+                                0,
+                                entry.id,
+                                title,
+                                artist,
+                                entry.album.take(),
+                                Duration::from_secs(duration),
+                                music_path.to_owned(),
+                                thumbnail_path.to_owned()
+                            )
+                        )
                     } else {
                         Err(ResonateError::NetworkError)
                     }
@@ -95,6 +108,7 @@ pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: S
     let mut handle = Command::new(dlp_path)
         .arg("--write-thumbnail")
         .arg("--skip-download")
+        .arg("--no-check-certificate")
         .arg(format!("https://music.youtube.com/watch?v={}", id))
         .arg("-o")
         .arg(path.clone())
@@ -141,6 +155,7 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
         .arg("bestaudio")
         .arg("--extract-audio")
         .arg("--audio-format")
+        .arg("--no-check-certificate")
         .arg("mp3")
         .arg("-o")
         .arg(output.to_string_lossy().to_string())

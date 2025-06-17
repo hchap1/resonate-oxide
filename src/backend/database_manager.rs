@@ -12,7 +12,9 @@ use rusqlite::params_from_iter;
 use rusqlite::ParamsFromIter;
 use rusqlite::types::ValueRef;
 
-enum ItemStream {
+use super::error::ResonateError;
+
+pub enum ItemStream {
     Value(Vec<DatabaseParam>),
     Error,
     End
@@ -20,14 +22,15 @@ enum ItemStream {
 
 enum DatabaseTask {
     Execute(&'static str, DatabaseParams),
-    Query(&'static str, DatabaseParams, Sender<ItemStream>)
+    Query(&'static str, DatabaseParams, Sender<ItemStream>),
 }
 
 pub enum DatabaseParam {
     String(String),
     Usize(usize),
     Null,
-    F46(f64)
+    F64(f64),
+    Like(String)
 }
 
 impl DatabaseParam {
@@ -36,7 +39,8 @@ impl DatabaseParam {
             Self::String(v) => Value::from(v.to_owned()),
             Self::Usize(v) => Value::from(*v as isize),
             Self::Null => Value::Null,
-            Self::F46(v) => Value::Real(*v)
+            Self::F64(v) => Value::Real(*v),
+            Self::Like(v) => Value::from(format!("%{v}%"))
         }
     }
     
@@ -51,7 +55,7 @@ impl DatabaseParam {
     }
 
     pub fn f64(&self) -> f64 {
-        if let Self::F46(v) = self { return *v; }
+        if let Self::F64(v) = self { return *v; }
         panic!("Attempted to get a F64 from a non-f64 value");
     }
 }
@@ -91,10 +95,17 @@ impl Database {
         self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
     }
 
+    /// Return a receiver that receives the rows
+    pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
+        receiver
+    }
+
     /// Collect all results, then proceed
     pub async fn query_map(
         &self, query: &'static str, params: DatabaseParams
-    ) -> Result<Vec<Vec<DatabaseParam>>, ()> {
+    ) -> Result<Vec<Vec<DatabaseParam>>, ResonateError> {
         let (sender, receiver) = unbounded();
         let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
         let handle = tokio::task::spawn_blocking(move || {
@@ -113,12 +124,12 @@ impl Database {
 
         let (values, success) = match handle.await {
             Ok(data) => data,
-            Err(_) => return Err(())
+            Err(_) => return Err(ResonateError::GenericError)
         };
 
         match success {
             true => Ok(values),
-            false => Err(())
+            false => Err(ResonateError::GenericError)
         }
     }
 }
@@ -165,7 +176,7 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                         let value = match value {
                             ValueRef::Null => DatabaseParam::Null,
                             ValueRef::Integer(i) => DatabaseParam::Usize(i as usize),
-                            ValueRef::Real(f) => DatabaseParam::F46(f),
+                            ValueRef::Real(f) => DatabaseParam::F64(f),
                             ValueRef::Text(s) => DatabaseParam::String(String::from_utf8_lossy(s).into_owned()),
                             ValueRef::Blob(_) => DatabaseParam::Null
                         };

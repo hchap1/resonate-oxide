@@ -1,10 +1,16 @@
 use std::path::PathBuf;
 
+use strsim::levenshtein;
+
+use crossbeam_channel::Receiver;
+
 use crate::backend::database_manager::Database;
 use crate::backend::database_manager::DatabaseParam;
 use crate::backend::database_manager::DatabaseParams;
 use crate::backend::sql::*;
 use crate::backend::music::Song;
+use crate::backend::database_manager::ItemStream;
+use crate::backend::error::ResonateError;
 
 pub struct DatabaseInterface;
 impl DatabaseInterface {
@@ -30,38 +36,78 @@ impl DatabaseInterface {
         let _ = database.execute(REMOVE_PLAYLIST, DatabaseParams::single(DatabaseParam::Usize(playlist_id)));
     }
 
+    /// Make song from a single row
+    pub async fn construct_song(
+        row: Vec<DatabaseParam>, music_path: PathBuf, thumbnail_path: PathBuf
+    ) -> Option<Song> {
+        if row.len() != 6 {
+            return None;
+        }
+
+        tokio::task::spawn_blocking(move || 
+            Song::load(
+                row[0].usize(),
+                row[1].string(),
+                row[2].string(),
+                row[3].string(),
+                Some(row[4].string()),
+                std::time::Duration::from_secs(row[5].usize() as u64),
+                music_path,
+                thumbnail_path
+            )
+        ).await.ok()
+    }
+
+    /// Make a song out of the rows
+    pub async fn construct_songs(
+        rows: Vec<Vec<DatabaseParam>>, music_path: PathBuf, thumbnail_path: PathBuf
+    ) -> Vec<Song> {
+        let mut songs = Vec::new();
+        for row in rows {
+            if let Some(song) = Self::construct_song(row, music_path.clone(), thumbnail_path.clone()).await {
+                songs.push(song);
+            }
+        }
+        songs
+    }
+
     /// Get song by sql ID (not youtube ID)
     pub async fn get_song_by_id(
         database: &Database, song_id: usize, music_path: PathBuf, thumbnail_path: PathBuf
     ) -> Option<Song> {
-        let query = match database.query_map(
+        let results = match database.query_map(
             SELECT_SONG_BY_SQL_ID, DatabaseParams::single(DatabaseParam::Usize(song_id))
         ).await {
             Ok(results) => results,
             Err(_) => return None
         };
 
-        let mut songs = Vec::new();
-        for row in query {
-            let music_path = music_path.clone();
-            let thumbnail_path = thumbnail_path.clone();
+        Self::construct_songs(results, music_path, thumbnail_path).await.pop()
+    }
 
-            if let Some(song) = tokio::task::spawn_blocking(move || 
-                Song::load(
-                    row[0].usize(),
-                    row[1].string(),
-                    row[2].string(),
-                    row[3].string(),
-                    Some(row[4].string()),
-                    std::time::Duration::from_secs(row[5].usize() as u64),
-                    music_path,
-                    thumbnail_path
-                )
-            ).await.ok() {
-                songs.push(song)
-            }
-        }
+    /// Yield a receiver where database results will come through
+    pub fn select_all_songs( database: &Database) -> Receiver<ItemStream> {
+        database.query_stream(SELECT_ALL_SONGS, DatabaseParams::empty())
+    }
 
-        songs.pop()
+    /// Select song by youtube id
+    pub async fn select_song_by_youtube_id(
+        database: &Database, youtube_id: String, music_path: PathBuf, thumbnail_path: PathBuf
+    ) -> Option<Song> {
+        let results = match database.query_map(
+            SELECT_SONG_BY_YOUTUBE_ID, DatabaseParams::single(DatabaseParam::String(youtube_id))
+        ).await {
+            Ok(results) => results,
+            Err(_) => return None
+        };
+
+        Self::construct_songs(results, music_path, thumbnail_path).await.pop()
+    }
+
+    /// Returns whether a song exists, or Err if it could not be accessed
+    pub async fn is_unique(
+        database: &Database, youtube_id: String, music_path: PathBuf, thumbnail_path: PathBuf
+    ) -> bool {
+        Self::select_song_by_youtube_id(database, youtube_id, music_path, thumbnail_path).await.is_none()
     }
 }

@@ -20,8 +20,14 @@ pub enum ItemStream {
     End
 }
 
+pub enum InsertMessage {
+    Success(usize),
+    Error
+}
+
 enum DatabaseTask {
     Execute(&'static str, DatabaseParams),
+    Insert(&'static str, DatabaseParams, Sender<InsertMessage>),
     Query(&'static str, DatabaseParams, Sender<ItemStream>),
 }
 
@@ -95,6 +101,21 @@ impl Database {
         self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
     }
 
+    /// Execute function with receiver callback intended for insert commands (returns row id)
+    pub async fn insert(&self, query: &'static str, params: DatabaseParams) -> Option<usize> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::Insert(query, params, sender));
+        let result = match tokio::task::spawn_blocking(move || receiver.recv()).await {
+            Ok(result) => result,
+            Err(_) => return None
+        };
+
+        match result {
+            Ok(message) => match message { InsertMessage::Success(v) => Some(v), InsertMessage::Error => None },
+            Err(_) => None
+        }
+    }
+
     /// Return a receiver that receives the rows
     pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
         let (sender, receiver) = unbounded();
@@ -153,6 +174,14 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                     let _ = statement.execute(params.to_params());
                 }
             },
+            DatabaseTask::Insert(query, params, sender) => {
+                if let Ok(mut statement) = connection.prepare(query) {
+                    let _ = statement.execute(params.to_params());
+                    sender.send(InsertMessage::Success(connection.last_insert_rowid() as usize));
+                } else {
+                    let _ = sender.send(InsertMessage::Error);
+                }
+            }
             DatabaseTask::Query(query, params, sender) => {
                 let mut statement = match connection.prepare(query) {
                     Ok(statement) => statement,

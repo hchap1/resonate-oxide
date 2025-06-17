@@ -110,4 +110,25 @@ impl DatabaseInterface {
     ) -> bool {
         Self::select_song_by_youtube_id(database, youtube_id, music_path, thumbnail_path).await.is_none()
     }
+
+    /// Inserts a song into the database, returning the new ID of the song.
+    /// Will check and make sure it does not already exist, based on yt-id
+    /// If it already exists, it will still return Ok(id)
+    pub async fn insert_song(
+        database: &Database, mut song: Song, music_path: PathBuf, thumbnail_path: PathBuf
+    ) -> Option<usize> {
+        let existing_song = Self::select_song_by_youtube_id(
+            &database, song.yt_id.clone(), music_path, thumbnail_path
+        ).await;
+
+        if let Some(song) = existing_song { return Some(song.id) };
+
+        database.insert(INSERT_SONG, DatabaseParams::new(vec![
+            DatabaseParam::String(song.yt_id),
+            DatabaseParam::String(song.title),
+            DatabaseParam::String(song.artist),
+            DatabaseParam::String(song.album.take().unwrap_or(String::from("none"))),
+            DatabaseParam::Usize(song.duration.as_secs() as usize)
+        ])).await
+    }
 }

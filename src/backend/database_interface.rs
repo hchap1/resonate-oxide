@@ -154,25 +154,29 @@ impl DatabaseInterface {
         ]));
     }
 
+    /// Produce a handle for a playlist_id query
+    pub fn get_playlist_by_id_handle<'a>(
+        database: &'a Database, playlist_id: usize
+    ) -> impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>> + 'a {
+        database.query_map(SELECT_PLAYLIST_BY_ID, DatabaseParams::single(DatabaseParam::Usize(playlist_id)))
+    }
+
     /// Get playlist by id
-    pub async fn get_playlist_by_id(database: &Database, playlist_id: usize) -> Option<Playlist> {
-        let rows = match database.query_map(SELECT_PLAYLIST_BY_ID, DatabaseParams::single(
-            DatabaseParam::Usize(playlist_id)
-        )).await {
+    pub async fn get_playlist_by_id(
+        handle: impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>>
+    ) -> Option<Playlist> {
+        let rows = match handle.await {
             Ok(rows) => rows,
             Err(_) => return None
         };
 
-        match rows.into_iter().filter_map(|row| {
+        rows.into_iter().filter_map(|row| {
             if row.len() != 2 {
                 None
             } else {
-                Some(row[1].string())
+                Some(Playlist { id: row[0].usize(), name: row[1].string() })
             }
-        }).collect::<Vec<String>>().pop() {
-            Some(name) => Some(Playlist { id: playlist_id, name }),
-            None => None
-        }
+        }).collect::<Vec<Playlist>>().pop()
     }
 
     /// Stream every playlist
@@ -185,7 +189,7 @@ impl DatabaseInterface {
         database.query_stream(SELECT_ALL_SONGS_IN_PLAYLIST, DatabaseParams::single(DatabaseParam::Usize(playlist_id)))
     }
 
-    fn select_song_by_title_handle<'a>(
+    pub fn select_song_by_title_handle<'a>(
         database: &'a Database, title: String
     ) -> impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>> + 'a {
         database.query_map(SELECT_SONG_BY_TITLE, DatabaseParams::single(DatabaseParam::String(title)))

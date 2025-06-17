@@ -71,18 +71,11 @@ impl DatabaseInterface {
         songs
     }
 
-    /// Get song by sql ID (not youtube ID)
-    pub async fn get_song_by_id(
-        database: &Database, song_id: usize, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> Option<Song> {
-        let results = match database.query_map(
-            SELECT_SONG_BY_SQL_ID, DatabaseParams::single(DatabaseParam::Usize(song_id))
-        ).await {
-            Ok(results) => results,
-            Err(_) => return None
-        };
-
-        Self::construct_songs(results, music_path, thumbnail_path).await.pop()
+    /// Get an async future to produce song by sql ID (not youtube ID)
+    pub fn get_song_by_id_handle<'a>(
+        database: &'a Database, song_id: usize
+    ) -> impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>> + 'a {
+        database.query_map(SELECT_SONG_BY_SQL_ID, DatabaseParams::single(DatabaseParam::Usize(song_id)))
     }
 
     /// Yield a receiver where database results will come through
@@ -90,52 +83,45 @@ impl DatabaseInterface {
         database.query_stream(SELECT_ALL_SONGS, DatabaseParams::empty())
     }
 
-    /// Select song by youtube id
+    /// Request select song by youtube id
+    pub fn select_song_by_youtube_id_handle<'a>(
+        database: &'a Database, youtube_id: String
+    ) -> impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>> + 'a {
+        database.query_map(SELECT_SONG_BY_YOUTUBE_ID, DatabaseParams::single(DatabaseParam::String(youtube_id)))
+    }
+
     pub async fn select_song_by_youtube_id(
-        database: &Database, youtube_id: String, music_path: PathBuf, thumbnail_path: PathBuf
+        handle: impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>>,
+        music_path: PathBuf, thumbnail_path: PathBuf
     ) -> Option<Song> {
-        let results = match database.query_map(
-            SELECT_SONG_BY_YOUTUBE_ID, DatabaseParams::single(DatabaseParam::String(youtube_id))
-        ).await {
-            Ok(results) => results,
+        let rows = match handle.await {
+            Ok(rows) => rows,
             Err(_) => return None
         };
 
-        Self::construct_songs(results, music_path, thumbnail_path).await.pop()
-    }
-
-    /// Returns whether a song exists, or Err if it could not be accessed
-    pub async fn is_unique(
-        database: &Database, youtube_id: String, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> bool {
-        Self::select_song_by_youtube_id(database, youtube_id, music_path, thumbnail_path).await.is_none()
+        Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
     }
 
     /// Inserts a song into the database, returning the new ID of the song.
-    /// Will check and make sure it does not already exist, based on yt-id
-    /// If it already exists, it will still return Ok(id)
-    pub async fn insert_song(
-        database: &Database, mut song: Song, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> Option<usize> {
-        let existing_song = Self::select_song_by_youtube_id(
-            &database, song.yt_id.clone(), music_path, thumbnail_path
-        ).await;
-
-        if let Some(song) = existing_song { return Some(song.id) };
-
+    /// Relies on implementation to make sure there are no duplicates
+    pub fn insert_song<'a>(
+        database: &'a Database, mut song: Song
+    ) -> impl Future<Output = Option<usize>> + 'a {
         database.insert(INSERT_SONG, DatabaseParams::new(vec![
             DatabaseParam::String(song.yt_id),
             DatabaseParam::String(song.title),
             DatabaseParam::String(song.artist),
             DatabaseParam::String(song.album.take().unwrap_or(String::from("none"))),
             DatabaseParam::Usize(song.duration.as_secs() as usize)
-        ])).await
+        ]))
     }
 
     /// Inserts a playlist into the database, returning the new ID of said playlist.
     /// Does not check for duplicates.
-    pub async fn insert_playlist(database: &Database, playlist: Playlist) -> Option<usize> {
-        database.insert(INSERT_PLAYLIST, DatabaseParams::single(DatabaseParam::String(playlist.name))).await
+    pub fn insert_playlist<'a>(
+        database: &'a Database, playlist: Playlist
+    ) -> impl Future<Output = Option<usize>> + 'a {
+        database.insert(INSERT_PLAYLIST, DatabaseParams::single(DatabaseParam::String(playlist.name)))
     }
 
     /// Change the name of a playlist
@@ -195,8 +181,8 @@ impl DatabaseInterface {
         database.query_map(SELECT_SONG_BY_TITLE, DatabaseParams::single(DatabaseParam::String(title)))
     }
 
-    /// Attempt to select a song by name
-    pub async fn select_song_by_title(
+    /// Construct a song from a future that yields a row
+    pub async fn song_from_handle(
         handle: impl Future<Output = Result<Vec<Vec<DatabaseParam>>, ResonateError>>,
         music_path: PathBuf,
         thumbnail_path: PathBuf

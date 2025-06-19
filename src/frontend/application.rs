@@ -613,11 +613,24 @@ impl Application<'_> {
                     None => return Task::none()
                 };
 
-                if let Some(x) = auth.get_key() { self.database.lock().unwrap().set_secret("FM_KEY", x) }
-                if let Some(x) = auth.get_secret() { self.database.lock().unwrap().set_secret("FM_SECRET", x) }
-                if let Some(x) = auth.get_session() { self.database.lock().unwrap().set_secret("FM_SESSION", x) }
+                let mut tasks = Vec::new();
 
-                Task::none()
+                if let Some(x) = auth.get_key() {
+                    tasks.push(Task::future(DatabaseInterface::insert_or_update_secret(
+                        self.database.derive(), "FM_KEY".to_string(), x.to_string()
+                    )))
+                }
+                if let Some(x) = auth.get_secret() {
+                    tasks.push(Task::future(DatabaseInterface::insert_or_update_secret(
+                        self.database.derive(), "FM_SECRET".to_string(), x.to_string()
+                    )))
+                }
+                if let Some(x) = auth.get_session() {
+                    tasks.push(Task::future(DatabaseInterface::insert_or_update_secret(
+                        self.database.derive(), "FM_SESSION".to_string(), x.to_string()
+                    )))
+                }
+                Task::batch(tasks.into_iter().map(|x| x.map(|_| Message::None)))
             }
 
             Message::FMSetNowPlaying(song) => {

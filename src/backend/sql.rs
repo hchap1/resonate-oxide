@@ -57,6 +57,11 @@ pub const SELECT_ALL_SONGS_IN_PLAYLIST: &str = "
     WHERE Entries.playlist_id = ?;
 ";
 
+pub const INSERT_SECRET: &str = "
+    INSERT INTO Secrets
+    VALUES(?, ?)
+";
+
 pub const REMOVE_SONG_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE song_id = ? AND playlist_id = ?";
 pub const REMOVE_ALL_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE playlist_id = ?";
 pub const REMOVE_PLAYLIST: &str = "DELETE FROM Playlists WHERE id = ?";
@@ -68,6 +73,7 @@ pub const SELECT_PLAYLIST_BY_ID: &str = "SELECT * FROM Playlists WHERE id = ?";
 pub const SELECT_ALL_PLAYLISTS: &str = "SELECT * FROM Playlists";
 pub const SELECT_SONG_BY_TITLE: &str = "SELECT * FROM Songs WHERE title = ?";
 pub const SELECT_SECRET_BY_NAME: &str = "SELECT * FROM Secrets WHERE name = ?";
+pub const REMOVE_SECRET_BY_NAME: &str = "DELETE FROM Secrets WHERE name = ?";
 
 pub struct Query<'a> {
     connection: &'a Connection

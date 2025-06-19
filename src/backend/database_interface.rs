@@ -240,7 +240,17 @@ impl DatabaseInterface {
         }).collect::<Vec<Secret>>().pop()
     }
 
+    /// Insert a secret, removing the orginal one if it already existed
     pub async fn insert_or_update_secret(database: DataLink, name: String, value: String) -> Result<(), ()> {
+        let _ = database.execute_and_wait(
+            REMOVE_SECRET_BY_NAME, DatabaseParams::single(DatabaseParam::String(name.clone()))
+        ).await;
 
+        database.execute_and_wait(
+            INSERT_SECRET, DatabaseParams::new(vec![
+                DatabaseParam::String(name),
+                DatabaseParam::String(value)
+            ])
+        ).await
     }
 }

@@ -562,8 +562,12 @@ impl Application<'_> {
                     Secret::FMSecret(x) => ("FM_SECRET", x),
                     Secret::FMSession(x) => ("FM_SESSION", x),
                 };
-                self.database.lock().unwrap().set_secret(n, v.as_str());
-                Task::done(Message::LoadSecrets)
+
+                Task::future(DatabaseInterface::insert_or_update_secret(self.database.derive(), n.to_string(), v))
+                    .map(|res| match res {
+                        Ok(_) => Message::LoadSecrets,
+                        Err(_) => Message::None
+                    })
             }
 
             Message::FMAuthenticate => {

@@ -84,7 +84,8 @@ pub enum Message {
 
     RowIntoSongForQueue(Vec<DatabaseParam>),
     GetSongByTitleForSpotify(Option<Song>, FullTrack),
-    SecretsLoaded(Vec<Option<Secret>>)
+    SecretsLoaded(Vec<Option<Secret>>),
+    SecretWritten(Result<(), ()>)
 }
 
 #[derive(Clone, Debug)]

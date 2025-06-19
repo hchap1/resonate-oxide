@@ -19,9 +19,7 @@ use crate::frontend::widgets::ResonateColour;
 
 use crate::backend::music::Song;
 use crate::backend::filemanager::DataDir;
-use crate::backend::database::Database;
-use crate::backend::util::AM;
-use crate::backend::util::desync;
+use crate::backend::database_manager::DataLink;
 
 pub enum SpotifyNotification {
     Waiting(usize),
@@ -33,7 +31,7 @@ pub enum SpotifyNotification {
 }
 
 pub struct ImportPage {
-    database: AM<Database>,
+    database: DataLink,
     directories: DataDir,
     songs: Vec<Song>,
     input: String,
@@ -53,7 +51,7 @@ pub struct ImportPage {
 impl ImportPage {
     pub fn new(
         directories: DataDir,
-        database: AM<Database>,
+        database: DataLink,
         spotify_id: Option<String>,
         spotify_client: Option<String>,
     ) -> ImportPage {

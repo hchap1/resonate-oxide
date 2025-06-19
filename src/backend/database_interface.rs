@@ -118,9 +118,12 @@ impl DatabaseInterface {
     /// Inserts a playlist into the database, returning the new ID of said playlist.
     /// Does not check for duplicates.
     pub async fn insert_playlist(
-        database: DataLink, playlist: Playlist
-    ) -> Option<usize> {
-        database.insert(INSERT_PLAYLIST, DatabaseParams::single(DatabaseParam::String(playlist.name))).await
+        database: DataLink, mut playlist: Playlist
+    ) -> Playlist {
+        if let Some(id) = database.insert(
+            INSERT_PLAYLIST, DatabaseParams::single(DatabaseParam::String(playlist.name.clone()))
+        ).await { playlist.id = id; };
+        playlist
     }
 
     /// Change the name of a playlist

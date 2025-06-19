@@ -4,6 +4,7 @@ use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
 
+use crate::backend::database_manager::DatabaseParam;
 use crate::backend::settings::Secret;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
@@ -81,7 +82,7 @@ pub enum Message {
 
     Hover(usize, bool),
 
-    AllSongsInPlaylist(Vec<Song>, bool),
+    RowIntoSongForQueue(Vec<DatabaseParam>)
 }
 
 #[derive(Clone, Debug)]

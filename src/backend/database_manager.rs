@@ -31,6 +31,7 @@ enum DatabaseTask {
     Query(&'static str, DatabaseParams, Sender<ItemStream>),
 }
 
+#[derive(Clone, Debug)]
 pub enum DatabaseParam {
     String(String),
     Usize(usize),

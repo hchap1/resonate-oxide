@@ -323,25 +323,29 @@ impl Application<'_> {
                 ])
             }
 
-            Message::AllSongsInPlaylist(mut songs, do_shuffle) => {
-                let mut rng = rng();
-                if do_shuffle { songs.shuffle(&mut rng); }
-                Task::done(Message::AudioTask(AudioTask::SetQueue(songs)))
+            Message::RowIntoSongForQueue(row) => {
+                let music_path = self.directories.get_music_ref().to_path_buf();
+                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
+                Task::future(DatabaseInterface::construct_song(row, music_path, thumbnail_path))
+                    .map(|option| match option {
+                        Some(song) => Message::AudioTask(AudioTask::Push(song)),
+                        None => Message::None
+                    })
             }
 
             Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
                 let receiver = DatabaseInterface::select_all_songs_in_playlist(self.database.derive(), playlist_id);
+                let music_path = self.directories.get_music_ref().to_path_buf();
+                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
                 Task::stream(Relay::consume_receiver(receiver,
                     |item_stream| match item_stream {
-                        crate::backend::database_manager::ItemStream::End
+                        crate::backend::database_manager::ItemStream::End => None,
+                        crate::backend::database_manager::ItemStream::Error => None,
+                        crate::backend::database_manager::ItemStream::Value(row) => Some(
+                            Message::RowIntoSongForQueue(row)
+                        )
                     }
                 ))
-
-                Task::future(
-                ).map(|res| match res {
-                    Ok(songs) => Message::AllSongsInPlaylist(songs),
-                    Err(_) => Message::None
-                })
             }
 
             Message::RemoveSongFromPlaylist(song_id, playlist_id) => {

@@ -1,8 +1,5 @@
 use std::collections::HashSet;
 
-use rand::rng;
-use rand::seq::SliceRandom;
-
 use iced::Element;
 use iced::futures::FutureExt;
 use iced::alignment::Vertical;
@@ -333,10 +330,8 @@ impl Application<'_> {
                     })
             }
 
-            Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
+            Message::LoadEntirePlaylist(playlist_id, _) => {
                 let receiver = DatabaseInterface::select_all_songs_in_playlist(self.database.derive(), playlist_id);
-                let music_path = self.directories.get_music_ref().to_path_buf();
-                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
                 Task::stream(Relay::consume_receiver(receiver,
                     |item_stream| match item_stream {
                         crate::backend::database_manager::ItemStream::End => None,
@@ -465,12 +460,12 @@ impl Application<'_> {
 
                 Task::future(DatabaseInterface::select_song_by_title(
                     self.database.derive(),
-                    track.name,
+                    track.name.clone(),
                     self.directories.get_music_ref().to_path_buf(),
                     self.directories.get_thumbnails_ref().to_path_buf()
-                )).map(|option| match option {
-                    Some(song) => Message::GetSongByTitleForSpotify(Some(song), track),
-                    None => Message::GetSongByTitleForSpotify(None, track)
+                )).map(move |option| match option {
+                    Some(song) => Message::GetSongByTitleForSpotify(Some(song), track.clone()),
+                    None => Message::GetSongByTitleForSpotify(None, track.clone())
                 })
             }
 
@@ -518,13 +513,12 @@ impl Application<'_> {
                 ).map(|res| Message::SecretsLoaded(res))
             }
 
-            Message::SecretsLoaded(secrets) => {
-                let spotify_id = secrets[0];
-                let spotify_secret = secrets[1];
-                let fm_key = secrets[2];
-                let fm_secret = secrets[3];
-                let fm_session = secrets[4];
-
+            Message::SecretsLoaded(mut secrets) => {
+                let fm_session = secrets.pop().unwrap();
+                let fm_secret = secrets.pop().unwrap();
+                let fm_key = secrets.pop().unwrap();
+                let spotify_secret = secrets.pop().unwrap();
+                let spotify_id = secrets.pop().unwrap();
                 let ready = fm_key.is_some() && fm_secret.is_some() && !fm_session.is_some();
 
                 let fm_key_string = if let Some(fm_key) = fm_key {
@@ -705,13 +699,12 @@ impl Application<'_> {
         self.page = match page_type {
 
             PageType::SearchSongs => Box::new(
-                SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())
+                SearchPage::new(self.directories.clone(), self.database.derive(), playlist_id.unwrap())
             ),
-
-            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.clone())),
+            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.derive())),
 
             PageType::ViewPlaylist => Box::new(
-                match PlaylistPage::new(playlist_id, self.database.clone(), self.directories.clone()) {
+                match PlaylistPage::new(playlist_id, self.database.derive(), self.directories.clone()) {
                     Ok(page) => page,
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }
@@ -719,13 +712,13 @@ impl Application<'_> {
 
             PageType::ImportSpotify => Box::new(ImportPage::new(
                 self.directories.clone(),
-                self.database.clone(),
+                self.database.derive(),
                 self.spotify_id.clone(),
                 self.spotify_secret.clone()
             )),
 
             PageType::Settings => {
-                Box::new(SettingsPage::new(self.database.clone()))
+                Box::new(SettingsPage::new(self.database.derive()))
             }
         };
     }

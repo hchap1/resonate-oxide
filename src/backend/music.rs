@@ -113,6 +113,7 @@ impl std::fmt::Display for Song {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Playlist {
     pub id: usize,
     pub name: String,

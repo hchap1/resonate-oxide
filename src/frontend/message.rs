@@ -8,7 +8,7 @@ use crate::backend::database_manager::DatabaseParam;
 use crate::backend::settings::Secret;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
-use crate::backend::music::Song;
+use crate::backend::music::{Playlist, Song};
 use crate::backend::rpc::RPCMessage;
 
 #[derive(Clone, Debug)]
@@ -85,7 +85,8 @@ pub enum Message {
     RowIntoSongForQueue(Vec<DatabaseParam>),
     GetSongByTitleForSpotify(Option<Song>, FullTrack),
     SecretsLoaded(Vec<Option<Secret>>),
-    SecretWritten(Result<(), ()>)
+    SecretWritten(Result<(), ()>),
+    PlaylistCreated(Playlist)
 }
 
 #[derive(Clone, Debug)]

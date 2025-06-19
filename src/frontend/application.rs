@@ -480,7 +480,7 @@ impl Application<'_> {
                         load_spotify_song(
                             track,
                             dlp_path.to_path_buf(),
-                            self.database.clone(),
+                            self.database.derive(),
                             self.directories.get_music_ref().to_owned(),
                             self.directories.get_thumbnails_ref().to_owned()
                         )
@@ -500,19 +500,36 @@ impl Application<'_> {
                 while let Some(song) = songs.pop() {
                     task = task.chain(Task::done(Message::Download(song)));
                 }
-
                 task
             }
 
             Message::LoadSecrets => {
-                let spotify_id = self.database.lock().unwrap().get_secret("SPOTIFY_ID");
-                let spotify_secret = self.database.lock().unwrap().get_secret("SPOTIFY_SECRET");
-                let fm_key = self.database.lock().unwrap().get_secret("FM_KEY");
-                let fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
-                let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
+                Task::future(
+                    DatabaseInterface::select_multiple_secrets(
+                        self.database.derive(),
+                        vec![
+                            "SPOTIFY_ID".to_string(),
+                            "SPOTIFY_SECRET".to_string(),
+                            "FM_KEY".to_string(),
+                            "FM_SECRET".to_string(),
+                            "FM_SESSION".to_string()
+                        ]
+                    )
+                ).map(|res| Message::SecretsLoaded(res))
+            }
+
+            Message::SecretsLoaded(secrets) => {
+
+                let spotify_id = secrets[0];
+                let spotify_secret = secrets[1];
+                let fm_key = secrets[2];
+                let fm_secret = secrets[3];
+                let fm_session = secrets[4];
 
                 let ready = fm_key.is_some() && fm_secret.is_some() && !fm_session.is_some();
-                self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
+                self.last_fm_auth = Some(
+                    WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session)
+                );
 
                 Task::batch(vec![
                     Task::done(Message::SpotifyCreds(spotify_id, spotify_secret)),

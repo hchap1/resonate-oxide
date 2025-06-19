@@ -200,6 +200,17 @@ impl DatabaseInterface {
         ))
     }
 
+    /// Batch load secrets
+    pub async fn select_multiple_secrets(
+        database: DataLink, secrets: Vec<String>
+    ) -> Vec<Option<Secret>> {
+        let mut compiled: Vec<Option<Secret>> = Vec::new();
+        for secret in secrets.into_iter() {
+            compiled.push(Self::select_secret_by_name(database.clone(), secret.clone()).await)
+        }
+        compiled
+    }
+
     /// Get a Secret by the exact name String
     pub async fn select_secret_by_name(
         database: DataLink, name: String

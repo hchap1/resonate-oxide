@@ -19,6 +19,7 @@ use rust_fm::token::WebCallback;
 use rust_fm::session::WebSession;
 use rust_fm::playing::NowPlaying;
 
+use crate::backend::database_interface::DatabaseInterface;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
@@ -46,8 +47,8 @@ use crate::backend::spotify::SpotifyEmmision;
 use crate::backend::web::download_song;
 use crate::backend::web::download_thumbnail;
 use crate::backend::filemanager::DataDir;
-use crate::backend::database::Database;
-use crate::backend::util::{sync, AM};
+use crate::backend::database_manager::Database;
+use crate::backend::database_manager::DataLink;
 use crate::backend::audio::AudioPlayer;
 
 pub trait Page {
@@ -60,7 +61,7 @@ pub struct Application<'a> {
     settings: Settings,
     page: Box<dyn Page + 'a>,
     directories: DataDir,
-    database: AM<Database>,
+    database: Database,
     current_thumbnail_downloads: HashSet<String>,
     current_song_downloads: HashSet<String>,
     download_queue: HashSet<Song>,
@@ -85,11 +86,7 @@ impl<'a> Default for Application<'a> {
             Err(_) => panic!("Couldn't create suitable directory location")
         };
 
-        let database = match Database::new(datadir.get_root_ref()) {
-            Ok(database) => database,
-            Err(_) => panic!("Couldn't create or load database")
-        };
-
+        let database = Database::new(datadir.get_root_ref().to_path_buf());
         Self::new(datadir, database)
     }
 }
@@ -97,11 +94,9 @@ impl<'a> Default for Application<'a> {
 impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
 
-        let database = sync(database);
-
         Self {
             settings: Settings::default(),
-            page: Box::new(PlaylistsPage::new(database.clone())),
+            page: Box::new(PlaylistsPage::new(database.derive())),
             directories,
             database,
             current_thumbnail_downloads: HashSet::new(),
@@ -268,7 +263,7 @@ impl Application<'_> {
             Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
 
             Message::AddSongToPlaylist(song, playlist_id) => {
-                let _ = self.database.lock().unwrap().add_song_to_playlist(song.id, playlist_id);
+                let handle = DatabaseInterface::add_song_to_playlist(&self.database, song.id, playlist_id);
                 Task::done(
                     Message::SongAddedToPlaylist(song.id)
                 ).chain(Task::done(

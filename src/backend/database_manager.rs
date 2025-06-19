@@ -83,18 +83,17 @@ impl DatabaseParams {
 
 pub struct Database {
     handle: JoinHandle<()>,
+    datalink: DataLink
+}
+
+#[derive(Clone)]
+pub struct DataLink {
     task_sender: Sender<DatabaseTask>
 }
 
-impl Database {
-    pub fn new(root_dir: PathBuf) -> Database {
-
-        let (task_sender, task_receiver) = unbounded();
-
-        Database {
-            handle: spawn(move || database_thread(root_dir, task_receiver)),
-            task_sender
-        }
+impl DataLink {
+    pub fn new(task_sender: Sender<DatabaseTask>) -> DataLink {
+        DataLink { task_sender }
     }
 
     pub fn execute(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
@@ -152,6 +151,22 @@ impl Database {
             true => Ok(values),
             false => Err(ResonateError::GenericError)
         }
+    }
+}
+
+impl Database {
+    pub fn new(root_dir: PathBuf) -> Database {
+
+        let (task_sender, task_receiver) = unbounded();
+
+        Database {
+            handle: spawn(move || database_thread(root_dir, task_receiver)),
+            datalink: DataLink::new(task_sender)
+        }
+    }
+
+    pub fn derive(&self) -> DataLink {
+        self.datalink.clone()
     }
 }
 

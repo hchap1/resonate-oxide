@@ -312,13 +312,13 @@ impl Application<'_> {
                 self.audio_player = Some(audio_player);
                 Task::batch(vec![
                     Task::stream(
-                        Relay::consume_receiver(queue_receiver, |message| Message::QueueUpdate(message))
+                        Relay::consume_receiver(queue_receiver, |message| Some(Message::QueueUpdate(message)))
                     ),
                     Task::stream(
-                        Relay::consume_receiver(progress_receiver, |message| Message::ProgressUpdate(message))
+                        Relay::consume_receiver(progress_receiver, |message| Some(Message::ProgressUpdate(message)))
                     ),
                     Task::stream(
-                        Relay::consume_receiver(scrobble_receiver, |message| Message::ScrobbleRequest(message))
+                        Relay::consume_receiver(scrobble_receiver, |message| Some(Message::ScrobbleRequest(message)))
                     )
                 ])
             }
@@ -349,13 +349,13 @@ impl Application<'_> {
             }
 
             Message::RemoveSongFromPlaylist(song_id, playlist_id) => {
-                self.database.lock().unwrap().remove_song_from_playlist(song_id, playlist_id);
+                DatabaseInterface::remove_song_from_playlist(self.database.derive(), song_id, playlist_id);
                 let _ = self.page.update(Message::RemoveSongFromPlaylist(song_id, playlist_id));
                 Task::done(Message::AudioTask(AudioTask::RemoveSongById(song_id)))
             }
 
             Message::DeletePlaylist(playlist_id) => {
-                self.database.lock().unwrap().delete_playlist(playlist_id);
+                DatabaseInterface::delete_playlist(self.database.derive(), playlist_id);
                 let _ = self.page.update(Message::DeletePlaylist(playlist_id));
                 Task::none()
             }
@@ -447,6 +447,13 @@ impl Application<'_> {
                 }
             }
 
+            Message::GetSongByTitleForSpotify(option, track) => {
+                match option {
+                    Some(song) => Task::done(Message::SearchResult(song, true)),
+                    None => Task::done(Message::SpotifySongToYoutube(track))
+                }
+            }
+
             Message::SpotifyPlaylistItem(item) => {
                 let track = match item.track {
                     Some(track) => match track {
@@ -456,13 +463,15 @@ impl Application<'_> {
                     None => return Task::none()
                 };
 
-                match desync(&self.database).get_song_by_name_exact(
-                    track.name.clone(), self.directories.get_music_ref(), self.directories.get_thumbnails_ref()
-                ) {
-                    Some(song) => Task::done(Message::SearchResult(song, true)),
-                    None => Task::done(Message::SpotifySongToYoutube(track))
-                }
-
+                Task::future(DatabaseInterface::select_song_by_title(
+                    self.database.derive(),
+                    track.name,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(|option| match option {
+                    Some(song) => Message::GetSongByTitleForSpotify(Some(song), track),
+                    None => Message::GetSongByTitleForSpotify(None, track)
+                })
             }
 
             Message::SpotifySongToYoutube(track) => {

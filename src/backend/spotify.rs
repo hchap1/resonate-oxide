@@ -27,9 +27,8 @@ use crossbeam_channel::Sender;
 use crossbeam_channel::unbounded;
 
 use super::music::Song;
-use super::database::Database;
-use super::util::AM;
-use super::util::desync;
+use super::database_manager::DataLink;
+use super::database_interface::DatabaseInterface;
 
 pub async fn try_auth(credentials: ClientCredsSpotify) -> Result<ClientCredsSpotify, ()> {
     match credentials.request_token().await {
@@ -260,7 +259,7 @@ impl Stream for SpotifySongStream {
 pub async fn load_spotify_song(
     item: FullTrack,
     dlp_path: PathBuf,
-    database: AM<Database>,
+    database: DataLink,
     music_path: PathBuf,
     thumbnail_path: PathBuf
 ) -> Result<Song, ()> {
@@ -297,9 +296,9 @@ pub async fn load_spotify_song(
         thumbnail_path
     );
 
-    let (_, id) = match desync(&database).emplace_song_and_record_id(&base_song, true) {
-        Ok(data) => data,
-        Err(_) => return Err(())
+    let id = match DatabaseInterface::insert_song(database, base_song.clone()).await {
+        Some(data) => data,
+        None => return Err(())
     };
 
     base_song.id = id;

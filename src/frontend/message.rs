@@ -82,7 +82,8 @@ pub enum Message {
 
     Hover(usize, bool),
 
-    RowIntoSongForQueue(Vec<DatabaseParam>)
+    RowIntoSongForQueue(Vec<DatabaseParam>),
+    GetSongByTitleForSpotify(Option<Song>, FullTrack)
 }
 
 #[derive(Clone, Debug)]

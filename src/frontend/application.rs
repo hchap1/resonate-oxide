@@ -48,7 +48,6 @@ use crate::backend::web::download_song;
 use crate::backend::web::download_thumbnail;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database_manager::Database;
-use crate::backend::database_manager::DataLink;
 use crate::backend::audio::AudioPlayer;
 
 pub trait Page {
@@ -263,12 +262,12 @@ impl Application<'_> {
             Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
 
             Message::AddSongToPlaylist(song, playlist_id) => {
-                let handle = DatabaseInterface::add_song_to_playlist(&self.database, song.id, playlist_id);
+                DatabaseInterface::insert_playlist_entry(
+                    self.database.derive(), song.id, playlist_id
+                );
                 Task::done(
                     Message::SongAddedToPlaylist(song.id)
-                ).chain(Task::done(
-                    Message::Download(song)
-                ))
+                )
             }
 
             Message::AudioTask(task) => {

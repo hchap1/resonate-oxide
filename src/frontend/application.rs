@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use strsim::levenshtein;
 
 use iced::Element;
 use iced::futures::FutureExt;
@@ -349,6 +350,34 @@ impl Application<'_> {
                         Some(song) => Message::AudioTask(AudioTask::Push(song)),
                         None => Message::None
                     })
+            }
+
+            Message::RowIntoSong(row, query) => {
+                Task::future(DatabaseInterface::construct_song(
+                    row,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(move |option| match option {
+                    Some(song) => {
+                        if levenshtein(&song.title, &query) < 4 { Message::SongStream(song) }
+                        else { Message::None }
+                    }
+                    None => Message::None
+                })
+            }
+
+            Message::RowIntoSearchResult(row, query) => {
+                Task::future(DatabaseInterface::construct_song(
+                    row,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(move |option| match option {
+                    Some(song) => {
+                        if levenshtein(&song.title, &query) < 4 { Message::SearchResult(song, false) }
+                        else { Message::None }
+                    }
+                    None => Message::None
+                })
             }
 
             Message::LoadEntirePlaylist(playlist_id, _) => {

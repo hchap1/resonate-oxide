@@ -13,10 +13,7 @@ use tokio::process::Command;
 
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
-use crate::backend::database::Database;
-use crate::backend::util::desync;
-use crate::backend::util::sync;
-use crate::backend::util::AM;
+use crate::backend::database_manager::DataLink;
 
 pub async fn flatsearch(
         executable_path: PathBuf,
@@ -171,7 +168,10 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
     }
 }
 
-pub fn populate(executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_dir: PathBuf, id: String, database: AM<Database>) -> Result<Song, ResonateError> {
+pub fn populate(
+    executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_dir: PathBuf, id: String, database: AM<Database>
+) -> Result<Song, ResonateError> {
+
     let song = collect_metadata(match executable_dir.as_ref() {
         Some(pathbuf) => Some(pathbuf.as_path()),
         None => None

@@ -8,6 +8,7 @@ use iced::widget::text;
 use iced::Length;
 use iced::Task;
 
+use crate::backend::database_interface::DatabaseInterface;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
@@ -18,16 +19,15 @@ use crate::frontend::message::PageType;
 use crate::backend::filemanager::DataDir;
 use crate::backend::music::Playlist;
 use crate::backend::music::Song;
-use crate::backend::database::Database;
-use crate::backend::util::AM;
-use crate::backend::util::desync;
+use crate::backend::database_manager::DataLink;
+use crate::backend::util::Relay;
 use crate::backend::util::consume;
 
 pub struct PlaylistPage {
     playlist: Playlist,
     songs: Vec<Song>,
     query: String,
-    database: AM<Database>,
+    database: DataLink,
     directories: DataDir,
     hovered_song: Option<usize>,
     
@@ -36,46 +36,24 @@ pub struct PlaylistPage {
 }
 
 impl PlaylistPage {
-    pub fn new(playlist: Option<usize>, database: AM<Database>, directories: DataDir) -> Result<PlaylistPage, ()> {
+    pub fn new(playlist: Option<usize>, database: DataLink, directories: DataDir) -> Result<PlaylistPage, ()> {
 
         if playlist.is_none() {
             return Err(());
         }
 
-        let (playlist, songs) = match {
-            let database = desync(&database);
-            (
-                database.get_playlist_by_id(playlist.unwrap()),
-                database.search_playlist(
-                    playlist.unwrap(),
-                    String::new(),
-                    directories.get_music_ref(),
-                    directories.get_thumbnails_ref()
-                )
-            )
-        } {
-            (Some(playlist), Ok(songs)) => (playlist, songs),
-            _ => return Err(())
-        };
-
-        let (downloaded, _) = match desync(&database).get_downloaded_info(
-            playlist.id, directories.get_music_ref(), directories.get_thumbnails_ref()
-        ) {
-            Some(n) => n,
-            None => (0, 0)
-        };
-
-        let total_songs = songs.len();
+        // Need to asynchronously get playlist name, songs in playlist
+        // Need to asynchronously get download info
 
         Ok(PlaylistPage {
-            playlist,
-            songs,
+            playlist: Playlist { name: String::from("Loading..."), id: playlist.unwrap() },
+            songs: Vec::new(),
             query: String::new(),
             database,
             directories,
             hovered_song: None,
-            total_songs,
-            downloaded
+            total_songs: 0,
+            downloaded: 0
         })
     }
 }
@@ -160,20 +138,31 @@ impl Page for PlaylistPage {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::TextInput(new_value) => self.query = new_value,
-            Message::SubmitSearch => {
-                self.songs.clear();
-                let database = desync(&self.database);
-                self.songs = match database.search_playlist(
-                    self.playlist.id,
-                    consume(&mut self.query),
-                    self.directories.get_music_ref(),
-                    self.directories.get_thumbnails_ref()
-                ) {
-                        Ok(values) => values,
-                        Err(_) => return Task::none()
-                    }
+
+            Message::SongStream(song) => {
+                self.total_songs += 1;
+                if song.music_path.is_some() {
+                    self.downloaded += 1;
+                }
+                self.songs.push(song);
             }
+
+            Message::TextInput(new_value) => self.query = new_value,
+
+            Message::SubmitSearch => {
+                let query = consume(&mut self.query);
+                return Task::stream(Relay::consume_receiver(DatabaseInterface::select_all_songs_in_playlist(
+                    self.database.clone(),
+                    self.playlist.id
+                ), move |item_stream| match item_stream {
+                    crate::backend::database_manager::ItemStream::End => None,
+                    crate::backend::database_manager::ItemStream::Error => None,
+                    crate::backend::database_manager::ItemStream::Value(row) => {
+                        Some(Message::RowIntoSong(row, query.clone()))
+                    }
+                }));
+            }
+
             Message::SongDownloaded(song) => {
                 for s in &mut self.songs {
                     if s.id == song.id {

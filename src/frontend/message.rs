@@ -87,7 +87,10 @@ pub enum Message {
     SecretsLoaded(Vec<Option<Secret>>),
     SecretWritten(Result<(), ()>),
     PlaylistCreated(Playlist),
-    PlaylistLoaded(Playlist)
+    PlaylistLoaded(Playlist),
+    SongStream(Song),
+    RowIntoSong(Vec<DatabaseParam>, String),
+    RowIntoSearchResult(Vec<DatabaseParam>, String)
 }
 
 #[derive(Clone, Debug)]

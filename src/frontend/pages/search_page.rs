@@ -2,26 +2,26 @@ use std::collections::HashSet;
 
 use iced::alignment::Vertical;
 use iced::futures::FutureExt;
-use iced::futures::StreamExt;
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
 use iced::Length;
 use iced::Task;
 
+use crate::backend::database_interface::DatabaseInterface;
 use crate::frontend::application::Page;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
 
-use crate::backend::util::{consume, desync, AM};
+use crate::backend::util::consume;
 use crate::backend::music::Playlist;
 use crate::frontend::message::Message;
 use crate::backend::filemanager::DataDir;
-use crate::backend::database::Database;
-use crate::backend::database::DatabaseSearchQuery;
+use crate::backend::database_manager::DataLink;
 use crate::backend::music::Song;
 use crate::backend::web::flatsearch;
 use crate::backend::web::AsyncMetadataCollectionPool;
+use crate::backend::util::Relay;
 
 pub enum SearchState {
     Searching,
@@ -32,41 +32,25 @@ pub enum SearchState {
 pub struct SearchPage {
     query: String,
     directories: DataDir,
-    database: AM<Database>,
+    database: DataLink,
     search_results: Option<Vec<Song>>,
     search_handles: Vec<Handle>,
     playlist: Option<Playlist>,
-
     existing_songs: HashSet<usize>,
-
     search_notify: Option<SearchState>
 }
 
 impl SearchPage {
-    pub fn new(directories: DataDir, database: AM<Database>, playlist_id: usize) -> Self {
-        let songs = desync(&database).retrieve_all_songs(directories.get_music_ref(), directories.get_thumbnails_ref());
-        let playlist = desync(&database).get_playlist_by_id(playlist_id);
-
-        let songs_in_playlist = match desync(&database).search_playlist(playlist_id, String::new(),
-            directories.get_music_ref(), directories.get_thumbnails_ref()) {
-            Ok(songs) => songs,
-            Err(_) => Vec::new()
-        };
-
-        let mut existing_songs: HashSet<usize> = HashSet::new();
-
-        for song in songs_in_playlist {
-            existing_songs.insert(song.id);
-        }
-
+    pub fn new(directories: DataDir, database: DataLink, playlist_id: usize) -> Self {
+        let playlist = Playlist { name: String::from("Loading..."), id: playlist_id };
         Self {
             query: String::new(),
             directories,
             database,
-            search_results: Some(songs),
+            search_results: None,
             search_handles: Vec::new(),
-            playlist,
-            existing_songs,
+            playlist: Some(playlist),
+            existing_songs: HashSet::new(),
             search_notify: None
         }
     }
@@ -150,6 +134,18 @@ impl Page for SearchPage {
 
     fn update(self: &mut Self, message: Message) -> Task<Message> {
         match message {
+
+            Message::SongStream(song) => {
+                self.existing_songs.insert(song.id);
+
+                if let Some(search_results) = self.search_results.as_mut() {
+                    search_results.push(song)
+                } else {
+                    self.search_results = Some(vec![song])
+                }
+                Task::none()
+            }
+
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
 
             Message::SubmitSearch => {
@@ -176,10 +172,18 @@ impl Page for SearchPage {
                 ).abortable();
 
                 self.search_handles.push(flatsearch_handle);
+                let query = consume(&mut self.query);
 
                 Task::<Message>::stream(
-                    DatabaseSearchQuery::new(database, music_path, thumbnail_path, consume(&mut self.query))
-                        .map(|song_batch| Message::MultiSearchResult(song_batch, false))
+                    Relay::consume_receiver(DatabaseInterface::select_all_songs(self.database.clone()),
+                        move |item_stream| match item_stream {
+                            crate::backend::database_manager::ItemStream::End => None,
+                            crate::backend::database_manager::ItemStream::Error => None,
+                            crate::backend::database_manager::ItemStream::Value(row) => {
+                                Some(Message::RowIntoSearchResult(row, query.clone()))
+                            }
+                        }
+                    )
                 ).chain(
                     flatsearch_task
                 )

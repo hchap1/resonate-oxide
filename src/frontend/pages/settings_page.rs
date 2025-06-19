@@ -9,24 +9,21 @@ use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
 
-use crate::backend::util::AM;
-use crate::backend::database::Database;
+use crate::backend::database_manager::DataLink;
 use crate::backend::music::Song;
 use crate::backend::settings::Secret;
 
 pub struct SettingsPage {
-    database: AM<Database>,
-
+    database: DataLink,
     spotify_id: Option<String>,
     spotify_secret: Option<String>,
-
     fm_key: Option<String>,
     fm_secret: Option<String>,
     fm_session: Option<String>
 }
 
 impl SettingsPage {
-    pub fn new(database: AM<Database>) -> Self {
+    pub fn new(database: DataLink) -> Self {
         let mut s = Self {
             database,
             spotify_id: None,
@@ -35,16 +32,6 @@ impl SettingsPage {
             fm_secret: None,
             fm_session: None
         };
-        s.reload_settings();
-        s
-    }
-
-    fn reload_settings(&mut self) {
-        self.spotify_id = self.database.lock().unwrap().get_secret("SPOTIFY_ID");
-        self.spotify_secret = self.database.lock().unwrap().get_secret("SPOTIFY_SECRET");
-        self.fm_key = self.database.lock().unwrap().get_secret("FM_KEY");
-        self.fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
-        self.fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
     }
 }
 

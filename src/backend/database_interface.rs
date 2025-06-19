@@ -47,7 +47,7 @@ impl DatabaseInterface {
         tokio::task::spawn_blocking(move || 
             Song::load(
                 row[0].usize(),
-                row[1].string()
+                row[1].string(),
                 row[2].string(),
                 row[3].string(),
                 Some(row[4].string()),

@@ -58,6 +58,16 @@ impl DatabaseInterface {
         ).await.ok()
     }
 
+    pub fn construct_playlist(
+        row: Vec<DatabaseParam>
+    ) -> Option<Playlist> {
+        if row.len() != 2 {
+            None
+        } else {
+            Some(Playlist { id: row[0].usize(), name: row[1].string() })
+        }
+    }
+
     /// Make a song out of the rows
     pub async fn construct_songs(
         rows: Vec<Vec<DatabaseParam>>, music_path: PathBuf, thumbnail_path: PathBuf
@@ -153,11 +163,7 @@ impl DatabaseInterface {
             Err(_) => return None
         };
         rows.into_iter().filter_map(|row| {
-            if row.len() != 2 {
-                None
-            } else {
-                Some(Playlist { id: row[0].usize(), name: row[1].string() })
-            }
+            Self::construct_playlist(row)
         }).collect::<Vec<Playlist>>().pop()
     }
 

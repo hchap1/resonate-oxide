@@ -37,7 +37,6 @@ use crate::backend::rpc::RPCMessage;
 use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
-use crate::backend::util::desync;
 use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
@@ -256,7 +255,29 @@ impl Application<'_> {
                 Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song, is_online))))
             }
 
-            Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
+            Message::LoadPage(page_type, playlist_id) => {
+                let task = match &page_type {
+                    PageType::Playlists => Task::stream(
+                        Relay::consume_receiver(
+                            DatabaseInterface::select_all_playlists(self.database.derive()),
+                            |res| match res {
+                                crate::backend::database_manager::ItemStream::End => None,
+                                crate::backend::database_manager::ItemStream::Error => None,
+                                crate::backend::database_manager::ItemStream::Value(row) => {
+                                    match DatabaseInterface::construct_playlist(row) {
+                                        Some(playlist) => Some(Message::PlaylistLoaded(playlist)),
+                                        None => Some(Message::None)
+                                    }
+                                }
+                            }
+                        )
+                    ),
+                    _ => Task::none()
+                };
+
+                self.load_page(page_type, playlist_id);
+                task
+            },
 
             Message::AddSongToPlaylist(song, playlist_id) => {
                 DatabaseInterface::insert_playlist_entry(

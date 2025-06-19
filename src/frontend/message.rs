@@ -86,7 +86,8 @@ pub enum Message {
     GetSongByTitleForSpotify(Option<Song>, FullTrack),
     SecretsLoaded(Vec<Option<Secret>>),
     SecretWritten(Result<(), ()>),
-    PlaylistCreated(Playlist)
+    PlaylistCreated(Playlist),
+    PlaylistLoaded(Playlist)
 }
 
 #[derive(Clone, Debug)]

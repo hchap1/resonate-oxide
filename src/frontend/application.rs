@@ -519,7 +519,6 @@ impl Application<'_> {
             }
 
             Message::SecretsLoaded(secrets) => {
-
                 let spotify_id = secrets[0];
                 let spotify_secret = secrets[1];
                 let fm_key = secrets[2];
@@ -527,12 +526,30 @@ impl Application<'_> {
                 let fm_session = secrets[4];
 
                 let ready = fm_key.is_some() && fm_secret.is_some() && !fm_session.is_some();
+
+                let fm_key_string = if let Some(fm_key) = fm_key {
+                    if let Secret::FMKey(s) = fm_key { Some(s) } else { None }
+                } else { None };
+                let fm_secret_string = if let Some(fm_secret) = fm_secret {
+                    if let Secret::FMSecret(s) = fm_secret { Some(s) } else { None }
+                } else { None };
+                let fm_session_string = if let Some(fm_session) = fm_session {
+                    if let Secret::FMSession(s) = fm_session { Some(s) } else { None }
+                } else { None };
+
+                let spotify_id_string = if let Some(spotify_id) = spotify_id {
+                    if let Secret::SpotifyID(s) = spotify_id { Some(s) } else { None }
+                } else { None };
+                let spotify_secret_string = if let Some(spotify_secret) = spotify_secret {
+                    if let Secret::SpotifySecret(s) = spotify_secret { Some(s) } else { None }
+                } else { None };
+
                 self.last_fm_auth = Some(
-                    WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session)
+                    WebOAuth::from_key_and_secret(fm_key_string, fm_secret_string, fm_session_string)
                 );
 
                 Task::batch(vec![
-                    Task::done(Message::SpotifyCreds(spotify_id, spotify_secret)),
+                    Task::done(Message::SpotifyCreds(spotify_id_string, spotify_secret_string)),
                     if ready { Task::done(Message::FMAuthenticate) } else { Task::none() }
                 ])
             }

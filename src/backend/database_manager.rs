@@ -27,6 +27,7 @@ pub enum InsertMessage {
 
 enum DatabaseTask {
     Execute(&'static str, DatabaseParams),
+    WaitExecute(&'static str, DatabaseParams, Sender<()>),
     Insert(&'static str, DatabaseParams, Sender<InsertMessage>),
     Query(&'static str, DatabaseParams, Sender<ItemStream>),
 }
@@ -99,6 +100,15 @@ impl DataLink {
 
     pub fn execute(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
         self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
+    }
+
+    pub async fn execute_and_wait(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::WaitExecute(query, params, sender));
+        match tokio::task::spawn_blocking(move || receiver.recv()).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(())
+        }
     }
 
     /// Execute function with receiver callback intended for insert commands (returns row id)
@@ -188,6 +198,14 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
             DatabaseTask::Execute(query, params) => {
                 if let Ok(mut statement) = connection.prepare(query) {
                     let _ = statement.execute(params.to_params());
+                }
+            },
+            DatabaseTask::WaitExecute(query, params, sender) => {
+                if let Ok(mut statement) = connection.prepare(query) {
+                    let _ = statement.execute(params.to_params());
+                    let _ = sender.send(());
+                } else {
+                    let _ = sender.send(());
                 }
             },
             DatabaseTask::Insert(query, params, sender) => {

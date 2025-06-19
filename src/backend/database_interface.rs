@@ -239,4 +239,8 @@ impl DatabaseInterface {
             }
         }).collect::<Vec<Secret>>().pop()
     }
+
+    pub async fn insert_or_update_secret(database: DataLink, name: String, value: String) -> Result<(), ()> {
+
+    }
 }

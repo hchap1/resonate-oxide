@@ -80,6 +80,8 @@ pub enum Message {
     RPCMessage(RPCMessage),
 
     Hover(usize, bool),
+
+    AllSongsInPlaylist(Vec<Song>, bool),
 }
 
 #[derive(Clone, Debug)]

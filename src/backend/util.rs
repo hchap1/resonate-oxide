@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::MutexGuard;
 use std::mem::replace;
 use std::task::Waker;
 use std::task::Context;
@@ -12,11 +9,6 @@ use crossbeam_channel::Sender;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::unbounded;
 use iced::futures::Stream;
-
-pub type AM<T> = Arc<Mutex<T>>;
-
-pub fn sync<T>(obj: T) -> AM<T> { Arc::new(Mutex::new(obj)) }
-pub fn desync<T>(obj: &AM<T>) -> MutexGuard<T> { obj.lock().unwrap() }
 
 pub fn consume(string: &mut String) -> String {
     replace(string, String::new())
@@ -30,7 +22,7 @@ enum RelayPacket<T> {
 #[pin_project::pin_project]
 pub struct Relay<T, F, M>
 where
-        F: Fn(T) -> M,
+        F: Fn(T) -> Option<M>
 {
     waker_confirmed: bool,
     waker_sender: Sender<Waker>,
@@ -40,7 +32,7 @@ where
     packets: Vec<T>
 }
 
-impl<T: Send + 'static, F: Fn(T) -> M, M> Relay<T, F, M> {
+impl<T: Send + 'static, F: Fn(T) -> Option<M>, M> Relay<T, F, M> {
     pub fn consume_receiver(receiver: Receiver<T>, map_fn: F) -> Relay<T, F, M> {
         let (waker_sender, waker_receiver) = unbounded();
         let (queue_sender, queue_receiver) = unbounded();
@@ -78,7 +70,7 @@ fn relay<T>(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>
     }
 }
 
-impl<T, F: Fn(T) -> M, M> Stream for Relay<T, F, M> {
+impl<T, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
     type Item = M;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
@@ -97,9 +89,9 @@ impl<T, F: Fn(T) -> M, M> Stream for Relay<T, F, M> {
         }
 
         match self.packets.pop() {
-            Some(packet) => return Poll::Ready(Some(
+            Some(packet) => return Poll::Ready(
                 (self.map_fn)(packet)
-            )),
+            ),
             None => match self._handle.is_finished() {
                 true => Poll::Ready(None),
                 false => Poll::Pending

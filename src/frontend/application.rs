@@ -323,23 +323,25 @@ impl Application<'_> {
                 ])
             }
 
-            Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
+            Message::AllSongsInPlaylist(mut songs, do_shuffle) => {
                 let mut rng = rng();
-
-                let mut songs = {
-                    match self.database.lock().unwrap().search_playlist(
-                        playlist_id, String::new(), 
-                        self.directories.get_music_ref(),
-                        self.directories.get_thumbnails_ref()
-                    ) {
-                        Ok(songs) => songs,
-                        Err(_) => return Task::none()
-                    }
-                };
-
                 if do_shuffle { songs.shuffle(&mut rng); }
-
                 Task::done(Message::AudioTask(AudioTask::SetQueue(songs)))
+            }
+
+            Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
+                let receiver = DatabaseInterface::select_all_songs_in_playlist(self.database.derive(), playlist_id);
+                Task::stream(Relay::consume_receiver(receiver,
+                    |item_stream| match item_stream {
+                        crate::backend::database_manager::ItemStream::End
+                    }
+                ))
+
+                Task::future(
+                ).map(|res| match res {
+                    Ok(songs) => Message::AllSongsInPlaylist(songs),
+                    Err(_) => Message::None
+                })
             }
 
             Message::RemoveSongFromPlaylist(song_id, playlist_id) => {

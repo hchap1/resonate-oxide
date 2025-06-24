@@ -465,7 +465,6 @@ impl Application<'_> {
             }
 
             Message::SpotifyPlaylist(uri) => {
-                // Let the page know the search has been received
                 let _ = self.page.update(Message::SpotifyPlaylist(String::new()));
 
                 let id = if uri.len() != 11 {

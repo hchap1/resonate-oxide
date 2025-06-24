@@ -24,14 +24,14 @@ pub struct SettingsPage {
 
 impl SettingsPage {
     pub fn new(database: DataLink) -> Self {
-        let mut s = Self {
+        Self {
             database,
             spotify_id: None,
             spotify_secret: None,
             fm_key: None,
             fm_secret: None,
             fm_session: None
-        };
+        }
     }
 }
 

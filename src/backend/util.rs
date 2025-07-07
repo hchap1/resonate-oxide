@@ -14,19 +14,13 @@ pub fn consume(string: &mut String) -> String {
     replace(string, String::new())
 }
 
-enum RelayPacket<T> {
-    Data(T),
-    Handshake
-}
-
 #[pin_project::pin_project]
 pub struct Relay<T, F, M>
 where
         F: Fn(T) -> Option<M>
 {
-    waker_confirmed: bool,
     waker_sender: Sender<Waker>,
-    queue_receiver: Receiver<RelayPacket<T>>,
+    queue_receiver: Receiver<T>,
     _handle: JoinHandle<()>,
     map_fn: F,
     packets: Vec<T>
@@ -38,7 +32,6 @@ impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> Option<M>, M> Relay<T, F, 
         let (queue_sender, queue_receiver) = unbounded();
 
         Relay::<T, F, M> {
-            waker_confirmed: false,
             waker_sender,
             queue_receiver,
             _handle: spawn(move || relay(waker_receiver, queue_sender, receiver)),
@@ -48,64 +41,51 @@ impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> Option<M>, M> Relay<T, F, 
     }
 }
 
-fn relay<T: std::fmt::Debug>
-(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>>, receiver: Receiver<T>) {
-
-    let mut overdue_packets: Vec<T> = Vec::new();
-
-    let mut waker = Some(loop {
-        match waker_receiver.recv() {
-            Ok(waker) => break waker,
-            Err(_) => return
-        }
-    });
-
-    if queue_sender.send(RelayPacket::Handshake).is_err() { return; }
+fn relay<T: std::fmt::Debug>(
+    waker_receiver: Receiver<Waker>,
+    queue_sender: Sender<T>,
+    receiver: Receiver<T>
+) {
+    let mut waker = match waker_receiver.recv() {
+        Ok(waker) => waker,
+        Err(_) => return,
+    };
 
     loop {
+        // Attempt to receive packets.
         let packet = match receiver.recv() {
             Ok(packet) => packet,
-            Err(_) => return
+            Err(_) => break
         };
 
-        need to figure out why this isnt waking
+        if queue_sender.send(packet).is_err() { break; }
+        waker.wake_by_ref();
 
-        overdue_packets.push(packet);
 
-        match waker_receiver.try_recv() {
-            Ok(new_waker) => waker = Some(new_waker),
-            Err(_) => {}
+        waker = match waker_receiver.recv() {
+            Ok(waker) => waker,
+            Err(_) => break
         };
+    }
 
-        match waker.take() {
-            Some(waker) => {
-                waker.wake();
-                while let Some(packet) = overdue_packets.pop() {
-                    if queue_sender.send(RelayPacket::Data(packet)).is_err() { return; }
-                }
-            }
-            _ => {}
-        }
+    waker.wake_by_ref();
+    while !queue_sender.is_empty() {
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 }
 
 impl<T: std::fmt::Debug, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
     type Item = M;
 
-    fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
+    fn poll_next(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
         let waker = context.waker().to_owned();
         if self.waker_sender.send(waker).is_err() {
             return Poll::Ready(None);
         }
 
-        while let Ok(packet) = self.queue_receiver.try_recv() {
-            match packet {
-                RelayPacket::Data(data) => self.packets.push(data),
-                RelayPacket::Handshake => self.waker_confirmed = true
-            }
-        }
+        let packet = self.queue_receiver.try_recv().ok();
 
-        match self.packets.pop() {
+        match packet {
             Some(packet) => return Poll::Ready(
                 (self.map_fn)(packet)
             ),

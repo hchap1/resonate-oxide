@@ -129,7 +129,6 @@ impl DataLink {
 
     /// Return a receiver that receives the rows
     pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
-        println!("131 dm - spawning stream task");
         let (sender, receiver) = unbounded();
         let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
         receiver
@@ -252,22 +251,13 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                     else { Err(rusqlite::Error::QueryReturnedNoRows) }
                 }) {
                     Ok(rows) => rows.filter_map(|x| x.ok()).collect::<Vec<Vec<DatabaseParam>>>(),
-                    Err(e) => { println!("261 dm - qm err {e:?}"); continue }
+                    Err(e) => continue
                 };
 
                 for row in rows {
-                    println!("263 dm - rc {row:?}");
-                    let res = sender.send(ItemStream::Value(row));
-                    if res.is_err() {
-                        println!("\n\n\n[ERROR] Could not send STREAM ITEM.\n\n\n");
-                    }
+                    let _ = sender.send(ItemStream::Value(row));
                 }
-
-                println!("--------------------- STREAM END -----------------\n\n");
-                let res = sender.send(ItemStream::End);
-                if res.is_err() {
-                    println!("\n\n\n[ERROR] Could not send STREAM END.\n\n\n");
-                }
+                let _ = sender.send(ItemStream::End);
             }
         }
     }

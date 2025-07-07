@@ -179,8 +179,15 @@ impl Page for PlaylistPage {
 
             Message::RemoveSongFromPlaylist(song_id, _) => {
                 match self.songs.iter().enumerate().find_map(|song|
-                    if song.1.id == song_id { Some(song.0) }
-                    else { None }
+                    if song.1.id == song_id {
+                        if song.1.music_path.is_some() {
+                            self.downloaded -= 1;
+                            self.total_songs -= 1;
+                        } else {
+                            self.total_songs -= 1;
+                        }
+                        Some(song.0)
+                    } else { None }
                 ) {
                     Some(idx) => { self.songs.remove(idx); },
                     None => {}

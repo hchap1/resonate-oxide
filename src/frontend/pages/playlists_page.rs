@@ -29,7 +29,9 @@ impl PlaylistsPage {
 }
 
 impl Page for PlaylistsPage {
-    fn view(&self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>) -> Column<'_, Message> {
+    fn view(
+        &self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>
+    ) -> Column<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
             column = column.push(

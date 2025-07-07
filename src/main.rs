@@ -13,6 +13,7 @@ fn main() -> Result<(), iced::Error> {
         .run_with(|| (Application::default(), Task::batch(vec![
             Task::done(Message::LoadAudio),
             Task::done(Message::DownloadDLP),
-            Task::done(Message::LoadSecrets)
+            Task::done(Message::LoadSecrets),
+            Task::done(Message::LoadAllPlaylists)
         ])))
 }

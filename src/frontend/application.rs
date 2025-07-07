@@ -258,21 +258,7 @@ impl Application<'_> {
 
             Message::LoadPage(page_type, playlist_id) => {
                 let task = match &page_type {
-                    PageType::Playlists => Task::stream(
-                        Relay::consume_receiver(
-                            DatabaseInterface::select_all_playlists(self.database.derive()),
-                            |res| match res {
-                                crate::backend::database_manager::ItemStream::End => None,
-                                crate::backend::database_manager::ItemStream::Error => None,
-                                crate::backend::database_manager::ItemStream::Value(row) => {
-                                    match DatabaseInterface::construct_playlist(row) {
-                                        Some(playlist) => Some(Message::PlaylistLoaded(playlist)),
-                                        None => Some(Message::None)
-                                    }
-                                }
-                            }
-                        )
-                    ),
+                    PageType::Playlists => Task::done(Message::LoadAllPlaylists),
                     _ => Task::none()
                 };
 
@@ -733,6 +719,25 @@ impl Application<'_> {
             Message::RPCMessage(message) => {
                 self.rpc_manager.send(message);
                 Task::none()
+            }
+
+            Message::LoadAllPlaylists => {
+                println!("Received command to load all playlists.");
+                Task::stream(
+                    Relay::consume_receiver(
+                        DatabaseInterface::select_all_playlists(self.database.derive()),
+                        |item| match item {
+                            crate::backend::database_manager::ItemStream::Value(v) => {
+                                match DatabaseInterface::construct_playlist(v) {
+                                    Some(playlist) => Some(Message::PlaylistLoaded(playlist)),
+                                    None => None
+                                }
+                            },
+                            crate::backend::database_manager::ItemStream::End => None,
+                            crate::backend::database_manager::ItemStream::Error => None
+                        }
+                    )
+                )
             }
 
             other => {

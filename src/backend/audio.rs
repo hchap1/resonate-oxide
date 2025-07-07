@@ -193,6 +193,7 @@ fn audio_thread(
                     false
                 }
                 AudioTask::TogglePlayback => {
+                    println!("PLAYBACK TOGGLED!");
                     if sink.is_paused() { sink.play() } else { sink.pause() }
                     update_queue(&sink, &queue, &queue_upstream);
                     false

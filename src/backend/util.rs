@@ -23,7 +23,7 @@ where
     queue_receiver: Receiver<T>,
     _handle: JoinHandle<()>,
     map_fn: F,
-    packets: Vec<T>
+    packets: Vec<T>,
 }
 
 impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> Option<M>, M> Relay<T, F, M> {
@@ -36,7 +36,7 @@ impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> Option<M>, M> Relay<T, F, 
             queue_receiver,
             _handle: spawn(move || relay(waker_receiver, queue_sender, receiver)),
             map_fn,
-            packets: Vec::new()
+            packets: Vec::new(),
         }
     }
 }
@@ -44,7 +44,7 @@ impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> Option<M>, M> Relay<T, F, 
 fn relay<T: std::fmt::Debug>(
     waker_receiver: Receiver<Waker>,
     queue_sender: Sender<T>,
-    receiver: Receiver<T>
+    receiver: Receiver<T>,
 ) {
     let mut waker = match waker_receiver.recv() {
         Ok(waker) => waker,
@@ -59,8 +59,7 @@ fn relay<T: std::fmt::Debug>(
         };
 
         if queue_sender.send(packet).is_err() { break; }
-        waker.wake_by_ref();
-
+        waker.wake();
 
         waker = match waker_receiver.recv() {
             Ok(waker) => waker,
@@ -68,7 +67,12 @@ fn relay<T: std::fmt::Debug>(
         };
     }
 
-    waker.wake_by_ref();
+    waker = match waker_receiver.recv() {
+        Ok(waker) => waker,
+        Err(_) => return
+    };
+
+    waker.wake();
     while !queue_sender.is_empty() {
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
@@ -78,11 +82,6 @@ impl<T: std::fmt::Debug, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
     type Item = M;
 
     fn poll_next(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
-        let waker = context.waker().to_owned();
-        if self.waker_sender.send(waker).is_err() {
-            return Poll::Ready(None);
-        }
-
         let packet = self.queue_receiver.try_recv().ok();
 
         match packet {
@@ -91,7 +90,14 @@ impl<T: std::fmt::Debug, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
             ),
             None => match self._handle.is_finished() {
                 true => Poll::Ready(None),
-                false => Poll::Pending
+                false => {
+                    let waker = context.waker().to_owned();
+                    if self.waker_sender.send(waker).is_err() {
+                        return Poll::Ready(None);
+                    }
+
+                    Poll::Pending
+                }
             }
         }
     }

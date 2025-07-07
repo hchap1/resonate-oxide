@@ -282,30 +282,8 @@ impl Application<'_> {
             }
 
             Message::QueueUpdate(queue_state) => {
-
-                let old_id = if let Some(qs) = self.queue_state.as_ref() {
-                    match qs.songs.get(queue_state.position) {
-                        Some(song) => song.id,
-                        None => 0
-                    }
-                } else { 0 };
-
-                let new_song = match queue_state.songs.get(queue_state.position) {
-                    Some(song) => song.clone(),
-                    None => {
-                        self.queue_state = Some(queue_state);
-                        return Task::none();
-                    }
-                };
-
                 self.queue_state = Some(queue_state);
-
-                if old_id != 0 && new_song.id != 0 && new_song.id != old_id {
-                    println!("[UPDATE] New song");
-                    Task::none()
-                } else {
-                    Task::none()
-                }
+                Task::none()
             }
             
             Message::LoadAudio => {
@@ -317,13 +295,19 @@ impl Application<'_> {
                 self.audio_player = Some(audio_player);
                 Task::batch(vec![
                     Task::stream(
-                        Relay::consume_receiver(queue_receiver, |message| Some(Message::QueueUpdate(message)))
+                        Relay::consume_receiver(
+                            queue_receiver, |message| Some(Message::QueueUpdate(message))
+                        )
                     ),
                     Task::stream(
-                        Relay::consume_receiver(progress_receiver, |message| Some(Message::ProgressUpdate(message)))
+                        Relay::consume_receiver(
+                            progress_receiver, |message| Some(Message::ProgressUpdate(message))
+                        )
                     ),
                     Task::stream(
-                        Relay::consume_receiver(scrobble_receiver, |message| Some(Message::ScrobbleRequest(message)))
+                        Relay::consume_receiver(
+                            scrobble_receiver, |message| Some(Message::ScrobbleRequest(message))
+                        )
                     )
                 ])
             }
@@ -375,7 +359,7 @@ impl Application<'_> {
                         crate::backend::database_manager::ItemStream::Value(row) => Some(
                             Message::RowIntoSongForQueue(row)
                         )
-                    }
+                   }
                 ))
             }
 
@@ -738,7 +722,7 @@ impl Application<'_> {
                             crate::backend::database_manager::ItemStream::Error => {
                                 None
                             }
-                        }
+                       }
                     )
                 )
             }

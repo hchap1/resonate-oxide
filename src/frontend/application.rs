@@ -258,7 +258,23 @@ impl Application<'_> {
 
             Message::LoadPage(page_type, playlist_id) => {
                 let task = match &page_type {
-                    PageType::Playlists => Task::done(Message::LoadAllPlaylists),
+                    PageType::Playlists => Task::batch(vec![
+                        match playlist_id {
+                            Some(playlist_id) => {
+                                Task::future(
+                                    DatabaseInterface::get_playlist_by_id(
+                                        self.database.derive(),
+                                        playlist_id
+                                    )
+                                ).map(|playlist| match playlist {
+                                    Some(playlist) => Message::PlaylistData(playlist),
+                                    None => Message::None
+                                })
+                            }
+                            None => Task::none()
+                        },
+                        Task::done(Message::LoadAllPlaylists)
+                    ]),
                     PageType::ViewPlaylist => match playlist_id {
                         Some(playlist_id) => Task::stream(
                             Relay::consume_receiver(

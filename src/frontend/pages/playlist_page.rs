@@ -206,6 +206,10 @@ impl Page for PlaylistPage {
                     );
             }
 
+            Message::PlaylistData(playlist) => {
+                self.playlist = playlist;
+            }
+
             _ => ()
         }.into()
     }

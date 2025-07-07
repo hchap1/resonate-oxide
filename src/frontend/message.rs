@@ -83,6 +83,7 @@ pub enum Message {
     Hover(usize, bool),
 
     LoadAllPlaylists,
+    PlaylistData(Playlist),
     RowIntoSongForQueue(Vec<DatabaseParam>),
     GetSongByTitleForSpotify(Option<Song>, FullTrack),
     SecretsLoaded(Vec<Option<Secret>>),

@@ -169,6 +169,7 @@ impl DatabaseInterface {
 
     /// Stream every playlist
     pub fn select_all_playlists(database: DataLink) -> Receiver<ItemStream> {
+        println!("Selecting all playlists");
         database.query_stream(SELECT_ALL_PLAYLISTS, DatabaseParams::empty())
     }
 

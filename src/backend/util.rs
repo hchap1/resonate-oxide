@@ -32,7 +32,7 @@ where
     packets: Vec<T>
 }
 
-impl<T: Send + 'static, F: Fn(T) -> Option<M>, M> Relay<T, F, M> {
+impl<T: Send + 'static + std::fmt::Debug, F: Fn(T) -> Option<M>, M> Relay<T, F, M> {
     pub fn consume_receiver(receiver: Receiver<T>, map_fn: F) -> Relay<T, F, M> {
         let (waker_sender, waker_receiver) = unbounded();
         let (queue_sender, queue_receiver) = unbounded();
@@ -48,14 +48,17 @@ impl<T: Send + 'static, F: Fn(T) -> Option<M>, M> Relay<T, F, M> {
     }
 }
 
-fn relay<T>(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>>, receiver: Receiver<T>) {
+fn relay<T: std::fmt::Debug>
+(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>>, receiver: Receiver<T>) {
 
-    let waker = loop {
+    let mut overdue_packets: Vec<T> = Vec::new();
+
+    let mut waker = Some(loop {
         match waker_receiver.recv() {
             Ok(waker) => break waker,
             Err(_) => return
         }
-    };
+    });
 
     if queue_sender.send(RelayPacket::Handshake).is_err() { return; }
 
@@ -65,20 +68,34 @@ fn relay<T>(waker_receiver: Receiver<Waker>, queue_sender: Sender<RelayPacket<T>
             Err(_) => return
         };
 
-        if queue_sender.send(RelayPacket::Data(packet)).is_err() { return; }
-        waker.wake_by_ref();
+        need to figure out why this isnt waking
+
+        overdue_packets.push(packet);
+
+        match waker_receiver.try_recv() {
+            Ok(new_waker) => waker = Some(new_waker),
+            Err(_) => {}
+        };
+
+        match waker.take() {
+            Some(waker) => {
+                waker.wake();
+                while let Some(packet) = overdue_packets.pop() {
+                    if queue_sender.send(RelayPacket::Data(packet)).is_err() { return; }
+                }
+            }
+            _ => {}
+        }
     }
 }
 
-impl<T, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
+impl<T: std::fmt::Debug, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
     type Item = M;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<M>> {
-        if !self.waker_confirmed {
-            let waker = context.waker().to_owned();
-            if self.waker_sender.send(waker).is_err() {
-                return Poll::Ready(None);
-            }
+        let waker = context.waker().to_owned();
+        if self.waker_sender.send(waker).is_err() {
+            return Poll::Ready(None);
         }
 
         while let Ok(packet) = self.queue_receiver.try_recv() {

@@ -728,13 +728,20 @@ impl Application<'_> {
                         DatabaseInterface::select_all_playlists(self.database.derive()),
                         |item| match item {
                             crate::backend::database_manager::ItemStream::Value(v) => {
+                                println!(" - 731 ap - ROW recv for playlist load task");
                                 match DatabaseInterface::construct_playlist(v) {
                                     Some(playlist) => Some(Message::PlaylistLoaded(playlist)),
                                     None => None
                                 }
                             },
-                            crate::backend::database_manager::ItemStream::End => None,
-                            crate::backend::database_manager::ItemStream::Error => None
+                            crate::backend::database_manager::ItemStream::End => {
+                                println!(" - 737 ap - END recv for playlist load task");
+                                None
+                            }
+                            crate::backend::database_manager::ItemStream::Error => {
+                                println!(" - 742 ap - ERROR recv for playlist load task");
+                                None
+                            }
                         }
                     )
                 )

@@ -14,6 +14,7 @@ use rusqlite::types::ValueRef;
 
 use super::error::ResonateError;
 
+#[derive(Debug)]
 pub enum ItemStream {
     Value(Vec<DatabaseParam>),
     Error,
@@ -25,7 +26,7 @@ pub enum InsertMessage {
     Error
 }
 
-enum DatabaseTask {
+pub enum DatabaseTask {
     Execute(&'static str, DatabaseParams),
     WaitExecute(&'static str, DatabaseParams, Sender<()>),
     Insert(&'static str, DatabaseParams, Sender<InsertMessage>),
@@ -128,6 +129,7 @@ impl DataLink {
 
     /// Return a receiver that receives the rows
     pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
+        println!("131 dm - spawning stream task");
         let (sender, receiver) = unbounded();
         let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
         receiver
@@ -211,7 +213,7 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
             DatabaseTask::Insert(query, params, sender) => {
                 if let Ok(mut statement) = connection.prepare(query) {
                     let _ = statement.execute(params.to_params());
-                    sender.send(InsertMessage::Success(connection.last_insert_rowid() as usize));
+                    let _ = sender.send(InsertMessage::Success(connection.last_insert_rowid() as usize));
                 } else {
                     let _ = sender.send(InsertMessage::Error);
                 }
@@ -226,8 +228,7 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                 };
 
                 let column_count = statement.column_count();
-                let _ = statement.query_map(params.to_params(), |row| {
-                    
+                let rows = match statement.query_map(params.to_params(), |row| {
                     let mut values = Vec::new();
 
                     for idx in 0..column_count {
@@ -241,18 +242,32 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                             ValueRef::Integer(i) => DatabaseParam::Usize(i as usize),
                             ValueRef::Real(f) => DatabaseParam::F64(f),
                             ValueRef::Text(s) => DatabaseParam::String(String::from_utf8_lossy(s).into_owned()),
-                            ValueRef::Blob(_) => DatabaseParam::Null
+                            ValueRef::Blob(_) => DatabaseParam::Null,
                         };
 
                         values.push(value);
                     }
 
-                    let _ = sender.send(ItemStream::Value(values));
+                    if column_count == values.len() { Ok(values) }
+                    else { Err(rusqlite::Error::QueryReturnedNoRows) }
+                }) {
+                    Ok(rows) => rows.filter_map(|x| x.ok()).collect::<Vec<Vec<DatabaseParam>>>(),
+                    Err(e) => { println!("261 dm - qm err {e:?}"); continue }
+                };
 
-                    Ok(())
-                });
+                for row in rows {
+                    println!("263 dm - rc {row:?}");
+                    let res = sender.send(ItemStream::Value(row));
+                    if res.is_err() {
+                        println!("\n\n\n[ERROR] Could not send STREAM ITEM.\n\n\n");
+                    }
+                }
 
-                let _ = sender.send(ItemStream::End);
+                println!("--------------------- STREAM END -----------------\n\n");
+                let res = sender.send(ItemStream::End);
+                if res.is_err() {
+                    println!("\n\n\n[ERROR] Could not send STREAM END.\n\n\n");
+                }
             }
         }
     }

@@ -259,40 +259,37 @@ impl Application<'_> {
             Message::LoadPage(page_type, playlist_id) => {
                 let task = match &page_type {
                     PageType::Playlists => Task::batch(vec![
-                        match playlist_id {
-                            Some(playlist_id) => {
-                                Task::future(
-                                    DatabaseInterface::get_playlist_by_id(
-                                        self.database.derive(),
-                                        playlist_id
-                                    )
-                                ).map(|playlist| match playlist {
-                                    Some(playlist) => Message::PlaylistData(playlist),
-                                    None => Message::None
-                                })
-                            }
-                            None => Task::none()
-                        },
                         Task::done(Message::LoadAllPlaylists)
                     ]),
                     PageType::ViewPlaylist => match playlist_id {
-                        Some(playlist_id) => Task::stream(
-                            Relay::consume_receiver(
-                                DatabaseInterface::select_all_songs_in_playlist(
-                                    self.database.derive(), playlist_id
-                                ), |item| match item {
-                                    crate::backend::database_manager::ItemStream::Value(v) => {
-                                        Some(Message::RowIntoSong(v))
-                                    },
-                                    crate::backend::database_manager::ItemStream::End => {
-                                        None
-                                    },
-                                    crate::backend::database_manager::ItemStream::Error => {
-                                        None
+                        Some(playlist_id) => Task::batch(vec![
+                            Task::future(
+                                DatabaseInterface::get_playlist_by_id(
+                                    self.database.derive(),
+                                    playlist_id
+                                )
+                            ).map(|playlist| match playlist {
+                                Some(playlist) => Message::PlaylistData(playlist),
+                                None => Message::None
+                            }),
+                            Task::stream(
+                                Relay::consume_receiver(
+                                    DatabaseInterface::select_all_songs_in_playlist(
+                                        self.database.derive(), playlist_id
+                                    ), |item| match item {
+                                        crate::backend::database_manager::ItemStream::Value(v) => {
+                                            Some(Message::RowIntoSong(v))
+                                        },
+                                        crate::backend::database_manager::ItemStream::End => {
+                                            None
+                                        },
+                                        crate::backend::database_manager::ItemStream::Error => {
+                                            None
+                                        }
                                     }
-                                }
+                                )
                             )
-                        ),
+                        ]),
                         None => Task::none()
                     },
                     _ => Task::none()

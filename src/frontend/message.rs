@@ -90,7 +90,8 @@ pub enum Message {
     PlaylistCreated(Playlist),
     PlaylistLoaded(Playlist),
     SongStream(Song),
-    RowIntoSong(Vec<DatabaseParam>, String),
+    RowIntoSong(Vec<DatabaseParam>),
+    RowIntoSongQuery(Vec<DatabaseParam>, String),
     RowIntoSearchResult(Vec<DatabaseParam>, String)
 }
 

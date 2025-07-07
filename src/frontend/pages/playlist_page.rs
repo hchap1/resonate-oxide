@@ -158,7 +158,7 @@ impl Page for PlaylistPage {
                     crate::backend::database_manager::ItemStream::End => None,
                     crate::backend::database_manager::ItemStream::Error => None,
                     crate::backend::database_manager::ItemStream::Value(row) => {
-                        Some(Message::RowIntoSong(row, query.clone()))
+                        Some(Message::RowIntoSongQuery(row, query.clone()))
                     }
                 }));
             }

@@ -259,6 +259,26 @@ impl Application<'_> {
             Message::LoadPage(page_type, playlist_id) => {
                 let task = match &page_type {
                     PageType::Playlists => Task::done(Message::LoadAllPlaylists),
+                    PageType::ViewPlaylist => match playlist_id {
+                        Some(playlist_id) => Task::stream(
+                            Relay::consume_receiver(
+                                DatabaseInterface::select_all_songs_in_playlist(
+                                    self.database.derive(), playlist_id
+                                ), |item| match item {
+                                    crate::backend::database_manager::ItemStream::Value(v) => {
+                                        Some(Message::RowIntoSong(v))
+                                    },
+                                    crate::backend::database_manager::ItemStream::End => {
+                                        None
+                                    },
+                                    crate::backend::database_manager::ItemStream::Error => {
+                                        None
+                                    }
+                                }
+                            )
+                        ),
+                        None => Task::none()
+                    },
                     _ => Task::none()
                 };
 
@@ -322,7 +342,18 @@ impl Application<'_> {
                     })
             }
 
-            Message::RowIntoSong(row, query) => {
+            Message::RowIntoSong(row) => {
+                Task::future(DatabaseInterface::construct_song(
+                    row,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(|song| match song {
+                    Some(song) => Message::SongStream(song),
+                    None => Message::None
+                })
+            }
+
+            Message::RowIntoSongQuery(row, query) => {
                 Task::future(DatabaseInterface::construct_song(
                     row,
                     self.directories.get_music_ref().to_path_buf(),

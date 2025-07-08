@@ -207,6 +207,7 @@ impl Page for PlaylistPage {
             }
 
             Message::PlaylistData(playlist) => {
+                println!("Playlist data received");
                 self.playlist = playlist;
             }
 

@@ -144,24 +144,26 @@ impl DataLink {
             let mut values = Vec::new();
             let mut error = false;
             while let Ok(item) = receiver.recv() {
+                println!("ITEM: {item:?}");
                 match item {
                     ItemStream::End => break,
                     ItemStream::Error => { error = true; break },
                     ItemStream::Value(v) => values.push(v)
                 };
+                println!("ERROR: {error}");
             }
 
             (values, error)
         });
 
-        let (values, success) = match handle.await {
+        let (values, error) = match handle.await {
             Ok(data) => data,
             Err(_) => return Err(ResonateError::GenericError)
         };
 
-        match success {
-            true => Ok(values),
-            false => Err(ResonateError::GenericError)
+        match error {
+            false => Ok(values),
+            true => Err(ResonateError::GenericError)
         }
     }
 }
@@ -189,7 +191,7 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
         Err(_) => return
     };
 
-    loop {
+    'mainloop: loop {
         let current_task = match task_receiver.recv() {
             Ok(task) => task,
             Err(_) => return
@@ -230,10 +232,10 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                 let rows = match statement.query_map(params.to_params(), |row| {
                     let mut values = Vec::new();
 
-                    for idx in 0..column_count {
+                    'inner: for idx in 0..column_count {
                         let value = match row.get_ref(idx) {
                             Ok(value) => value,
-                            Err(_) => continue
+                            Err(_) => continue 'inner
                         };
 
                         let value = match value {
@@ -251,7 +253,10 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                     else { Err(rusqlite::Error::QueryReturnedNoRows) }
                 }) {
                     Ok(rows) => rows.filter_map(|x| x.ok()).collect::<Vec<Vec<DatabaseParam>>>(),
-                    Err(e) => continue
+                    Err(_) => {
+                        let _ = sender.send(ItemStream::Error);
+                        continue 'mainloop
+                    }
                 };
 
                 for row in rows {

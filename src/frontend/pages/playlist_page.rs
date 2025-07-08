@@ -151,6 +151,7 @@ impl Page for PlaylistPage {
 
             Message::SubmitSearch => {
                 let query = consume(&mut self.query);
+                self.songs.clear();
                 return Task::stream(Relay::consume_receiver(DatabaseInterface::select_all_songs_in_playlist(
                     self.database.clone(),
                     self.playlist.id

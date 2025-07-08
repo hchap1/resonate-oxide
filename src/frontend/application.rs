@@ -403,8 +403,15 @@ impl Application<'_> {
                     self.directories.get_thumbnails_ref().to_path_buf()
                 )).map(move |option| match option {
                     Some(song) => {
-                        if levenshtein(&song.title, &query) < 4 { Message::SongStream(song) }
-                        else { Message::None }
+                        let title_dist = levenshtein(&song.title, &query);
+                        let artist_dist = levenshtein(&song.artist, &query);
+                        let album_dist = match song.album.as_ref() {
+                            Some(album) => levenshtein(album, &query),
+                            None => 100
+                        };
+                        if title_dist < 8 || artist_dist < 4 || album_dist < 4 {
+                            Message::SongStream(song)
+                        } else { Message::None }
                     }
                     None => Message::None
                 })

@@ -243,7 +243,7 @@ impl DatabaseInterface {
                     "SPOTIFY_SECRET" => Secret::SpotifySecret(row[2].string()),
                     "FM_KEY" => Secret::FMKey(row[2].string()),
                     "FM_SECRET" => Secret::FMSecret(row[2].string()),
-                    "FM_SESSION" => Secret::FMSecret(row[2].string()),
+                    "FM_SESSION" => Secret::FMSession(row[2].string()),
                     _ => return None
                 })
             }

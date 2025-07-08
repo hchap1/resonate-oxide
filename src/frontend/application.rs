@@ -292,6 +292,36 @@ impl Application<'_> {
                         ]),
                         None => Task::none()
                     },
+                    PageType::Settings => {
+                        let mut tasks = Vec::new();
+                        if let Some(fm_secrets) = self.last_fm_auth.as_ref() {
+                            if let Some(key) = fm_secrets.get_key() {
+                                tasks.push(Task::done(Message::ChangeSecret(
+                                    Secret::FMKey(String::from(key))
+                                )));
+                            }
+                            if let Some(secret) = fm_secrets.get_secret() {
+                                tasks.push(Task::done(Message::ChangeSecret(
+                                    Secret::FMSecret(String::from(secret))
+                                )));
+                            }
+                            if let Some(session) = fm_secrets.get_session() {
+                                tasks.push(Task::done(Message::ChangeSecret(
+                                    Secret::FMSession(String::from(session))
+                                )));
+                            }
+                        }
+
+                        if let Some(id) = self.spotify_id.as_ref() {
+                            tasks.push(Task::done(Message::ChangeSecret(Secret::SpotifyID(id.to_string()))))
+                        }
+
+                        if let Some(secret) = self.spotify_secret.as_ref() {
+                            tasks.push(Task::done(Message::ChangeSecret(Secret::SpotifySecret(secret.to_string()))))
+                        }
+
+                        Task::batch(tasks)
+                    },
                     _ => Task::none()
                 };
 
@@ -573,7 +603,9 @@ impl Application<'_> {
                             "FM_SESSION".to_string()
                         ]
                     )
-                ).map(|res| Message::SecretsLoaded(res))
+                ).map(|res| {
+                    Message::SecretsLoaded(res)
+                })
             }
 
             Message::SecretsLoaded(mut secrets) => {

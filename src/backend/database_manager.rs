@@ -144,13 +144,11 @@ impl DataLink {
             let mut values = Vec::new();
             let mut error = false;
             while let Ok(item) = receiver.recv() {
-                println!("ITEM: {item:?}");
                 match item {
                     ItemStream::End => break,
                     ItemStream::Error => { error = true; break },
                     ItemStream::Value(v) => values.push(v)
                 };
-                println!("ERROR: {error}");
             }
 
             (values, error)

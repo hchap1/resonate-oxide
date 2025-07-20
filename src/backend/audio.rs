@@ -40,33 +40,38 @@ impl Default for QueueFramework {
 
 pub struct QueueItem {
     song: Song,
-    audio: Cursor<Vec<u8>>
+    audio: Option<Cursor<Vec<u8>>>
 }
 
 impl QueueItem {
-    pub fn new(song: Song) -> Option<QueueItem> {
+    pub fn new(song: Song) -> Option<Self> {
+        if song.music_path.is_some() {
+            Some(Self { song, audio: None })
+        } else {
+            None
+        }
+    }
 
-        let path = match song.music_path.as_ref() {
+    pub fn load(&mut self) {
+
+        let path = match self.song.music_path.as_ref() {
             Some(path) => path.as_path(),
-            None => return None
+            None => return
         };
 
         let mut file = match File::open(path) {
             Ok(file) => file,
-            Err(_) => return None
+            Err(_) => return
         };
 
         let mut buf = Vec::new();
 
         match file.read_to_end(&mut buf) {
             Ok(_) => {},
-            Err(_) => return None
+            Err(_) => return
         };
 
-        Some(QueueItem {
-            song,
-            audio: Cursor::new(buf)
-        })
+        self.audio = Some(Cursor::new(buf));
     }
 }
 
@@ -130,11 +135,19 @@ fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramewo
 }
 
 fn load_audio(
-    sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>, scrobble_upstream: &Sender<ScrobbleRequest>
+    sink: &Sink, queue: &mut Queue, queue_upstream: &Sender<QueueFramework>, scrobble_upstream: &Sender<ScrobbleRequest>
 ) -> Option<usize> {
     // assume position has already been adjusted
-    let changed_audio = if let Some(queue_item) = queue.songs.get(queue.position) {
-        let decoder = match Decoder::new(queue_item.audio.clone()) {
+    let changed_audio = if let Some(queue_item) = queue.songs.get_mut(queue.position) {
+
+        queue_item.load();
+
+        let audio = match queue_item.audio.as_ref() {
+            Some(audio) => audio.clone(),
+            None => return None
+        };
+
+        let decoder = match Decoder::new(audio) {
             Ok(decoder) => decoder,
             Err(_) => {
                 update_queue(sink, queue, queue_upstream);
@@ -329,7 +342,7 @@ fn audio_thread(
         }
         
         if should_audio_be_reloaded {
-            now_playing = load_audio(&sink, &queue, &queue_upstream, &scrobble_upstream);
+            now_playing = load_audio(&sink, &mut queue, &queue_upstream, &scrobble_upstream);
             scrobble_applied = false;
             if now_playing.is_none() {
                 queue.position = 0;

@@ -29,9 +29,9 @@ pub async fn flatsearch(
     let url = format!("https://music.youtube.com/search?q={}", query.replace(" ", "+"));
     match YoutubeDl::new(url)
         .youtube_dl_path(executable_path)
+        .extra_arg("--no-check-certificate")
         .extra_arg("--skip-download")
         .extra_arg("--flat-playlist")
-        .extra_arg("--no-check-certificate")
         .run_async().await {
         Ok(result) => {
             match result.into_playlist() {
@@ -68,8 +68,8 @@ pub fn collect_metadata(
 
     let ytdl = YoutubeDl::new(id)
         .youtube_dl_path(path)
-        .extra_arg("--skip-download")
         .extra_arg("--no-check-certificate")
+        .extra_arg("--skip-download")
         .run();
 
     match ytdl {
@@ -158,10 +158,10 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
         .arg("bestaudio")
         .arg("--extract-audio")
         .arg("--audio-format")
-        .arg("--no-check-certificate")
         .arg("mp3")
         .arg("-o")
         .arg(output.to_string_lossy().to_string())
+        .arg("--no-check-certificate")
         .arg(url)
         .spawn().unwrap();
 

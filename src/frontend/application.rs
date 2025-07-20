@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use strsim::levenshtein;
 
 use iced::Element;
 use iced::futures::FutureExt;
@@ -17,7 +16,6 @@ use rust_fm::token::WebCallback;
 use rust_fm::session::WebSession;
 use rust_fm::playing::NowPlaying;
 
-use crate::backend::database_interface::DatabaseInterface;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
@@ -26,6 +24,9 @@ use crate::frontend::pages::import_page::ImportPage;
 use crate::frontend::pages::settings_page::SettingsPage;
 use crate::frontend::pages::search_page::SearchPage;
 use crate::frontend::pages::playlists_page::PlaylistsPage;
+
+use crate::backend::util::is_song_similar;
+use crate::backend::database_interface::DatabaseInterface;
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
@@ -403,15 +404,8 @@ impl Application<'_> {
                     self.directories.get_thumbnails_ref().to_path_buf()
                 )).map(move |option| match option {
                     Some(song) => {
-                        let title_dist = levenshtein(&song.title, &query);
-                        let artist_dist = levenshtein(&song.artist, &query);
-                        let album_dist = match song.album.as_ref() {
-                            Some(album) => levenshtein(album, &query),
-                            None => 100
-                        };
-                        if title_dist < 8 || artist_dist < 4 || album_dist < 4 {
-                            Message::SongStream(song)
-                        } else { Message::None }
+                        if is_song_similar(&song, &query) > 70 { Message::SongStream(song) }
+                        else { Message::None }
                     }
                     None => Message::None
                 })
@@ -424,7 +418,7 @@ impl Application<'_> {
                     self.directories.get_thumbnails_ref().to_path_buf()
                 )).map(move |option| match option {
                     Some(song) => {
-                        if levenshtein(&song.title, &query) < 4 { Message::SearchResult(song, false) }
+                        if is_song_similar(&song, &query) > 70 { Message::SearchResult(song, false) }
                         else { Message::None }
                     }
                     None => Message::None

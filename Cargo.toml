@@ -22,7 +22,7 @@ webbrowser = "*"
 rust_fm = "0.1.4"
 discord-rich-presence = "0.2.5"
 pin-project = "*"
-strsim = "0.11.1"
+fuzzy-matcher = "*"
 
 [build-dependencies]
 winres = "*"

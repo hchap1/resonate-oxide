@@ -165,6 +165,7 @@ fn audio_thread(
     let mut queue: Queue = Queue::new();
     let mut now_playing: Option<usize> = None;
     let mut scrobble_applied = false;
+    let mut first_song = true;
 
     loop {
         sleep(Duration::from_millis(200));
@@ -288,6 +289,7 @@ fn audio_thread(
                 AudioTask::ClearQueue => {
                     queue.songs.clear();
                     queue.position = 0;
+                    first_song = true;
                     true
                 }
                 AudioTask::EndThread => return
@@ -298,7 +300,11 @@ fn audio_thread(
 
         if sink.empty() && queue.songs.len() != 0 {
             if queue.position < queue.songs.len() - 1 && !queue.repeat && !do_not_skip {
-                queue.position += 1;
+                if first_song {
+                    first_song = false;
+                } else {
+                    queue.position += 1;
+                }
             } else if queue.position == queue.songs.len() - 1 && !queue.repeat {
                 queue.position = 0;
             }

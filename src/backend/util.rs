@@ -9,6 +9,10 @@ use crossbeam_channel::Sender;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::unbounded;
 use iced::futures::Stream;
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
+
+use super::music::Song;
 
 pub fn consume(string: &mut String) -> String {
     replace(string, String::new())
@@ -101,4 +105,17 @@ impl<T: std::fmt::Debug, F: Fn(T) -> Option<M>, M> Stream for Relay<T, F, M> {
             }
         }
     }
+}
+
+pub fn is_song_similar(song: &Song, query: &String) -> usize {
+    let matcher = SkimMatcherV2::default();
+    let mut title_score = matcher.fuzzy_match(&song.title, query).unwrap_or(0);
+    let mut artist_score = matcher.fuzzy_match(&song.artist, query).unwrap_or(0);
+    let mut album_score = song.album.as_ref().map_or(Some(0), |a| matcher.fuzzy_match(a, query)).unwrap_or(0);
+
+    if title_score < 0 { title_score = 0; }
+    if artist_score < 0 { artist_score = 0; }
+    if album_score < 0 { album_score = 0; }
+
+    (title_score + artist_score + album_score) as usize
 }

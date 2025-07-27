@@ -225,6 +225,7 @@ impl Application<'_> {
             }
 
             Message::SearchResult(song, from_online) => {
+                println!("Search result: {}, {from_online}", song.title);
                 let id = song.yt_id.clone();
                 let album = song.album.clone();
 

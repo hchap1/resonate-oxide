@@ -160,14 +160,11 @@ impl Page for SearchPage {
                     None => return Task::none()
                 };
 
-                let database = self.database.clone();
-                let music_path = self.directories.get_music_ref().to_path_buf();
-                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
-
                 let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(
                     flatsearch(dlp_path, self.query.clone()).map(|res| match res {
                         Ok(results) => Message::LoadSearchResults(results),
                         Err(_) => Message::DLPWarning
+
                     })
                 ).abortable();
 
@@ -194,16 +191,18 @@ impl Page for SearchPage {
                     true => search_results[0..3].to_vec(),
                     false => search_results
                 };
-                let (metadata_collector, metadata_collection_handle) = Task::stream(AsyncMetadataCollectionPool::new(
-                    ids,
-                    match self.directories.get_dlp_ref() {
-                        Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
-                        None => None
-                    },
-                    self.directories.get_music_ref().to_path_buf(),
-                    self.directories.get_thumbnails_ref().to_path_buf(),
-                    self.database.clone()
-                )).abortable();
+                let (metadata_collector, metadata_collection_handle) = Task::stream(
+                    AsyncMetadataCollectionPool::new(
+                        ids,
+                        match self.directories.get_dlp_ref() {
+                            Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
+                            None => None
+                        },
+                        self.directories.get_music_ref().to_path_buf(),
+                        self.directories.get_thumbnails_ref().to_path_buf(),
+                        self.database.clone()
+                    )
+                ).abortable();
 
                 self.search_handles.push(metadata_collection_handle);
                 metadata_collector.map(|song_batch| Message::MultiSearchResult(song_batch, true))
@@ -216,9 +215,9 @@ impl Page for SearchPage {
                             SearchState::Received(songs) => songs.clone(),
                             _ => vec![]
                         };
+
                         current.push(song);
                         *notify = SearchState::Received(current);
-
                         return Task::none();
                     }
                 }
@@ -227,6 +226,7 @@ impl Page for SearchPage {
                     Some(search_results) => search_results.push(song),
                     None => self.search_results = Some(vec![song])
                 }
+
                 Task::none()
             }
             

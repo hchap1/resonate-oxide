@@ -8,5 +8,6 @@ pub enum ResonateError {
     TableCreationError,
     UnrecognisedHomeDir,
     SQLError,
-    AudioStreamError
+    AudioStreamError,
+    AlreadyExists
 }

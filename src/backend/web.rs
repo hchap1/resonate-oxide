@@ -29,22 +29,31 @@ pub async fn flatsearch(
     let url = format!("https://music.youtube.com/search?q={}", query.replace(" ", "+"));
     match YoutubeDl::new(url)
         .youtube_dl_path(executable_path)
-        .extra_arg("--no-check-certificate")
         .extra_arg("--skip-download")
         .extra_arg("--flat-playlist")
+        .extra_arg("--no-check-certificate")
         .run_async().await {
         Ok(result) => {
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
                     Some(entries) => Ok(entries.into_iter().filter_map(|entry| {
                         match entry.title {
-                            Some(_) => Some(entry.id.clone()),
+                            Some(_) => {
+                                println!("SEARCH RESULT: {}", entry.title.unwrap());
+                                Some(entry.id.clone())
+                            }
                             None => None
                         }
                     }).collect::<Vec<String>>()),
-                    None => Ok(Vec::<String>::new())
+                    None => {
+                        println!("Flatsearch failed. Could not take entries.");
+                        Ok(Vec::<String>::new())
+                    }
                 }
-                None => Ok(Vec::<String>::new())
+                None => {
+                    println!("Flatsearch failed. Could not convert into playlist.");
+                    Ok(Vec::<String>::new())
+                }
             }
         }
         Err(e) => {
@@ -54,7 +63,7 @@ pub async fn flatsearch(
     }
 }
 
-pub fn collect_metadata(
+pub async fn collect_metadata(
         executable_path: Option<&Path>,
         music_path: &Path,
         thumbnail_path: &Path,
@@ -70,7 +79,7 @@ pub fn collect_metadata(
         .youtube_dl_path(path)
         .extra_arg("--no-check-certificate")
         .extra_arg("--skip-download")
-        .run();
+        .run_async().await;
 
     match ytdl {
         Ok(result) => {
@@ -178,26 +187,34 @@ pub async fn populate(
     executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_dir: PathBuf, id: String, database: DataLink
 ) -> Result<Song, ResonateError> {
 
-    let song = match tokio::task::spawn_blocking(move || collect_metadata(match executable_dir.as_ref() {
+    match DatabaseInterface::select_song_by_youtube_id(
+        database.clone(), id.clone(), music_dir.clone(), thumbnail_dir.clone()
+    ).await {
+        Some(song) => {
+            println!("SONG {:?} ALREADY EXISTS", song);
+            return Err(ResonateError::AlreadyExists)
+        }
+        None => {}
+    };
+
+    let mut song = match collect_metadata(match executable_dir.as_ref() {
         Some(pathbuf) => Some(pathbuf.as_path()),
         None => None
-    }, music_dir.as_path(), thumbnail_dir.as_path(), &id)).await {
+    }, music_dir.as_path(), thumbnail_dir.as_path(), &id).await {
         Ok(song) => song,
         Err(_) => return Err(ResonateError::GenericError)
     };
 
-    match song {
-        Ok(mut song) => {
-            let id = match DatabaseInterface::insert_song(database.clone(), song.clone()).await {
-                Some(id) => id,
-                None => return Err(ResonateError::GenericError)
-            };
+    let id = match DatabaseInterface::insert_song(database.clone(), song.clone()).await {
+        Some(id) => id,
+        None => return Err(ResonateError::GenericError)
+    };
 
-            song.id = id;
-            return Ok(song)
-        }
-        Err(_) => return Err(ResonateError::SQLError)
-    }
+    song.id = id;
+
+    println!("INSERTED SONG: {song:?}");
+
+    return Ok(song)
 }
 
 pub async fn collect_metadata_and_notify_executor(
@@ -209,7 +226,6 @@ pub async fn collect_metadata_and_notify_executor(
     waker: Waker,
     sender: Sender<Song>
 ) -> Result<(), ResonateError> {
-
     let song = match populate(executable_dir, music_dir, thumbnail_dir, id, database).await {
         Ok(song) => song,
         Err(_) => {
@@ -218,8 +234,9 @@ pub async fn collect_metadata_and_notify_executor(
         }
     };
 
-    waker.wake_by_ref();
+    println!("WOKEN AND SENT: {song:?}");
     let _ = sender.send(song);
+    waker.wake_by_ref();
     Ok(())
 }
 

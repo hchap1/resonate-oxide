@@ -19,7 +19,7 @@ pub fn consume(string: &mut String) -> String {
 }
 
 #[pin_project::pin_project]
-pub struct Relay<T, F, M>
+pub struct Relay<T: std::fmt::Debug, F, M>
 where
         F: Fn(T) -> Option<M>
 {

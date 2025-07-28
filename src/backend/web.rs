@@ -4,12 +4,6 @@ use std::time::Duration;
 use std::task::Waker;
 use std::pin::Pin;
 
-use crossbeam_channel::Sender;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::unbounded;
-use tokio::task::spawn;
-use tokio::task::JoinHandle;
-
 use iced::futures::Stream;
 use image::imageops::FilterType;
 use youtube_dl::YoutubeDl;
@@ -112,16 +106,21 @@ pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: S
     let album = album_name.replace(" ", "_");
     let path = thumbnail_dir.join(&album).to_string_lossy().to_string();
 
-    let mut handle = Command::new(dlp_path)
-        .arg("--write-thumbnail")
+    let mut ytdlp = Command::new(dlp_path);
+    ytdlp.arg("--write-thumbnail")
         .arg("--skip-download")
         .arg("--no-check-certificate")
         .arg(format!("https://music.youtube.com/watch?v={}", id))
         .arg("-o")
-        .arg(path.clone())
-        .spawn().unwrap();
+        .arg(path.clone());
 
-    let _ = handle.wait().await;
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        ytdlp = ytdlp.creation_flags(0x08000000);
+    }
+
+    ytdlp.spawn().unwrap();
 
     let raw = match image::open(thumbnail_dir.join(format!("{album}.webp"))) {
         Ok(image) => image,
@@ -157,8 +156,8 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
     let output = music_path.join(format!("{}.mp3", song.yt_id));
     let url = format!("https://music.youtube.com/watch?v={}", song.yt_id);
 
-    let mut ytdlp = Command::new(dlp_path)
-        .arg("-f")
+    let mut cmd = Command::new(dlp_path);
+    cmd.arg("-f")
         .arg("bestaudio")
         .arg("--extract-audio")
         .arg("--audio-format")
@@ -166,9 +165,15 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
         .arg("-o")
         .arg(output.to_string_lossy().to_string())
         .arg("--no-check-certificate")
-        .arg(url)
-        .spawn().unwrap();
+        .arg(url);
 
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd = cmd.creation_flags(0x08000000);
+    }
+    
+    let mut ytdlp = cmd.spawn().unwrap();
     let status = ytdlp.wait().await;
     println!("[YT-DLP] Status: {status:?}");
 

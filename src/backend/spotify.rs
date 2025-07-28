@@ -26,6 +26,7 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::unbounded;
 
+use super::error::ResonateError;
 use super::music::Song;
 use super::database_manager::DataLink;
 use super::database_interface::DatabaseInterface;
@@ -262,29 +263,34 @@ pub async fn load_spotify_song(
     database: DataLink,
     music_path: PathBuf,
     thumbnail_path: PathBuf
-) -> Result<Song, ()> {
+) -> Result<Song, ResonateError> {
 
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
     let search = format!("ytsearch1:{} {}", item.name, artist);
 
-    let mut process = Command::new(dlp_path)
-        .arg(search)
+    let mut process = Command::new(dlp_path);
+    process.arg(search)
         .arg("--print")
         .arg("id")
-        .stdout(Stdio::piped())
-        .spawn()
-        .map_err(|_| ())?;
+        .stdout(Stdio::piped());
 
-    let stdout = process.stdout.take().ok_or(())?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        ytdlp = ytdlp.creation_flags(0x08000000);
+    }
+        
+    let mut process = process.spawn().map_err(|_| ResonateError::ExecNotFound)?;
+    let stdout = process.stdout.take().ok_or(ResonateError::STDOUTError)?;
     let mut reader = BufReader::new(stdout).lines();
 
     let id = match reader.next_line().await {
         Ok(Some(line)) => line.trim().to_string(),
-        _ => return Err(()),
+        _ => return Err(ResonateError::STDOUTError),
     };
 
     if id.len() != 11 {
-        return Err(());
+        return Err(ResonateError::STDOUTError);
     }
 
     let mut base_song = Song::load(0, id,
@@ -298,8 +304,9 @@ pub async fn load_spotify_song(
 
     let id = match DatabaseInterface::insert_song(database, base_song.clone()).await {
         Some(data) => data,
-        None => return Err(())
+        None => return Err(ResonateError::SQLError)
     };
+    
 
     base_song.id = id;
     Ok(base_song)

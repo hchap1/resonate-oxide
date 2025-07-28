@@ -9,5 +9,6 @@ pub enum ResonateError {
     UnrecognisedHomeDir,
     SQLError,
     AudioStreamError,
-    AlreadyExists
+    AlreadyExists,
+    STDOUTError
 }

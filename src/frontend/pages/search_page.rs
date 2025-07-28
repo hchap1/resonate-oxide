@@ -26,7 +26,7 @@ use crate::backend::util::Relay;
 pub enum SearchState {
     Searching,
     SearchFailed,
-    Received(Vec<Song>)
+    Received(Vec<Song>),
 }
 
 pub struct SearchPage {
@@ -37,7 +37,8 @@ pub struct SearchPage {
     search_handles: Vec<Handle>,
     playlist: Option<Playlist>,
     existing_songs: HashSet<usize>,
-    search_notify: Option<SearchState>
+    search_notify: Option<SearchState>,
+    search_task_finished: bool
 }
 
 impl SearchPage {
@@ -51,7 +52,8 @@ impl SearchPage {
             search_handles: Vec::new(),
             playlist: Some(playlist),
             existing_songs: HashSet::new(),
-            search_notify: None
+            search_notify: None,
+            search_task_finished: false
         }
     }
 }
@@ -75,7 +77,8 @@ impl Page for SearchPage {
                             Some(ResonateWidget::search_notify(
                                 notify,
                                 self.directories.get_default_thumbnail(),
-                                playlist.id
+                                playlist.id,
+                                self.search_task_finished
                             ))
                         } else {
                             None
@@ -95,10 +98,6 @@ impl Page for SearchPage {
 
                 let is_downloading = current_song_downloads.contains(&song.yt_id);
                 let is_queued = queued_downloads.contains(&song);
-
-                if is_downloading && is_queued {
-                    println!("[ALERT] Queue / Download collision.");
-                }
 
                 column = column.push(
                     ResonateWidget::song(
@@ -207,7 +206,9 @@ impl Page for SearchPage {
                         metadata_collector.map(|song| match song {
                             Ok(song) => Message::SearchResult(song, true),
                             Err(_) => Message::None
-                        })
+                        }).chain(
+                            Task::done(Message::OnlineSearchFinished)
+                        )
                     }
 
                     None => {
@@ -281,6 +282,11 @@ impl Page for SearchPage {
 
             Message::SongAddedToPlaylist(song_id) => {
                 self.existing_songs.insert(song_id);
+                Task::none()
+            }
+
+            Message::OnlineSearchFinished => {
+                self.search_task_finished = true;
                 Task::none()
             }
 

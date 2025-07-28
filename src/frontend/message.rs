@@ -93,7 +93,8 @@ pub enum Message {
     SongStream(Song),
     RowIntoSong(Vec<DatabaseParam>),
     RowIntoSongQuery(Vec<DatabaseParam>, String),
-    RowIntoSearchResult(Vec<DatabaseParam>, String)
+    RowIntoSearchResult(Vec<DatabaseParam>, String),
+    OnlineSearchFinished
 }
 
 #[derive(Clone, Debug)]

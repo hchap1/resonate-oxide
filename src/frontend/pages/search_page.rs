@@ -191,21 +191,30 @@ impl Page for SearchPage {
                     true => search_results[0..3].to_vec(),
                     false => search_results
                 };
-                let (metadata_collector, metadata_collection_handle) = Task::stream(
-                    AsyncMetadataCollectionPool::new(
-                        ids,
-                        match self.directories.get_dlp_ref() {
-                            Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
-                            None => None
-                        },
-                        self.directories.get_music_ref().to_path_buf(),
-                        self.directories.get_thumbnails_ref().to_path_buf(),
-                        self.database.clone()
-                    )
-                ).abortable();
 
-                self.search_handles.push(metadata_collection_handle);
-                metadata_collector.map(|song_batch| Message::MultiSearchResult(song_batch, true))
+                match self.directories.get_dlp_ref() {
+                    Some(dlp_ref) => {
+                        let (metadata_collector, metadata_collection_handle) = Task::stream(
+                            AsyncMetadataCollectionPool::new(
+                                self.database.clone(), ids, 
+                                dlp_ref.to_path_buf(),
+                                self.directories.get_music_ref().to_path_buf(),
+                                self.directories.get_thumbnails_ref().to_path_buf()
+                            )
+                        ).abortable();
+
+                        self.search_handles.push(metadata_collection_handle);
+                        metadata_collector.map(|song| match song {
+                            Ok(song) => Message::SearchResult(song, true),
+                            Err(_) => Message::None
+                        })
+                    }
+
+                    None => {
+                        Task::done(Message::DLPWarning)
+                    }
+                }
+
             }
 
             Message::SearchResult(song, from_online) => {

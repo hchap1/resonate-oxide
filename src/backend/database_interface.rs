@@ -263,4 +263,22 @@ impl DatabaseInterface {
             ])
         ).await
     }
+
+    pub fn blocking_is_unique(database: DataLink, id: String) -> bool {
+        let handle = database.query_stream(
+            SELECT_SONG_BY_YOUTUBE_ID, DatabaseParams::single(DatabaseParam::String(id))
+        );
+
+        let mut unique = true;
+
+        while let Ok(item_stream) = handle.recv() {
+            match item_stream {
+                ItemStream::End => break,
+                ItemStream::Error => break,
+                ItemStream::Value(_) => unique = false
+            }
+        }
+
+        unique
+    }
 }

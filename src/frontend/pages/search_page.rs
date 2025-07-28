@@ -147,6 +147,11 @@ impl Page for SearchPage {
 
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
 
+            Message::PlaylistData(playlist) => {
+                self.playlist = Some(playlist);
+                Task::none()
+            }
+
             Message::SubmitSearch => {
 
                 self.search_notify = Some(SearchState::Searching);

@@ -262,6 +262,17 @@ impl Application<'_> {
                     PageType::Playlists => Task::batch(vec![
                         Task::done(Message::LoadAllPlaylists)
                     ]),
+                    PageType::SearchSongs => match playlist_id {
+                        Some(playlist_id) => Task::future(
+                            DatabaseInterface::get_playlist_by_id(
+                                self.database.derive(),
+                                playlist_id
+                            )).map(|playlist| match playlist {
+                                Some(playlist) => Message::PlaylistData(playlist),
+                                None => Message::None
+                            }),
+                        None => Task::none()
+                    },
                     PageType::ViewPlaylist => match playlist_id {
                         Some(playlist_id) => Task::batch(vec![
                             Task::future(

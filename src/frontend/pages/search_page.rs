@@ -78,7 +78,8 @@ impl Page for SearchPage {
                                 notify,
                                 self.directories.get_default_thumbnail(),
                                 playlist.id,
-                                self.search_task_finished
+                                self.search_task_finished,
+                                &self.existing_songs
                             ))
                         } else {
                             None

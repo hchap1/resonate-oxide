@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::collections::HashSet;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
@@ -199,7 +200,8 @@ impl ResonateWidget {
     }
 
     pub fn search_notify<'a>(
-        notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize, finished: bool
+        notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize,
+        finished: bool, existing_songs: &HashSet<usize>
     ) -> Element<'a, Message> {
         Container::new(
             {
@@ -249,6 +251,7 @@ impl ResonateWidget {
 
                 if let SearchState::Received(songs) = notify {
                     for song in songs.iter() {
+                        if existing_songs.contains(&song.id) { continue; }
                         column = column.push(
                             Self::song(song, default_thumbnail, false, false, None, false)
                                 .on_press(Message::AddSongToPlaylist(song.clone(), playlist_id))

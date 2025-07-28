@@ -281,4 +281,20 @@ impl DatabaseInterface {
 
         unique
     }
+
+    pub fn blocking_insert_song(database: DataLink, mut song: Song) -> Result<usize, ()> {
+        match database.insert_stream(INSERT_SONG, DatabaseParams::new(vec![
+            DatabaseParam::String(song.yt_id),
+            DatabaseParam::String(song.title),
+            DatabaseParam::String(song.artist),
+            DatabaseParam::String(song.album.take().unwrap_or(String::from("none"))),
+            DatabaseParam::Usize(song.duration.as_secs() as usize)
+        ])).recv() {
+            Ok(res) => match res {
+                super::database_manager::InsertMessage::Success(id) => Ok(id),
+                super::database_manager::InsertMessage::Error => Err(())
+            },
+            Err(_) => Err(())
+        }
+    }
 }

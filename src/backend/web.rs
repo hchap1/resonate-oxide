@@ -214,9 +214,19 @@ fn populate(
         return Err(ResonateError::AlreadyExists);
     }
 
-    let song = collect_metadata(dlp_path.as_path(), music_path.as_path(), thumbnail_dir.as_path(), &id);
+    let mut song = match collect_metadata(dlp_path.as_path(), music_path.as_path(), thumbnail_dir.as_path(), &id) {
+        Ok(song) => song,
+        error => return error
+    };
+
+    let id = match DatabaseInterface::blocking_insert_song(database, song.clone()) {
+        Ok(id) => id,
+        Err(_) => return Err(ResonateError::SQLError)
+    };
+
     waker.wake();
-    song
+    song.id = id;
+    Ok(song)
 }
 
 impl Stream for AsyncMetadataCollectionPool {

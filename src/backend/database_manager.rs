@@ -127,6 +127,12 @@ impl DataLink {
         }
     }
 
+    pub fn insert_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<InsertMessage> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::Insert(query, params, sender));
+        receiver
+    }
+
     /// Return a receiver that receives the rows
     pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
         let (sender, receiver) = unbounded();

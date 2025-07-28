@@ -9,6 +9,7 @@ use iced::widget::Space;
 use iced::Length;
 use iced::Task;
 
+use crate::backend::database_interface::DatabaseInterface;
 use crate::backend::music::Playlist;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
@@ -19,9 +20,7 @@ use crate::frontend::widgets::ResonateColour;
 
 use crate::backend::music::Song;
 use crate::backend::filemanager::DataDir;
-use crate::backend::database::Database;
-use crate::backend::util::AM;
-use crate::backend::util::desync;
+use crate::backend::database_manager::DataLink;
 
 pub enum SpotifyNotification {
     Waiting(usize),
@@ -33,7 +32,7 @@ pub enum SpotifyNotification {
 }
 
 pub struct ImportPage {
-    database: AM<Database>,
+    database: DataLink,
     directories: DataDir,
     songs: Vec<Song>,
     input: String,
@@ -53,7 +52,7 @@ pub struct ImportPage {
 impl ImportPage {
     pub fn new(
         directories: DataDir,
-        database: AM<Database>,
+        database: DataLink,
         spotify_id: Option<String>,
         spotify_client: Option<String>,
     ) -> ImportPage {
@@ -301,20 +300,18 @@ impl Page for ImportPage {
                     None => return Task::none()
                 };
 
-                let mut playlist = Playlist {
+                let playlist = Playlist {
                     id: 0,
                     name: playlist_name
                 };
 
-                let id = match desync(&self.database).emplace_playlist_and_record_id(&playlist) {
-                    Ok(id) => id,
-                    Err(_) => return Task::none()
-                };
+                return Task::future(DatabaseInterface::insert_playlist(self.database.clone(), playlist))
+                    .map(|playlist| Message::PlaylistCreated(playlist));
+            }
 
-                playlist.id = id;
-
+            Message::PlaylistCreated(playlist) => {
                 for song in self.songs.iter() {
-                    let _ = desync(&self.database).add_song_to_playlist(song.id, playlist.id);
+                    DatabaseInterface::insert_playlist_entry(self.database.clone(), song.id, playlist.id)
                 }
             }
 

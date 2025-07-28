@@ -3,38 +3,35 @@ use std::collections::HashSet;
 use iced::widget::Column;
 use iced::Task;
 
+use crate::backend::database_interface::DatabaseInterface;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
 use crate::frontend::message::PageType;
 
 use crate::backend::music::{Playlist, Song};
-use crate::backend::database::Database;
-use crate::backend::util::{AM, desync};
+use crate::backend::database_manager::DataLink;
 
 pub struct PlaylistsPage {
-    database: AM<Database>,
+    database: DataLink,
     playlists: Vec<(Playlist, bool)>,
     editing: Option<usize>
 }
 
 impl PlaylistsPage {
-    pub fn new(database: AM<Database>) -> Self {
-        let playlists = {
-            let unlocked_database = desync(&database);
-            unlocked_database.retrieve_all_playlists()
-        }.into_iter().map(|playlist| (playlist, false)).collect();
-
+    pub fn new(database: DataLink) -> Self {
         Self {
             database,
-            playlists,
+            playlists: Vec::new(),
             editing: None
         }
     }
 }
 
 impl Page for PlaylistsPage {
-    fn view(&self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>) -> Column<'_, Message> {
+    fn view(
+        &self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>
+    ) -> Column<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {
             column = column.push(
@@ -81,22 +78,17 @@ impl Page for PlaylistsPage {
                     number += 1;
                 };
 
-                let mut playlist: Playlist = Playlist {
+                let playlist: Playlist = Playlist {
                     id: 0,
                     name,
                 };
 
-                {
-                    let database = desync(&self.database);
-                    let id = match database.emplace_playlist_and_record_id(&playlist) {
-                        Ok(id) => id,
-                        Err(_) => return Task::none()
-                    };
-                    playlist.id = id;
-                }
+                Task::future(DatabaseInterface::insert_playlist(self.database.clone(), playlist))
+                    .map(|playlist| Message::PlaylistCreated(playlist))
+            }
 
+            Message::PlaylistCreated(playlist) => {
                 self.playlists.push((playlist, false));
-
                 Task::none()
             }
 
@@ -119,9 +111,13 @@ impl Page for PlaylistsPage {
             }
 
             Message::StopEditing => {
-                let database = desync(&self.database);
                 match self.editing.take() {
-                    Some(idx) => database.set_playlist_name(self.playlists[idx].0.id, &self.playlists[idx].0.name),
+                    Some(idx) => {
+                        DatabaseInterface::update_playlist_name(
+                            self.database.clone(),
+                            self.playlists[idx].0.clone()
+                        )
+                    },
                     None => {}
                 };
                 Task::none()
@@ -141,6 +137,11 @@ impl Page for PlaylistsPage {
                 if idx < self.playlists.len() {
                     self.playlists[idx].1 = hover;
                 }
+                Task::none()
+            }
+
+            Message::PlaylistLoaded(playlist) => {
+                self.playlists.push((playlist, false));
                 Task::none()
             }
 

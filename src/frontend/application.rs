@@ -1,8 +1,5 @@
 use std::collections::HashSet;
 
-use rand::rng;
-use rand::seq::SliceRandom;
-
 use iced::Element;
 use iced::futures::FutureExt;
 use iced::alignment::Vertical;
@@ -22,32 +19,33 @@ use rust_fm::playing::NowPlaying;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
-use crate::frontend::pages::settings_page::Secret;
 use crate::frontend::pages::playlist_page::PlaylistPage;
 use crate::frontend::pages::import_page::ImportPage;
 use crate::frontend::pages::settings_page::SettingsPage;
 use crate::frontend::pages::search_page::SearchPage;
 use crate::frontend::pages::playlists_page::PlaylistsPage;
+
+use crate::backend::util::is_song_similar;
+use crate::backend::database_interface::DatabaseInterface;
 use crate::backend::audio::AudioTask;
 use crate::backend::audio::ProgressUpdate;
 use crate::backend::audio::QueueFramework;
 use crate::backend::audio::ScrobbleRequest;
 use crate::backend::filemanager::install_dlp;
 use crate::backend::music::Song;
+use crate::backend::settings::Secret;
 use crate::backend::rpc::RPCManager;
 use crate::backend::rpc::RPCMessage;
 use crate::backend::settings::Settings;
 use crate::backend::spotify::SpotifySongStream;
 use crate::backend::util::Relay;
-use crate::backend::util::desync;
 use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
 use crate::backend::web::download_song;
 use crate::backend::web::download_thumbnail;
 use crate::backend::filemanager::DataDir;
-use crate::backend::database::Database;
-use crate::backend::util::{sync, AM};
+use crate::backend::database_manager::Database;
 use crate::backend::audio::AudioPlayer;
 
 pub trait Page {
@@ -60,7 +58,7 @@ pub struct Application<'a> {
     settings: Settings,
     page: Box<dyn Page + 'a>,
     directories: DataDir,
-    database: AM<Database>,
+    database: Database,
     current_thumbnail_downloads: HashSet<String>,
     current_song_downloads: HashSet<String>,
     download_queue: HashSet<Song>,
@@ -85,11 +83,7 @@ impl<'a> Default for Application<'a> {
             Err(_) => panic!("Couldn't create suitable directory location")
         };
 
-        let database = match Database::new(datadir.get_root_ref()) {
-            Ok(database) => database,
-            Err(_) => panic!("Couldn't create or load database")
-        };
-
+        let database = Database::new(datadir.get_root_ref().to_path_buf());
         Self::new(datadir, database)
     }
 }
@@ -97,11 +91,9 @@ impl<'a> Default for Application<'a> {
 impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
 
-        let database = sync(database);
-
         Self {
             settings: Settings::default(),
-            page: Box::new(PlaylistsPage::new(database.clone())),
+            page: Box::new(PlaylistsPage::new(database.derive())),
             directories,
             database,
             current_thumbnail_downloads: HashSet::new(),
@@ -265,15 +257,97 @@ impl Application<'_> {
                 Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song, is_online))))
             }
 
-            Message::LoadPage(page_type, playlist_id) => { self.load_page(page_type, playlist_id); Task::none() },
+            Message::LoadPage(page_type, playlist_id) => {
+                let task = match &page_type {
+                    PageType::Playlists => Task::batch(vec![
+                        Task::done(Message::LoadAllPlaylists)
+                    ]),
+                    PageType::SearchSongs => match playlist_id {
+                        Some(playlist_id) => Task::future(
+                            DatabaseInterface::get_playlist_by_id(
+                                self.database.derive(),
+                                playlist_id
+                            )).map(|playlist| match playlist {
+                                Some(playlist) => Message::PlaylistData(playlist),
+                                None => Message::None
+                            }),
+                        None => Task::none()
+                    },
+                    PageType::ViewPlaylist => match playlist_id {
+                        Some(playlist_id) => Task::batch(vec![
+                            Task::future(
+                                DatabaseInterface::get_playlist_by_id(
+                                    self.database.derive(),
+                                    playlist_id
+                                )
+                            ).map(|playlist| match playlist {
+                                Some(playlist) => Message::PlaylistData(playlist),
+                                None => Message::None
+                            }),
+                            Task::stream(
+                                Relay::consume_receiver(
+                                    DatabaseInterface::select_all_songs_in_playlist(
+                                        self.database.derive(), playlist_id
+                                    ), |item| match item {
+                                        crate::backend::database_manager::ItemStream::Value(v) => {
+                                            Some(Message::RowIntoSong(v))
+                                        },
+                                        crate::backend::database_manager::ItemStream::End => {
+                                            None
+                                        },
+                                        crate::backend::database_manager::ItemStream::Error => {
+                                            None
+                                        }
+                                    }
+                                )
+                            )
+                        ]),
+                        None => Task::none()
+                    },
+                    PageType::Settings => {
+                        let mut tasks = Vec::new();
+                        if let Some(fm_secrets) = self.last_fm_auth.as_ref() {
+                            if let Some(key) = fm_secrets.get_key() {
+                                tasks.push(Task::done(Message::ChangeSecret(
+                                    Secret::FMKey(String::from(key))
+                                )));
+                            }
+                            if let Some(secret) = fm_secrets.get_secret() {
+                                tasks.push(Task::done(Message::ChangeSecret(
+                                    Secret::FMSecret(String::from(secret))
+                                )));
+                            }
+                            if let Some(session) = fm_secrets.get_session() {
+                                tasks.push(Task::done(Message::ChangeSecret(
+                                    Secret::FMSession(String::from(session))
+                                )));
+                            }
+                        }
+
+                        if let Some(id) = self.spotify_id.as_ref() {
+                            tasks.push(Task::done(Message::ChangeSecret(Secret::SpotifyID(id.to_string()))))
+                        }
+
+                        if let Some(secret) = self.spotify_secret.as_ref() {
+                            tasks.push(Task::done(Message::ChangeSecret(Secret::SpotifySecret(secret.to_string()))))
+                        }
+
+                        Task::batch(tasks)
+                    },
+                    _ => Task::none()
+                };
+
+                self.load_page(page_type, playlist_id);
+                task
+            },
 
             Message::AddSongToPlaylist(song, playlist_id) => {
-                let _ = self.database.lock().unwrap().add_song_to_playlist(song.id, playlist_id);
+                DatabaseInterface::insert_playlist_entry(
+                    self.database.derive(), song.id, playlist_id
+                );
                 Task::done(
                     Message::SongAddedToPlaylist(song.id)
-                ).chain(Task::done(
-                    Message::Download(song)
-                ))
+                )
             }
 
             Message::AudioTask(task) => {
@@ -283,30 +357,8 @@ impl Application<'_> {
             }
 
             Message::QueueUpdate(queue_state) => {
-
-                let old_id = if let Some(qs) = self.queue_state.as_ref() {
-                    match qs.songs.get(queue_state.position) {
-                        Some(song) => song.id,
-                        None => 0
-                    }
-                } else { 0 };
-
-                let new_song = match queue_state.songs.get(queue_state.position) {
-                    Some(song) => song.clone(),
-                    None => {
-                        self.queue_state = Some(queue_state);
-                        return Task::none();
-                    }
-                };
-
                 self.queue_state = Some(queue_state);
-
-                if old_id != 0 && new_song.id != 0 && new_song.id != old_id {
-                    println!("[UPDATE] New song");
-                    Task::none()
-                } else {
-                    Task::none()
-                }
+                Task::none()
             }
             
             Message::LoadAudio => {
@@ -318,44 +370,93 @@ impl Application<'_> {
                 self.audio_player = Some(audio_player);
                 Task::batch(vec![
                     Task::stream(
-                        Relay::consume_receiver(queue_receiver, |message| Message::QueueUpdate(message))
+                        Relay::consume_receiver(
+                            queue_receiver, |message| Some(Message::QueueUpdate(message))
+                        )
                     ),
                     Task::stream(
-                        Relay::consume_receiver(progress_receiver, |message| Message::ProgressUpdate(message))
+                        Relay::consume_receiver(
+                            progress_receiver, |message| Some(Message::ProgressUpdate(message))
+                        )
                     ),
                     Task::stream(
-                        Relay::consume_receiver(scrobble_receiver, |message| Message::ScrobbleRequest(message))
+                        Relay::consume_receiver(
+                            scrobble_receiver, |message| Some(Message::ScrobbleRequest(message))
+                        )
                     )
                 ])
             }
 
-            Message::LoadEntirePlaylist(playlist_id, do_shuffle) => {
-                let mut rng = rng();
+            Message::RowIntoSongForQueue(row) => {
+                let music_path = self.directories.get_music_ref().to_path_buf();
+                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
+                Task::future(DatabaseInterface::construct_song(row, music_path, thumbnail_path))
+                    .map(|option| match option {
+                        Some(song) => Message::AudioTask(AudioTask::Push(song)),
+                        None => Message::None
+                    })
+            }
 
-                let mut songs = {
-                    match self.database.lock().unwrap().search_playlist(
-                        playlist_id, String::new(), 
-                        self.directories.get_music_ref(),
-                        self.directories.get_thumbnails_ref()
-                    ) {
-                        Ok(songs) => songs,
-                        Err(_) => return Task::none()
+            Message::RowIntoSong(row) => {
+                Task::future(DatabaseInterface::construct_song(
+                    row,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(|song| match song {
+                    Some(song) => Message::SongStream(song),
+                    None => Message::None
+                })
+            }
+
+            Message::RowIntoSongQuery(row, query) => {
+                Task::future(DatabaseInterface::construct_song(
+                    row,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(move |option| match option {
+                    Some(song) => {
+                        if is_song_similar(&song, &query) > 70 { Message::SongStream(song) }
+                        else { Message::None }
                     }
-                };
+                    None => Message::None
+                })
+            }
 
-                if do_shuffle { songs.shuffle(&mut rng); }
+            Message::RowIntoSearchResult(row, query) => {
+                Task::future(DatabaseInterface::construct_song(
+                    row,
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(move |option| match option {
+                    Some(song) => {
+                        if is_song_similar(&song, &query) > 70 { Message::SearchResult(song, false) }
+                        else { Message::None }
+                    }
+                    None => Message::None
+                })
+            }
 
-                Task::done(Message::AudioTask(AudioTask::SetQueue(songs)))
+            Message::LoadEntirePlaylist(playlist_id, _) => {
+                let receiver = DatabaseInterface::select_all_songs_in_playlist(self.database.derive(), playlist_id);
+                Task::stream(Relay::consume_receiver(receiver,
+                    |item_stream| match item_stream {
+                        crate::backend::database_manager::ItemStream::End => None,
+                        crate::backend::database_manager::ItemStream::Error => None,
+                        crate::backend::database_manager::ItemStream::Value(row) => Some(
+                            Message::RowIntoSongForQueue(row)
+                        )
+                   }
+                ))
             }
 
             Message::RemoveSongFromPlaylist(song_id, playlist_id) => {
-                self.database.lock().unwrap().remove_song_from_playlist(song_id, playlist_id);
+                DatabaseInterface::remove_song_from_playlist(self.database.derive(), song_id, playlist_id);
                 let _ = self.page.update(Message::RemoveSongFromPlaylist(song_id, playlist_id));
                 Task::done(Message::AudioTask(AudioTask::RemoveSongById(song_id)))
             }
 
             Message::DeletePlaylist(playlist_id) => {
-                self.database.lock().unwrap().delete_playlist(playlist_id);
+                DatabaseInterface::delete_playlist(self.database.derive(), playlist_id);
                 let _ = self.page.update(Message::DeletePlaylist(playlist_id));
                 Task::none()
             }
@@ -420,7 +521,6 @@ impl Application<'_> {
             }
 
             Message::SpotifyPlaylist(uri) => {
-                // Let the page know the search has been received
                 let _ = self.page.update(Message::SpotifyPlaylist(String::new()));
 
                 let id = if uri.len() != 11 {
@@ -447,6 +547,13 @@ impl Application<'_> {
                 }
             }
 
+            Message::GetSongByTitleForSpotify(option, track) => {
+                match option {
+                    Some(song) => Task::done(Message::SearchResult(song, true)),
+                    None => Task::done(Message::SpotifySongToYoutube(track))
+                }
+            }
+
             Message::SpotifyPlaylistItem(item) => {
                 let track = match item.track {
                     Some(track) => match track {
@@ -456,13 +563,15 @@ impl Application<'_> {
                     None => return Task::none()
                 };
 
-                match desync(&self.database).get_song_by_name_exact(
-                    track.name.clone(), self.directories.get_music_ref(), self.directories.get_thumbnails_ref()
-                ) {
-                    Some(song) => Task::done(Message::SearchResult(song, true)),
-                    None => Task::done(Message::SpotifySongToYoutube(track))
-                }
-
+                Task::future(DatabaseInterface::select_song_by_title(
+                    self.database.derive(),
+                    track.name.clone(),
+                    self.directories.get_music_ref().to_path_buf(),
+                    self.directories.get_thumbnails_ref().to_path_buf()
+                )).map(move |option| match option {
+                    Some(song) => Message::GetSongByTitleForSpotify(Some(song), track.clone()),
+                    None => Message::GetSongByTitleForSpotify(None, track.clone())
+                })
             }
 
             Message::SpotifySongToYoutube(track) => {
@@ -471,7 +580,7 @@ impl Application<'_> {
                         load_spotify_song(
                             track,
                             dlp_path.to_path_buf(),
-                            self.database.clone(),
+                            self.database.derive(),
                             self.directories.get_music_ref().to_owned(),
                             self.directories.get_thumbnails_ref().to_owned()
                         )
@@ -491,22 +600,57 @@ impl Application<'_> {
                 while let Some(song) = songs.pop() {
                     task = task.chain(Task::done(Message::Download(song)));
                 }
-
                 task
             }
 
             Message::LoadSecrets => {
-                let spotify_id = self.database.lock().unwrap().get_secret("SPOTIFY_ID");
-                let spotify_secret = self.database.lock().unwrap().get_secret("SPOTIFY_SECRET");
-                let fm_key = self.database.lock().unwrap().get_secret("FM_KEY");
-                let fm_secret = self.database.lock().unwrap().get_secret("FM_SECRET");
-                let fm_session = self.database.lock().unwrap().get_secret("FM_SESSION");
+                Task::future(
+                    DatabaseInterface::select_multiple_secrets(
+                        self.database.derive(),
+                        vec![
+                            "SPOTIFY_ID".to_string(),
+                            "SPOTIFY_SECRET".to_string(),
+                            "FM_KEY".to_string(),
+                            "FM_SECRET".to_string(),
+                            "FM_SESSION".to_string()
+                        ]
+                    )
+                ).map(|res| {
+                    Message::SecretsLoaded(res)
+                })
+            }
 
+            Message::SecretsLoaded(mut secrets) => {
+                let fm_session = secrets.pop().unwrap();
+                let fm_secret = secrets.pop().unwrap();
+                let fm_key = secrets.pop().unwrap();
+                let spotify_secret = secrets.pop().unwrap();
+                let spotify_id = secrets.pop().unwrap();
                 let ready = fm_key.is_some() && fm_secret.is_some() && !fm_session.is_some();
-                self.last_fm_auth = Some(WebOAuth::from_key_and_secret(fm_key, fm_secret, fm_session));
+
+                let fm_key_string = if let Some(fm_key) = fm_key {
+                    if let Secret::FMKey(s) = fm_key { Some(s) } else { None }
+                } else { None };
+                let fm_secret_string = if let Some(fm_secret) = fm_secret {
+                    if let Secret::FMSecret(s) = fm_secret { Some(s) } else { None }
+                } else { None };
+                let fm_session_string = if let Some(fm_session) = fm_session {
+                    if let Secret::FMSession(s) = fm_session { Some(s) } else { None }
+                } else { None };
+
+                let spotify_id_string = if let Some(spotify_id) = spotify_id {
+                    if let Secret::SpotifyID(s) = spotify_id { Some(s) } else { None }
+                } else { None };
+                let spotify_secret_string = if let Some(spotify_secret) = spotify_secret {
+                    if let Secret::SpotifySecret(s) = spotify_secret { Some(s) } else { None }
+                } else { None };
+
+                self.last_fm_auth = Some(
+                    WebOAuth::from_key_and_secret(fm_key_string, fm_secret_string, fm_session_string)
+                );
 
                 Task::batch(vec![
-                    Task::done(Message::SpotifyCreds(spotify_id, spotify_secret)),
+                    Task::done(Message::SpotifyCreds(spotify_id_string, spotify_secret_string)),
                     if ready { Task::done(Message::FMAuthenticate) } else { Task::none() }
                 ])
             }
@@ -519,8 +663,12 @@ impl Application<'_> {
                     Secret::FMSecret(x) => ("FM_SECRET", x),
                     Secret::FMSession(x) => ("FM_SESSION", x),
                 };
-                self.database.lock().unwrap().set_secret(n, v.as_str());
-                Task::done(Message::LoadSecrets)
+
+                Task::future(DatabaseInterface::insert_or_update_secret(self.database.derive(), n.to_string(), v))
+                    .map(|res| match res {
+                        Ok(_) => Message::LoadSecrets,
+                        Err(_) => Message::None
+                    })
             }
 
             Message::FMAuthenticate => {
@@ -566,11 +714,24 @@ impl Application<'_> {
                     None => return Task::none()
                 };
 
-                if let Some(x) = auth.get_key() { self.database.lock().unwrap().set_secret("FM_KEY", x) }
-                if let Some(x) = auth.get_secret() { self.database.lock().unwrap().set_secret("FM_SECRET", x) }
-                if let Some(x) = auth.get_session() { self.database.lock().unwrap().set_secret("FM_SESSION", x) }
+                let mut tasks = Vec::new();
 
-                Task::none()
+                if let Some(x) = auth.get_key() {
+                    tasks.push(Task::future(DatabaseInterface::insert_or_update_secret(
+                        self.database.derive(), "FM_KEY".to_string(), x.to_string()
+                    )))
+                }
+                if let Some(x) = auth.get_secret() {
+                    tasks.push(Task::future(DatabaseInterface::insert_or_update_secret(
+                        self.database.derive(), "FM_SECRET".to_string(), x.to_string()
+                    )))
+                }
+                if let Some(x) = auth.get_session() {
+                    tasks.push(Task::future(DatabaseInterface::insert_or_update_secret(
+                        self.database.derive(), "FM_SESSION".to_string(), x.to_string()
+                    )))
+                }
+                Task::batch(tasks.into_iter().map(|x| x.map(|_| Message::None)))
             }
 
             Message::FMSetNowPlaying(song) => {
@@ -632,6 +793,28 @@ impl Application<'_> {
                 Task::none()
             }
 
+            Message::LoadAllPlaylists => {
+                Task::stream(
+                    Relay::consume_receiver(
+                        DatabaseInterface::select_all_playlists(self.database.derive()),
+                        |item| match item {
+                            crate::backend::database_manager::ItemStream::Value(v) => {
+                                match DatabaseInterface::construct_playlist(v) {
+                                    Some(playlist) => Some(Message::PlaylistLoaded(playlist)),
+                                    None => None
+                                }
+                            },
+                            crate::backend::database_manager::ItemStream::End => {
+                                None
+                            }
+                            crate::backend::database_manager::ItemStream::Error => {
+                                None
+                            }
+                       }
+                    )
+                )
+            }
+
             other => {
                 self.page.update(other)
             }
@@ -645,13 +828,12 @@ impl Application<'_> {
         self.page = match page_type {
 
             PageType::SearchSongs => Box::new(
-                SearchPage::new(self.directories.clone(), self.database.clone(), playlist_id.unwrap())
+                SearchPage::new(self.directories.clone(), self.database.derive(), playlist_id.unwrap())
             ),
-
-            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.clone())),
+            PageType::Playlists => Box::new(PlaylistsPage::new(self.database.derive())),
 
             PageType::ViewPlaylist => Box::new(
-                match PlaylistPage::new(playlist_id, self.database.clone(), self.directories.clone()) {
+                match PlaylistPage::new(playlist_id, self.database.derive(), self.directories.clone()) {
                     Ok(page) => page,
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }
@@ -659,13 +841,13 @@ impl Application<'_> {
 
             PageType::ImportSpotify => Box::new(ImportPage::new(
                 self.directories.clone(),
-                self.database.clone(),
+                self.database.derive(),
                 self.spotify_id.clone(),
                 self.spotify_secret.clone()
             )),
 
             PageType::Settings => {
-                Box::new(SettingsPage::new(self.database.clone()))
+                Box::new(SettingsPage::new(self.database.derive()))
             }
         };
     }

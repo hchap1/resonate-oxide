@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::collections::HashSet;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
@@ -199,7 +200,8 @@ impl ResonateWidget {
     }
 
     pub fn search_notify<'a>(
-        notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize
+        notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize,
+        finished: bool, existing_songs: &HashSet<usize>
     ) -> Element<'a, Message> {
         Container::new(
             {
@@ -228,8 +230,18 @@ impl ResonateWidget {
                                     .color(ResonateColour::yellow()),
                                 SearchState::SearchFailed => text("Internet Search Failed")
                                     .color(ResonateColour::red()),
-                                SearchState::Received(_) => text("Internet Search Successful")
-                                    .color(ResonateColour::green())
+                                SearchState::Received(_) => text(
+                                    match finished {
+                                        true => "Internet Search Successful",
+                                        false => "Internet Search Active"
+                                    }
+                                )
+                                    .color(
+                                        match finished {
+                                            true => ResonateColour::green(),
+                                            false => ResonateColour::yellow()
+                                        }
+                                    )
                             }.size(25).width(Length::Fill)
                     ).push(
                         Self::button_widget(crate::frontend::assets::close())
@@ -239,6 +251,7 @@ impl ResonateWidget {
 
                 if let SearchState::Received(songs) = notify {
                     for song in songs.iter() {
+                        if existing_songs.contains(&song.id) { continue; }
                         column = column.push(
                             Self::song(song, default_thumbnail, false, false, None, false)
                                 .on_press(Message::AddSongToPlaylist(song.clone(), playlist_id))

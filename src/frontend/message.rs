@@ -4,10 +4,11 @@ use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
 
-use crate::frontend::pages::settings_page::Secret;
+use crate::backend::database_manager::DatabaseParam;
+use crate::backend::settings::Secret;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
-use crate::backend::music::Song;
+use crate::backend::music::{Playlist, Song};
 use crate::backend::rpc::RPCMessage;
 
 #[derive(Clone, Debug)]
@@ -80,6 +81,20 @@ pub enum Message {
     RPCMessage(RPCMessage),
 
     Hover(usize, bool),
+
+    LoadAllPlaylists,
+    PlaylistData(Playlist),
+    RowIntoSongForQueue(Vec<DatabaseParam>),
+    GetSongByTitleForSpotify(Option<Song>, FullTrack),
+    SecretsLoaded(Vec<Option<Secret>>),
+    SecretWritten(Result<(), ()>),
+    PlaylistCreated(Playlist),
+    PlaylistLoaded(Playlist),
+    SongStream(Song),
+    RowIntoSong(Vec<DatabaseParam>),
+    RowIntoSongQuery(Vec<DatabaseParam>, String),
+    RowIntoSearchResult(Vec<DatabaseParam>, String),
+    OnlineSearchFinished
 }
 
 #[derive(Clone, Debug)]

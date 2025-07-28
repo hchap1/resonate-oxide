@@ -65,11 +65,11 @@ impl Song {
         artist: String,
         album: Option<String>,
         duration: Duration,
-        music_path: &Path,
-        thumbnail_path: &Path
+        music_path: PathBuf,
+        thumbnail_path: PathBuf
     ) -> Self {
         let mut song = Self::new(id, yt_id, title, artist, album, duration, None, None);
-        song.load_paths(music_path, thumbnail_path);
+        song.load_paths(&music_path, &thumbnail_path);
         song
     }
 }
@@ -113,6 +113,7 @@ impl std::fmt::Display for Song {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Playlist {
     pub id: usize,
     pub name: String,

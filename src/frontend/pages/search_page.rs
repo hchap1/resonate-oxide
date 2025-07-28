@@ -2,72 +2,58 @@ use std::collections::HashSet;
 
 use iced::alignment::Vertical;
 use iced::futures::FutureExt;
-use iced::futures::StreamExt;
 use iced::widget::Column;
 use iced::task::Handle;
 use iced::widget::Row;
 use iced::Length;
 use iced::Task;
 
+use crate::backend::database_interface::DatabaseInterface;
 use crate::frontend::application::Page;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
 
-use crate::backend::util::{consume, desync, AM};
+use crate::backend::util::consume;
 use crate::backend::music::Playlist;
 use crate::frontend::message::Message;
 use crate::backend::filemanager::DataDir;
-use crate::backend::database::Database;
-use crate::backend::database::DatabaseSearchQuery;
+use crate::backend::database_manager::DataLink;
 use crate::backend::music::Song;
 use crate::backend::web::flatsearch;
 use crate::backend::web::AsyncMetadataCollectionPool;
+use crate::backend::util::Relay;
 
 pub enum SearchState {
     Searching,
     SearchFailed,
-    Received(Vec<Song>)
+    Received(Vec<Song>),
 }
 
 pub struct SearchPage {
     query: String,
     directories: DataDir,
-    database: AM<Database>,
+    database: DataLink,
     search_results: Option<Vec<Song>>,
     search_handles: Vec<Handle>,
     playlist: Option<Playlist>,
-
     existing_songs: HashSet<usize>,
-
-    search_notify: Option<SearchState>
+    search_notify: Option<SearchState>,
+    search_task_finished: bool
 }
 
 impl SearchPage {
-    pub fn new(directories: DataDir, database: AM<Database>, playlist_id: usize) -> Self {
-        let songs = desync(&database).retrieve_all_songs(directories.get_music_ref(), directories.get_thumbnails_ref());
-        let playlist = desync(&database).get_playlist_by_id(playlist_id);
-
-        let songs_in_playlist = match desync(&database).search_playlist(playlist_id, String::new(),
-            directories.get_music_ref(), directories.get_thumbnails_ref()) {
-            Ok(songs) => songs,
-            Err(_) => Vec::new()
-        };
-
-        let mut existing_songs: HashSet<usize> = HashSet::new();
-
-        for song in songs_in_playlist {
-            existing_songs.insert(song.id);
-        }
-
+    pub fn new(directories: DataDir, database: DataLink, playlist_id: usize) -> Self {
+        let playlist = Playlist { name: String::from("Loading..."), id: playlist_id };
         Self {
             query: String::new(),
             directories,
             database,
-            search_results: Some(songs),
+            search_results: None,
             search_handles: Vec::new(),
-            playlist,
-            existing_songs,
-            search_notify: None
+            playlist: Some(playlist),
+            existing_songs: HashSet::new(),
+            search_notify: None,
+            search_task_finished: false
         }
     }
 }
@@ -91,7 +77,9 @@ impl Page for SearchPage {
                             Some(ResonateWidget::search_notify(
                                 notify,
                                 self.directories.get_default_thumbnail(),
-                                playlist.id
+                                playlist.id,
+                                self.search_task_finished,
+                                &self.existing_songs
                             ))
                         } else {
                             None
@@ -111,10 +99,6 @@ impl Page for SearchPage {
 
                 let is_downloading = current_song_downloads.contains(&song.yt_id);
                 let is_queued = queued_downloads.contains(&song);
-
-                if is_downloading && is_queued {
-                    println!("[ALERT] Queue / Download collision.");
-                }
 
                 column = column.push(
                     ResonateWidget::song(
@@ -150,7 +134,24 @@ impl Page for SearchPage {
 
     fn update(self: &mut Self, message: Message) -> Task<Message> {
         match message {
+
+            Message::SongStream(song) => {
+                self.existing_songs.insert(song.id);
+
+                if let Some(search_results) = self.search_results.as_mut() {
+                    search_results.push(song)
+                } else {
+                    self.search_results = Some(vec![song])
+                }
+                Task::none()
+            }
+
             Message::TextInput(new_value) => { self.query = new_value; Task::none() }
+
+            Message::PlaylistData(playlist) => {
+                self.playlist = Some(playlist);
+                Task::none()
+            }
 
             Message::SubmitSearch => {
 
@@ -164,22 +165,27 @@ impl Page for SearchPage {
                     None => return Task::none()
                 };
 
-                let database = self.database.clone();
-                let music_path = self.directories.get_music_ref().to_path_buf();
-                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
-
                 let (flatsearch_task, flatsearch_handle) = Task::<Message>::future(
                     flatsearch(dlp_path, self.query.clone()).map(|res| match res {
                         Ok(results) => Message::LoadSearchResults(results),
                         Err(_) => Message::DLPWarning
+
                     })
                 ).abortable();
 
                 self.search_handles.push(flatsearch_handle);
+                let query = consume(&mut self.query);
 
                 Task::<Message>::stream(
-                    DatabaseSearchQuery::new(database, music_path, thumbnail_path, consume(&mut self.query))
-                        .map(|song_batch| Message::MultiSearchResult(song_batch, false))
+                    Relay::consume_receiver(DatabaseInterface::select_all_songs(self.database.clone()),
+                        move |item_stream| match item_stream {
+                            crate::backend::database_manager::ItemStream::End => None,
+                            crate::backend::database_manager::ItemStream::Error => None,
+                            crate::backend::database_manager::ItemStream::Value(row) => {
+                                Some(Message::RowIntoSearchResult(row, query.clone()))
+                            }
+                        }
+                    )
                 ).chain(
                     flatsearch_task
                 )
@@ -190,19 +196,32 @@ impl Page for SearchPage {
                     true => search_results[0..3].to_vec(),
                     false => search_results
                 };
-                let (metadata_collector, metadata_collection_handle) = Task::stream(AsyncMetadataCollectionPool::new(
-                    ids,
-                    match self.directories.get_dlp_ref() {
-                        Some(dlp_ref) => Some(dlp_ref.to_path_buf()),
-                        None => None
-                    },
-                    self.directories.get_music_ref().to_path_buf(),
-                    self.directories.get_thumbnails_ref().to_path_buf(),
-                    self.database.clone()
-                )).abortable();
 
-                self.search_handles.push(metadata_collection_handle);
-                metadata_collector.map(|song_batch| Message::MultiSearchResult(song_batch, true))
+                match self.directories.get_dlp_ref() {
+                    Some(dlp_ref) => {
+                        let (metadata_collector, metadata_collection_handle) = Task::stream(
+                            AsyncMetadataCollectionPool::new(
+                                self.database.clone(), ids, 
+                                dlp_ref.to_path_buf(),
+                                self.directories.get_music_ref().to_path_buf(),
+                                self.directories.get_thumbnails_ref().to_path_buf()
+                            )
+                        ).abortable();
+
+                        self.search_handles.push(metadata_collection_handle);
+                        metadata_collector.map(|song| match song {
+                            Ok(song) => Message::SearchResult(song, true),
+                            Err(_) => Message::None
+                        }).chain(
+                            Task::done(Message::OnlineSearchFinished)
+                        )
+                    }
+
+                    None => {
+                        Task::done(Message::DLPWarning)
+                    }
+                }
+
             }
 
             Message::SearchResult(song, from_online) => {
@@ -212,9 +231,9 @@ impl Page for SearchPage {
                             SearchState::Received(songs) => songs.clone(),
                             _ => vec![]
                         };
+
                         current.push(song);
                         *notify = SearchState::Received(current);
-
                         return Task::none();
                     }
                 }
@@ -223,6 +242,7 @@ impl Page for SearchPage {
                     Some(search_results) => search_results.push(song),
                     None => self.search_results = Some(vec![song])
                 }
+
                 Task::none()
             }
             
@@ -268,6 +288,11 @@ impl Page for SearchPage {
 
             Message::SongAddedToPlaylist(song_id) => {
                 self.existing_songs.insert(song_id);
+                Task::none()
+            }
+
+            Message::OnlineSearchFinished => {
+                self.search_task_finished = true;
                 Task::none()
             }
 

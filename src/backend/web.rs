@@ -3,8 +3,12 @@ use std::path::Path;
 use std::time::Duration;
 use std::task::Waker;
 use std::pin::Pin;
-use std::thread::JoinHandle;
-use std::thread::spawn;
+
+use crossbeam_channel::Sender;
+use crossbeam_channel::Receiver;
+use crossbeam_channel::unbounded;
+use tokio::task::spawn;
+use tokio::task::JoinHandle;
 
 use iced::futures::Stream;
 use image::imageops::FilterType;
@@ -13,10 +17,9 @@ use tokio::process::Command;
 
 use crate::backend::error::ResonateError;
 use crate::backend::music::Song;
-use crate::backend::database::Database;
-use crate::backend::util::desync;
-use crate::backend::util::sync;
-use crate::backend::util::AM;
+use crate::backend::database_manager::DataLink;
+
+use super::database_interface::DatabaseInterface;
 
 pub async fn flatsearch(
         executable_path: PathBuf,
@@ -28,19 +31,29 @@ pub async fn flatsearch(
         .youtube_dl_path(executable_path)
         .extra_arg("--skip-download")
         .extra_arg("--flat-playlist")
+        .extra_arg("--no-check-certificate")
         .run_async().await {
         Ok(result) => {
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
                     Some(entries) => Ok(entries.into_iter().filter_map(|entry| {
                         match entry.title {
-                            Some(_) => Some(entry.id.clone()),
+                            Some(_) => {
+                                println!("SEARCH RESULT: {}", entry.title.unwrap());
+                                Some(entry.id.clone())
+                            }
                             None => None
                         }
                     }).collect::<Vec<String>>()),
-                    None => Ok(Vec::<String>::new())
+                    None => {
+                        println!("Flatsearch failed. Could not take entries.");
+                        Ok(Vec::<String>::new())
+                    }
                 }
-                None => Ok(Vec::<String>::new())
+                None => {
+                    println!("Flatsearch failed. Could not convert into playlist.");
+                    Ok(Vec::<String>::new())
+                }
             }
         }
         Err(e) => {
@@ -51,19 +64,15 @@ pub async fn flatsearch(
 }
 
 pub fn collect_metadata(
-        executable_path: Option<&Path>,
+        executable_path: &Path,
         music_path: &Path,
         thumbnail_path: &Path,
         id: &String
     ) -> Result<Song, ResonateError> {
 
-    let path = match executable_path {
-        Some(path) => path,
-        None => return Err(ResonateError::ExecNotFound)
-    };
-
     let ytdl = YoutubeDl::new(id)
-        .youtube_dl_path(path)
+        .youtube_dl_path(executable_path)
+        .extra_arg("--no-check-certificate")
         .extra_arg("--skip-download")
         .run();
 
@@ -76,7 +85,18 @@ pub fn collect_metadata(
                             Some(duration) => duration,
                             None => 0u64
                         };
-                        Ok(Song::load(0, entry.id, title, artist, entry.album.take(), Duration::from_secs(duration), music_path, thumbnail_path))
+                        Ok(
+                            Song::load(
+                                0,
+                                entry.id,
+                                title,
+                                artist,
+                                entry.album.take(),
+                                Duration::from_secs(duration),
+                                music_path.to_owned(),
+                                thumbnail_path.to_owned()
+                            )
+                        )
                     } else {
                         Err(ResonateError::NetworkError)
                     }
@@ -95,6 +115,7 @@ pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: S
     let mut handle = Command::new(dlp_path)
         .arg("--write-thumbnail")
         .arg("--skip-download")
+        .arg("--no-check-certificate")
         .arg(format!("https://music.youtube.com/watch?v={}", id))
         .arg("-o")
         .arg(path.clone())
@@ -144,6 +165,7 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
         .arg("mp3")
         .arg("-o")
         .arg(output.to_string_lossy().to_string())
+        .arg("--no-check-certificate")
         .arg(url)
         .spawn().unwrap();
 
@@ -155,168 +177,100 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
         false => Err(song)
     }
 }
-
-pub fn populate(executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_dir: PathBuf, id: String, database: AM<Database>) -> Result<Song, ResonateError> {
-    let song = collect_metadata(match executable_dir.as_ref() {
-        Some(pathbuf) => Some(pathbuf.as_path()),
-        None => None
-    }, music_dir.as_path(), thumbnail_dir.as_path(), &id);
-
-    match song {
-        Ok(mut song) => {
-
-            let database = desync(&database);
-            let (success, id) = match database.emplace_song_and_record_id(&song, true) {
-                Ok(data) => data,
-                Err(_) => return Err(ResonateError::SQLError)
-            };
-
-            if success {
-                song.id = id;
-                Ok(song)
-            } else {
-                Err(ResonateError::GenericError)
-            }
-        }
-        Err(_) => return Err(ResonateError::SQLError)
-    }
-}
-
-pub fn collect_metadata_and_notify_executor(
-    executable_dir: Option<PathBuf>,
-    music_dir: PathBuf,
-    thumbnail_dir: PathBuf,
-    id: String,
-    database: AM<Database>,
-    waker: AM<Option<Waker>> 
-) -> Result<Song, ResonateError> {
-    let song = match populate(executable_dir, music_dir, thumbnail_dir, id, database) {
-        Ok(song) => song,
-        Err(_) => {
-            let waker_handle = desync(&waker);
-            match waker_handle.as_ref() {
-                Some(waker_handle) => waker_handle.wake_by_ref(),
-                None => {}
-            }
-            return Err(ResonateError::NetworkError)
-        }
-    };
-
-    let waker_handle = desync(&waker);
-    match waker_handle.as_ref() {
-        Some(waker_handle) => waker_handle.wake_by_ref(),
-        None => {}
-    }
-
-    Ok(song)
-}
-
 pub struct AsyncMetadataCollectionPool {
-    waker: AM<Option<Waker>>,               // The waker mutex, should be passed to the workers so they can notify the executor when they are ready to be collected
-    thread_pool: Vec<JoinHandle<Result<Song, ResonateError>>>,  // Track the worker threads, poll whether they have ended or not
-    queue: Vec<String>,                     // The list of songs that need to be collected
-
-    executable_dir: Option<PathBuf>,        // Arguments required for parsing metadata which are shared for all songs
-    music_dir: PathBuf,
-    thumbnail_dir: PathBuf,
-    database: AM<Database>
+    handle: Option<std::thread::JoinHandle<Result<Song, ResonateError>>>,
+    dlp_path: PathBuf,
+    music_path: PathBuf,
+    thumbnail_path: PathBuf,
+    database: DataLink,
+    ids: Vec<String>
 }
 
 impl AsyncMetadataCollectionPool {
-    pub fn new(ids: Vec<String>, executable_dir: Option<PathBuf>, music_dir: PathBuf, thumbnail_dir: PathBuf, database: AM<Database>) -> Self {
+    pub fn new(
+        database: DataLink,
+        ids: Vec<String>,
+        dlp_path: PathBuf,
+        music_path: PathBuf,
+        thumbnail_path: PathBuf
+    ) -> Self {
         Self {
-            waker: sync(None),
-            thread_pool: vec![],
-            queue: ids,
-            executable_dir,
-            music_dir,
-            thumbnail_dir,
-            database
+            handle: None,
+            dlp_path,
+            music_path,
+            thumbnail_path,
+            database,
+            ids
         }
     }
 }
 
-impl Stream for AsyncMetadataCollectionPool {
-    type Item = Vec<Song>;
+fn populate(
+    waker: Waker, id: String, database: DataLink, dlp_path: PathBuf,
+    music_path: PathBuf, thumbnail_dir: PathBuf
+) -> Result<Song, ResonateError> {
 
+    if !DatabaseInterface::blocking_is_unique(database.clone(), id.clone()) {
+        return Err(ResonateError::AlreadyExists);
+    }
+
+    let mut song = match collect_metadata(dlp_path.as_path(), music_path.as_path(), thumbnail_dir.as_path(), &id) {
+        Ok(song) => song,
+        error => return error
+    };
+
+    let id = match DatabaseInterface::blocking_insert_song(database, song.clone()) {
+        Ok(id) => id,
+        Err(_) => return Err(ResonateError::SQLError)
+    };
+
+    waker.wake();
+    song.id = id;
+    Ok(song)
+}
+
+impl Stream for AsyncMetadataCollectionPool {
+    type Item = Result<Song, ()>;
+    
     fn poll_next(
         mut self: Pin<&mut Self>, context: &mut std::task::Context<'_>
     ) -> std::task::Poll<Option<<Self as Stream>::Item>> {
-        'aquire_waker: {
-            let mut waker = self.waker.lock().unwrap();
-            if waker.is_some() { break 'aquire_waker; }
-            *waker = Some(context.waker().clone());
-        }
+        if self.handle.is_none() {
+            match self.ids.pop() {
 
-        if self.queue.len() == 0 && self.thread_pool.len() == 0 { return std::task::Poll::Ready(None) }
+                // If no thread exists, and there are IDs left to populate, spawn a thread to do so
+                Some(id) => {
 
-        let mut finished_workers: Vec<usize> = Vec::new();
+                    let database = self.database.clone();
+                    let dlp_path = self.dlp_path.clone();
+                    let music_path = self.music_path.clone();
+                    let thumbnail_path = self.thumbnail_path.clone();
 
-        for (idx, worker) in self.thread_pool.iter().enumerate() {
-            if worker.is_finished() {
-                finished_workers.push(idx);
+                    let waker = context.waker().to_owned();
+
+                    self.handle = Some(std::thread::spawn(
+                        move || populate(
+                            waker, id, database, dlp_path,
+                            music_path, thumbnail_path
+                        )
+                    ))
+                },
+
+                // If no thread exists and there are no IDs left to populate, end the stream
+                None => return std::task::Poll::Ready(None)
             }
         }
 
-        let mut results: Option<Vec<Song>> = None;
+        let take_song = if let Some(handle) = self.handle.as_ref() {
+            handle.is_finished()
+        } else {
+            false
+        };
 
-        for (offset, idx) in finished_workers.iter().enumerate() {
-
-            match self.thread_pool.remove(idx - offset).join() {
-                Ok(res) => {
-                    if let Some(results) = results.as_mut() {
-                        if let Ok(song) = res {
-                            results.push(song);
-                        }
-                    }
-                }
-                Err(_) => {}
-            }
-
-            if self.queue.len() == 0 { continue; }
-
-            let executable = self.executable_dir.clone();
-            let music = self.music_dir.clone();
-            let thumbnails = self.thumbnail_dir.clone();
-            let id = self.queue.pop().unwrap();
-            let database = self.database.clone();
-            let waker = self.waker.clone();
-
-            self.thread_pool.push(spawn(
-                move || collect_metadata_and_notify_executor(
-                    executable,
-                    music,
-                    thumbnails,
-                    id,
-                    database,
-                    waker
-                )
-            ));
-        }
-
-        if self.queue.len() > 0 && self.thread_pool.len() < 4 {
-            let executable = self.executable_dir.clone();
-            let music = self.music_dir.clone();
-            let thumbnails = self.thumbnail_dir.clone();
-            let id = self.queue.pop().unwrap();
-            let database = self.database.clone();
-            let waker = self.waker.clone();
-
-            self.thread_pool.push(spawn(
-                move || collect_metadata_and_notify_executor(
-                    executable,
-                    music,
-                    thumbnails,
-                    id,
-                    database,
-                    waker
-                )
-            ));
-        }
-
-        match results {
-            Some(results) => std::task::Poll::Ready(Some(results)),
-            None => std::task::Poll::Pending
+        if take_song {
+            std::task::Poll::Ready(self.handle.take().unwrap().join().ok().map(|res| res.map_err(|_| ())))
+        } else {
+            std::task::Poll::Pending
         }
     }
 }

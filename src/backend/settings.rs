@@ -7,6 +7,16 @@ use iced::Color;
 
 use crate::frontend::widgets::ResonateColour;
 
+#[derive(Clone, Debug)]
+pub enum Secret {
+    SpotifyID(String),
+    SpotifySecret(String),
+    FMKey(String),
+    FMSecret(String),
+    FMSession(String),
+}
+
+
 pub struct Settings {
     pub colour: Color,
     pub max_download_concurrency: usize

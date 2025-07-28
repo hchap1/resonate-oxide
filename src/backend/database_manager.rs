@@ -12,22 +12,34 @@ use rusqlite::params_from_iter;
 use rusqlite::ParamsFromIter;
 use rusqlite::types::ValueRef;
 
-enum ItemStream {
-    Value(DatabaseParam),
+use super::error::ResonateError;
+
+#[derive(Debug)]
+pub enum ItemStream {
+    Value(Vec<DatabaseParam>),
     Error,
     End
 }
 
-enum DatabaseTask {
-    Execute(&'static str, DatabaseParams),
-    Query(&'static str, DatabaseParams, Sender<ItemStream>)
+pub enum InsertMessage {
+    Success(usize),
+    Error
 }
 
+pub enum DatabaseTask {
+    Execute(&'static str, DatabaseParams),
+    WaitExecute(&'static str, DatabaseParams, Sender<()>),
+    Insert(&'static str, DatabaseParams, Sender<InsertMessage>),
+    Query(&'static str, DatabaseParams, Sender<ItemStream>),
+}
+
+#[derive(Clone, Debug)]
 pub enum DatabaseParam {
     String(String),
     Usize(usize),
     Null,
-    F46(f64)
+    F64(f64),
+    Like(String)
 }
 
 impl DatabaseParam {
@@ -36,8 +48,24 @@ impl DatabaseParam {
             Self::String(v) => Value::from(v.to_owned()),
             Self::Usize(v) => Value::from(*v as isize),
             Self::Null => Value::Null,
-            Self::F46(v) => Value::Real(*v)
+            Self::F64(v) => Value::Real(*v),
+            Self::Like(v) => Value::from(format!("%{v}%"))
         }
+    }
+    
+    pub fn usize(&self) -> usize {
+        if let Self::Usize(v) = self { return *v; }
+        panic!("Attempted to get a USIZE from a non-usize value");
+    }
+
+    pub fn string(&self) -> String {
+        if let Self::String(v) = self { return v.clone(); }
+        panic!("Attempted to get a STRING from a non-string value");
+    }
+
+    pub fn f64(&self) -> f64 {
+        if let Self::F64(v) = self { return *v; }
+        panic!("Attempted to get a F64 from a non-f64 value");
     }
 }
 
@@ -51,41 +79,71 @@ impl DatabaseParams {
         params_from_iter(params)
     }
 
-    pub fn empty() -> DatabaseParams {
-        DatabaseParams {
-            params: Vec::new()
-        }
-    }
-
-    pub fn new(params: Vec<DatabaseParam>) -> DatabaseParams {
-        DatabaseParams {
-            params
-        }
-    }
+    pub fn empty() -> DatabaseParams { DatabaseParams { params: Vec::new() } }
+    pub fn new(params: Vec<DatabaseParam>) -> DatabaseParams { DatabaseParams { params } }
+    pub fn single(param: DatabaseParam) -> DatabaseParams { DatabaseParams { params: vec![param] } }
 }
 
 pub struct Database {
     handle: JoinHandle<()>,
+    datalink: DataLink
+}
+
+#[derive(Clone)]
+pub struct DataLink {
     task_sender: Sender<DatabaseTask>
 }
 
-impl Database {
-    pub fn new(root_dir: PathBuf) -> Database {
-
-        let (task_sender, task_receiver) = unbounded();
-
-        Database {
-            handle: spawn(move || database_thread(root_dir, task_receiver)),
-            task_sender
-        }
+impl DataLink {
+    pub fn new(task_sender: Sender<DatabaseTask>) -> DataLink {
+        DataLink { task_sender }
     }
 
-    /// Spawn an execute, but don't wait around for it to finish. Non-blocking.
     pub fn execute(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
         self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
     }
 
-    pub async fn query_map(&self, query: &'static str, params: DatabaseParams) -> Result<Vec<DatabaseParam>, ()> {
+    pub async fn execute_and_wait(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::WaitExecute(query, params, sender));
+        match tokio::task::spawn_blocking(move || receiver.recv()).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(())
+        }
+    }
+
+    /// Execute function with receiver callback intended for insert commands (returns row id)
+    pub async fn insert(&self, query: &'static str, params: DatabaseParams) -> Option<usize> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::Insert(query, params, sender));
+        let result = match tokio::task::spawn_blocking(move || receiver.recv()).await {
+            Ok(result) => result,
+            Err(_) => return None
+        };
+
+        match result {
+            Ok(message) => match message { InsertMessage::Success(v) => Some(v), InsertMessage::Error => None },
+            Err(_) => None
+        }
+    }
+
+    pub fn insert_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<InsertMessage> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::Insert(query, params, sender));
+        receiver
+    }
+
+    /// Return a receiver that receives the rows
+    pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
+        let (sender, receiver) = unbounded();
+        let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
+        receiver
+    }
+
+    /// Collect all results, then proceed
+    pub async fn query_map(
+        &self, query: &'static str, params: DatabaseParams
+    ) -> Result<Vec<Vec<DatabaseParam>>, ResonateError> {
         let (sender, receiver) = unbounded();
         let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
         let handle = tokio::task::spawn_blocking(move || {
@@ -102,15 +160,31 @@ impl Database {
             (values, error)
         });
 
-        let (values, success) = match handle.await {
+        let (values, error) = match handle.await {
             Ok(data) => data,
-            Err(_) => return Err(())
+            Err(_) => return Err(ResonateError::GenericError)
         };
 
-        match success {
-            true => Ok(values),
-            false => Err(())
+        match error {
+            false => Ok(values),
+            true => Err(ResonateError::GenericError)
         }
+    }
+}
+
+impl Database {
+    pub fn new(root_dir: PathBuf) -> Database {
+
+        let (task_sender, task_receiver) = unbounded();
+
+        Database {
+            handle: spawn(move || database_thread(root_dir, task_receiver)),
+            datalink: DataLink::new(task_sender)
+        }
+    }
+
+    pub fn derive(&self) -> DataLink {
+        self.datalink.clone()
     }
 }
 
@@ -121,7 +195,7 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
         Err(_) => return
     };
 
-    loop {
+    'mainloop: loop {
         let current_task = match task_receiver.recv() {
             Ok(task) => task,
             Err(_) => return
@@ -133,6 +207,22 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                     let _ = statement.execute(params.to_params());
                 }
             },
+            DatabaseTask::WaitExecute(query, params, sender) => {
+                if let Ok(mut statement) = connection.prepare(query) {
+                    let _ = statement.execute(params.to_params());
+                    let _ = sender.send(());
+                } else {
+                    let _ = sender.send(());
+                }
+            },
+            DatabaseTask::Insert(query, params, sender) => {
+                if let Ok(mut statement) = connection.prepare(query) {
+                    let _ = statement.execute(params.to_params());
+                    let _ = sender.send(InsertMessage::Success(connection.last_insert_rowid() as usize));
+                } else {
+                    let _ = sender.send(InsertMessage::Error);
+                }
+            }
             DatabaseTask::Query(query, params, sender) => {
                 let mut statement = match connection.prepare(query) {
                     Ok(statement) => statement,
@@ -143,28 +233,39 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                 };
 
                 let column_count = statement.column_count();
-                let _ = statement.query_map(params.to_params(), |row| {
+                let rows = match statement.query_map(params.to_params(), |row| {
+                    let mut values = Vec::new();
 
-                    for idx in 0..column_count {
+                    'inner: for idx in 0..column_count {
                         let value = match row.get_ref(idx) {
                             Ok(value) => value,
-                            Err(_) => continue
+                            Err(_) => continue 'inner
                         };
 
                         let value = match value {
                             ValueRef::Null => DatabaseParam::Null,
                             ValueRef::Integer(i) => DatabaseParam::Usize(i as usize),
-                            ValueRef::Real(f) => DatabaseParam::F46(f),
+                            ValueRef::Real(f) => DatabaseParam::F64(f),
                             ValueRef::Text(s) => DatabaseParam::String(String::from_utf8_lossy(s).into_owned()),
-                            ValueRef::Blob(_) => DatabaseParam::Null
+                            ValueRef::Blob(_) => DatabaseParam::Null,
                         };
 
-                        let _ = sender.send(ItemStream::Value(value));
+                        values.push(value);
                     }
 
-                    Ok(())
-                });
+                    if column_count == values.len() { Ok(values) }
+                    else { Err(rusqlite::Error::QueryReturnedNoRows) }
+                }) {
+                    Ok(rows) => rows.filter_map(|x| x.ok()).collect::<Vec<Vec<DatabaseParam>>>(),
+                    Err(_) => {
+                        let _ = sender.send(ItemStream::Error);
+                        continue 'mainloop
+                    }
+                };
 
+                for row in rows {
+                    let _ = sender.send(ItemStream::Value(row));
+                }
                 let _ = sender.send(ItemStream::End);
             }
         }

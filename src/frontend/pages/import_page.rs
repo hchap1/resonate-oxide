@@ -271,7 +271,7 @@ impl Page for ImportPage {
             }
 
             Message::SpotifyCreds(_, _) => {
-                return Task::done(Message::ClearNotification);
+                return Message::ClearNotification.task();
             }
 
             Message::ClearNotification => {

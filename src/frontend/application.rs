@@ -218,7 +218,7 @@ impl Application<'_> {
                         None => return Task::none()
                     };
                     let _ = self.download_queue.remove(&song);
-                    Task::done(Message::Download(song))
+                    Message::Download(song).task()
                 } else {
                     Task::none()
                 }
@@ -254,13 +254,13 @@ impl Application<'_> {
             }
 
             Message::MultiSearchResult(songs, is_online) => {
-                Task::batch(songs.into_iter().map(|song| Task::done(Message::SearchResult(song, is_online))))
+                Task::batch(songs.into_iter().map(|song| Message::SearchResult(song, is_online).task()))
             }
 
             Message::LoadPage(page_type, playlist_id) => {
                 let task = match &page_type {
                     PageType::Playlists => Task::batch(vec![
-                        Task::done(Message::LoadAllPlaylists)
+                        Message::LoadAllPlaylists.task()
                     ]),
                     PageType::SearchSongs => match playlist_id {
                         Some(playlist_id) => Task::future(
@@ -308,28 +308,28 @@ impl Application<'_> {
                         let mut tasks = Vec::new();
                         if let Some(fm_secrets) = self.last_fm_auth.as_ref() {
                             if let Some(key) = fm_secrets.get_key() {
-                                tasks.push(Task::done(Message::ChangeSecret(
+                                tasks.push(Message::ChangeSecret(
                                     Secret::FMKey(String::from(key))
-                                )));
+                                ).task());
                             }
                             if let Some(secret) = fm_secrets.get_secret() {
-                                tasks.push(Task::done(Message::ChangeSecret(
+                                tasks.push(Message::ChangeSecret(
                                     Secret::FMSecret(String::from(secret))
-                                )));
+                                ).task());
                             }
                             if let Some(session) = fm_secrets.get_session() {
-                                tasks.push(Task::done(Message::ChangeSecret(
+                                tasks.push(Message::ChangeSecret(
                                     Secret::FMSession(String::from(session))
-                                )));
+                                ).task());
                             }
                         }
 
                         if let Some(id) = self.spotify_id.as_ref() {
-                            tasks.push(Task::done(Message::ChangeSecret(Secret::SpotifyID(id.to_string()))))
+                            tasks.push(Message::ChangeSecret(Secret::SpotifyID(id.to_string())).task())
                         }
 
                         if let Some(secret) = self.spotify_secret.as_ref() {
-                            tasks.push(Task::done(Message::ChangeSecret(Secret::SpotifySecret(secret.to_string()))))
+                            tasks.push(Message::ChangeSecret(Secret::SpotifySecret(secret.to_string())).task())
                         }
 
                         Task::batch(tasks)
@@ -452,7 +452,7 @@ impl Application<'_> {
             Message::RemoveSongFromPlaylist(song_id, playlist_id) => {
                 DatabaseInterface::remove_song_from_playlist(self.database.derive(), song_id, playlist_id);
                 let _ = self.page.update(Message::RemoveSongFromPlaylist(song_id, playlist_id));
-                Task::done(Message::AudioTask(AudioTask::RemoveSongById(song_id)))
+                Message::AudioTask(AudioTask::RemoveSongById(song_id)).task()
             }
 
             Message::DeletePlaylist(playlist_id) => {
@@ -472,7 +472,7 @@ impl Application<'_> {
                         None => return Task::none()
                     };
                     let _ = self.download_queue.remove(&song);
-                    Task::done(Message::Download(song))
+                    Message::Download(song).task()
                 } else {
                     Task::none()
                 }
@@ -495,7 +495,7 @@ impl Application<'_> {
                                 rspotify::Credentials::new(
                                     &id, &secret
                                 )
-                            )
+                           )
                         )
                     ).map(|r| Message::SpotifyAuth(r))
                 } else {
@@ -543,14 +543,14 @@ impl Application<'_> {
                     )
                 } else {
                     println!("[SPOTIFY] Authentication failed when trying to make stream");
-                    Task::done(Message::SpotifyAuthFailed)
+                    Message::SpotifyAuthFailed.task()
                 }
             }
 
             Message::GetSongByTitleForSpotify(option, track) => {
                 match option {
-                    Some(song) => Task::done(Message::SearchResult(song, true)),
-                    None => Task::done(Message::SpotifySongToYoutube(track))
+                    Some(song) => Message::SearchResult(song, true).task(),
+                    None => Message::SpotifySongToYoutube(track).task()
                 }
             }
 
@@ -594,11 +594,11 @@ impl Application<'_> {
 
             Message::DownloadAll(mut songs) => {
                 if songs.len() == 0 { return Task::none(); }
-                let mut task = Task::done(Message::Download(songs.remove(0)));
+                let mut task = Message::Download(songs.remove(0)).task();
                 songs.reverse();
 
                 while let Some(song) = songs.pop() {
-                    task = task.chain(Task::done(Message::Download(song)));
+                   task = task.chain(Message::Download(song).task());
                 }
                 task
             }
@@ -650,8 +650,8 @@ impl Application<'_> {
                 );
 
                 Task::batch(vec![
-                    Task::done(Message::SpotifyCreds(spotify_id_string, spotify_secret_string)),
-                    if ready { Task::done(Message::FMAuthenticate) } else { Task::none() }
+                    Message::SpotifyCreds(spotify_id_string, spotify_secret_string).task(),
+                    if ready { Message::FMAuthenticate.task() } else { Task::none() }
                 ])
             }
 
@@ -674,7 +674,7 @@ impl Application<'_> {
             Message::FMAuthenticate => {
                 let auth = match self.last_fm_auth.take() {
                     Some(auth) => auth,
-                    None => return Task::done(Message::FMAuthFailed(None))
+                    None => return Message::FMAuthFailed(None).task()
                 };
 
                 Task::future(WebCallback::oauth(auth)).map(
@@ -705,7 +705,7 @@ impl Application<'_> {
 
             Message::FMAuthSuccess(auth) => {
                 self.last_fm_auth = Some(auth);
-                Task::done(Message::FMSaveSecrets)
+                Message::FMSaveSecrets.task()
             }
 
             Message::FMSaveSecrets => {
@@ -755,7 +755,7 @@ impl Application<'_> {
                     }
                 );
 
-                let rpc_task = Task::done(Message::RPCMessage(RPCMessage::SetStatus(song)));
+                let rpc_task = Message::RPCMessage(RPCMessage::SetStatus(song)).task();
                 rpc_task.chain(fm_task)
             }
 
@@ -783,8 +783,8 @@ impl Application<'_> {
 
             Message::ScrobbleRequest(scrobble_request) => {
                 match scrobble_request {
-                    ScrobbleRequest::NowPlaying(song) => Task::done(Message::FMSetNowPlaying(song)),
-                    ScrobbleRequest::Scrobble(song) => Task::done(Message::FMPushScrobble(song))
+                    ScrobbleRequest::NowPlaying(song) => Message::FMSetNowPlaying(song).task(),
+                    ScrobbleRequest::Scrobble(song) => Message::FMPushScrobble(song).task()
                 }
             }
 

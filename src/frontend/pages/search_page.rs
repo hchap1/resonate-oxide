@@ -213,12 +213,12 @@ impl Page for SearchPage {
                             Ok(song) => Message::SearchResult(song, true),
                             Err(_) => Message::None
                         }).chain(
-                            Task::done(Message::OnlineSearchFinished)
+                            Message::OnlineSearchFinished.task()
                         )
                     }
 
                     None => {
-                        Task::done(Message::DLPWarning)
+                        Message::DLPWarning.task()
                     }
                 }
 

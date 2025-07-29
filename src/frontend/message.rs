@@ -105,3 +105,9 @@ pub enum PageType {
     ImportSpotify,
     Settings
 }
+
+impl Message {
+    pub fn task(self) -> iced::Task<Message> {
+        iced::Task::done(self)
+    }
+}

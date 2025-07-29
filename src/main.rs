@@ -11,9 +11,9 @@ use frontend::message::Message;
 fn main() -> Result<(), iced::Error> {
     iced::application("Resonate-Oxide", Application::update, Application::view)
         .run_with(|| (Application::default(), Task::batch(vec![
-            Task::done(Message::LoadAudio),
-            Task::done(Message::DownloadDLP),
-            Task::done(Message::LoadSecrets),
-            Task::done(Message::LoadAllPlaylists)
+            Message::LoadAudio.task(),
+            Message::DownloadDLP.task(),
+            Message::LoadSecrets.task(),
+            Message::LoadAllPlaylists.task()
         ])))
 }

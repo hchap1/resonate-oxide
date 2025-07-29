@@ -263,14 +263,30 @@ impl Application<'_> {
                         Message::LoadAllPlaylists.task()
                     ]),
                     PageType::SearchSongs => match playlist_id {
-                        Some(playlist_id) => Task::future(
-                            DatabaseInterface::get_playlist_by_id(
-                                self.database.derive(),
-                                playlist_id
-                            )).map(|playlist| match playlist {
-                                Some(playlist) => Message::PlaylistData(playlist),
-                                None => Message::None
-                            }),
+                        Some(playlist_id) => 
+                            Task::batch(vec![
+                                Task::future(
+                                    DatabaseInterface::get_playlist_by_id(
+                                        self.database.derive(),
+                                        playlist_id
+                                    )
+                                ).map(|playlist| match playlist {
+                                        Some(playlist) => Message::PlaylistData(playlist),
+                                        None => Message::None
+                                }),
+                                Task::stream(
+                                    Relay::consume_receiver(
+                                        DatabaseInterface::select_all_songs(self.database.derive()),
+                                        |item_stream| match item_stream {
+                                            crate::backend::database_manager::ItemStream::Error => None,
+                                            crate::backend::database_manager::ItemStream::End => None,
+                                            crate::backend::database_manager::ItemStream::Value(row) => {
+                                                Some(Message::RowIntoSearchResult(row, String::new()))
+                                            }
+                                        }
+                                    )
+                                )
+                            ]),
                         None => Task::none()
                     },
                     PageType::ViewPlaylist => match playlist_id {

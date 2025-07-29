@@ -182,7 +182,7 @@ impl Page for SearchPage {
                             crate::backend::database_manager::ItemStream::End => None,
                             crate::backend::database_manager::ItemStream::Error => None,
                             crate::backend::database_manager::ItemStream::Value(row) => {
-                                Some(Message::RowIntoSearchResult(row, query.clone()))
+                                Some(Message::RowIntoSearchResult(row, Some(query.clone())))
                             }
                         }
                     )

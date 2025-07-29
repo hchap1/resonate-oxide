@@ -281,7 +281,7 @@ impl Application<'_> {
                                             crate::backend::database_manager::ItemStream::Error => None,
                                             crate::backend::database_manager::ItemStream::End => None,
                                             crate::backend::database_manager::ItemStream::Value(row) => {
-                                                Some(Message::RowIntoSearchResult(row, String::new()))
+                                                Some(Message::RowIntoSearchResult(row, None))
                                             }
                                         }
                                     )
@@ -438,15 +438,19 @@ impl Application<'_> {
                 })
             }
 
-            Message::RowIntoSearchResult(row, query) => {
-                Task::future(DatabaseInterface::construct_song(
+            Message::RowIntoSearchResult(row, optn) => { Task::future(DatabaseInterface::construct_song(
                     row,
                     self.directories.get_music_ref().to_path_buf(),
                     self.directories.get_thumbnails_ref().to_path_buf()
                 )).map(move |option| match option {
                     Some(song) => {
-                        if is_song_similar(&song, &query) > 70 { Message::SearchResult(song, false) }
-                        else { Message::None }
+                        match &optn {
+                            Some(query) => {
+                                if is_song_similar(&song, &query) > 70 { Message::SearchResult(song, false) }
+                                else { Message::None }
+                            },
+                            None => Message::SearchResult(song, false)
+                        }
                     }
                     None => Message::None
                 })

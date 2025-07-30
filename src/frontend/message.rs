@@ -5,7 +5,6 @@ use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
 
 use crate::backend::database_manager::DatabaseParam;
-use crate::backend::mediacontrol::MediaControl;
 use crate::backend::settings::Secret;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
@@ -16,6 +15,7 @@ use crate::backend::rpc::RPCMessage;
 #[allow(dead_code)]
 pub enum Message {
     None,                                // Empty message for map task
+    LoadEverythingIntoQueue,
     LoadPage(PageType, Option<usize>),   // Loads a new page based on the PageType enum
     TextInput(String),                   // Primary TextInput task for single-entry pages
     SubmitSearch,                        // Primary task for single-entry-pages

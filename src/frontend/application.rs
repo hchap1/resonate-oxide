@@ -117,7 +117,7 @@ impl Application<'_> {
         }
     }
 
-    pub fn view(&self) -> Element<'_, Message> {
+    pub fn view(&self, _: iced::window::Id) -> Element<'_, Message> {
         ResonateWidget::window(
             Column::new().spacing(20).push(
                 Row::new().spacing(20).push(
@@ -378,6 +378,21 @@ impl Application<'_> {
             Message::QueueUpdate(queue_state) => {
                 self.queue_state = Some(queue_state);
                 Task::none()
+            }
+
+            Message::LoadEverythingIntoQueue => {
+                Task::stream(
+                    Relay::consume_receiver(
+                        DatabaseInterface::select_all_songs(self.database.derive()),
+                        |item_stream| match item_stream {
+                            crate::backend::database_manager::ItemStream::Error => None,
+                            crate::backend::database_manager::ItemStream::End => None,
+                            crate::backend::database_manager::ItemStream::Value(row) => {
+                                Some(Message::RowIntoSongForQueue(row))
+                            }
+                        }
+                    )
+                )
             }
             
             Message::LoadAudio => {

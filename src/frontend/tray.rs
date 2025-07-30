@@ -12,7 +12,8 @@ const ICON_BYTES: &[u8] = include_bytes!("assets/icons/icon.png");
 
 #[derive(Debug)]
 pub enum TrayMessage {
-    OpenMain
+    OpenMain,
+    Quit
 }
 
 pub struct SimpleTray {
@@ -37,8 +38,12 @@ impl SimpleTray {
         .expect("Failed to create tray icon");
 
     let menu = Menu::new();
+
     let open_item = MenuItem::new("Open", true, None);
     menu.append(&open_item).expect("Failed to append menu item");
+
+    let close_item = MenuItem::new("Quit", true, None);
+    menu.append(&close_item).expect("Failed to append menu item");
 
     let tray_icon = TrayIconBuilder::new()
         .with_icon(icon)
@@ -47,6 +52,7 @@ impl SimpleTray {
         .expect("Failed to build tray icon");
 
     let open_item_id = open_item.id().clone();
+    let close_item_id = close_item.id().clone();
 
     let (sender, receiver) = unbounded();
 
@@ -58,6 +64,8 @@ impl SimpleTray {
                     if let Some(message) = if evt.id == open_item_id {
                         println!("TRAY EVEN WAS OPENMAIN");
                         Some(TrayMessage::OpenMain)
+                    } else if evt.id == close_item_id {
+                        Some(TrayMessage::Quit)
                     } else {
                         None
                     } {

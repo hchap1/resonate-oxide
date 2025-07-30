@@ -14,6 +14,7 @@ use crate::backend::rpc::RPCMessage;
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum Message {
+    Quit,
     None,                                // Empty message for map task
     OpenMain,
     LoadEverythingIntoQueue,

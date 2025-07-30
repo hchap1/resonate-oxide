@@ -165,12 +165,17 @@ impl Application<'_> {
                         Relay::consume_receiver(
                             receiver,
                             |msg| match msg {
-                                super::tray::TrayMessage::OpenMain => Some(Message::OpenMain)
+                                super::tray::TrayMessage::OpenMain => Some(Message::OpenMain),
+                                super::tray::TrayMessage::Quit => Some(Message::Quit)
                             }
                         )
                     ),
                     None => Task::none()
                 }
+            }
+
+            Message::Quit => {
+                iced::exit()
             }
 
             Message::OpenMain => {

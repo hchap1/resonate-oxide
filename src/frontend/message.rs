@@ -5,6 +5,7 @@ use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
 
 use crate::backend::database_manager::DatabaseParam;
+use crate::backend::mediacontrol::MediaControl;
 use crate::backend::settings::Secret;
 
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleRequest};
@@ -94,7 +95,7 @@ pub enum Message {
     RowIntoSong(Vec<DatabaseParam>),
     RowIntoSongQuery(Vec<DatabaseParam>, String),
     RowIntoSearchResult(Vec<DatabaseParam>, Option<String>),
-    OnlineSearchFinished
+    OnlineSearchFinished,
 }
 
 #[derive(Clone, Debug)]

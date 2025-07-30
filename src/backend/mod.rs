@@ -9,4 +9,5 @@ pub mod settings;
 pub mod rpc;
 pub mod database_interface;
 pub mod database_manager;
+pub mod mediacontrol;
 mod sql;

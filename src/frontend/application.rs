@@ -47,6 +47,7 @@ use crate::backend::web::download_thumbnail;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database_manager::Database;
 use crate::backend::audio::AudioPlayer;
+use crate::backend::mediacontrol::MediaControl;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
@@ -73,7 +74,8 @@ pub struct Application<'a> {
     spotify_id: Option<String>,
     spotify_secret: Option<String>,
     last_fm_auth: Option<WebOAuth>,
-    rpc_manager: RPCManager
+    rpc_manager: RPCManager,
+    mediacontroller: Option<MediaControl>
 }
 
 impl<'a> Default for Application<'a> {
@@ -110,7 +112,8 @@ impl Application<'_> {
             spotify_id: None,
             spotify_secret: None,
             last_fm_auth: None,
-            rpc_manager: RPCManager::new()
+            rpc_manager: RPCManager::new(),
+            mediacontroller: None
         }
     }
 

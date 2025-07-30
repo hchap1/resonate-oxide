@@ -15,11 +15,10 @@ use frontend::application::Application;
 use frontend::message::Message;
 
 fn main() -> Result<(), iced::Error> {
-
     let dir = DataDir::create_or_load().expect("FATAL: Could not create directory.");
     let database = Database::new(dir.get_root_ref().to_path_buf());
     let (_media_control, receiver) = MediaControl::new(dir.get_root_ref().to_path_buf());
-
+    
     iced::daemon("Resonate-Oxide", Application::update, Application::view)
         .run_with(|| (Application::new(dir, database), Task::batch(vec![
             Message::LoadAudio.task(),
@@ -27,6 +26,8 @@ fn main() -> Result<(), iced::Error> {
             Message::LoadSecrets.task(),
             Message::LoadAllPlaylists.task(),
             Message::LoadEverythingIntoQueue.task(),
+            Message::OpenMain.task(),
+            Message::StartTray.task(),
             Task::stream(
                 Relay::consume_receiver(
                     receiver,

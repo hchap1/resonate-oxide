@@ -15,6 +15,7 @@ use crate::backend::rpc::RPCMessage;
 #[allow(dead_code)]
 pub enum Message {
     None,                                // Empty message for map task
+    OpenMain,
     LoadEverythingIntoQueue,
     LoadPage(PageType, Option<usize>),   // Loads a new page based on the PageType enum
     TextInput(String),                   // Primary TextInput task for single-entry pages
@@ -96,6 +97,7 @@ pub enum Message {
     RowIntoSongQuery(Vec<DatabaseParam>, String),
     RowIntoSearchResult(Vec<DatabaseParam>, Option<String>),
     OnlineSearchFinished,
+    StartTray
 }
 
 #[derive(Clone, Debug)]

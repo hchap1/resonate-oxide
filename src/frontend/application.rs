@@ -16,6 +16,7 @@ use rust_fm::token::WebCallback;
 use rust_fm::session::WebSession;
 use rust_fm::playing::NowPlaying;
 
+use crate::frontend::tray::SimpleTray;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
@@ -75,7 +76,8 @@ pub struct Application<'a> {
     spotify_secret: Option<String>,
     last_fm_auth: Option<WebOAuth>,
     rpc_manager: RPCManager,
-    mediacontroller: Option<MediaControl>
+    mediacontroller: Option<MediaControl>,
+    tray: SimpleTray
 }
 
 impl<'a> Default for Application<'a> {
@@ -113,7 +115,8 @@ impl Application<'_> {
             spotify_secret: None,
             last_fm_auth: None,
             rpc_manager: RPCManager::new(),
-            mediacontroller: None
+            mediacontroller: None,
+            tray: SimpleTray::new()
         }
     }
 
@@ -153,7 +156,27 @@ impl Application<'_> {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+
         match message {
+
+            Message::StartTray => {
+                match self.tray.take_receiver() {
+                    Some(receiver) => Task::stream(
+                        Relay::consume_receiver(
+                            receiver,
+                            |msg| match msg {
+                                super::tray::TrayMessage::OpenMain => Some(Message::OpenMain)
+                            }
+                        )
+                    ),
+                    None => Task::none()
+                }
+            }
+
+            Message::OpenMain => {
+                iced::window::open(iced::window::Settings::default()).1.map(|_| Message::None)
+            }
+
             Message::DownloadDLP => {
                 println!("[UPDATE] Check if DLP is downloaded");
                 match self.directories.get_dlp_ref() {

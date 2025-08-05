@@ -4777,7 +4777,6 @@ version = "0.1.4"
 dependencies = [
  "anyhow",
  "async-channel",
- "crossbeam-channel",
  "directories",
  "discord-rich-presence",
  "essi-ffmpeg",

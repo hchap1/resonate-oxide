@@ -2,9 +2,9 @@ use std::thread::JoinHandle;
 use std::thread::spawn;
 use std::path::PathBuf;
 
-use crossbeam_channel::Sender;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::unbounded;
+use async_channel::Sender;
+use async_channel::Receiver;
+use async_channel::unbounded;
 
 use rusqlite::types::Value;
 use rusqlite::Connection;

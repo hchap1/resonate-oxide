@@ -8,9 +8,9 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crossbeam_channel::Sender;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::unbounded;
+use async_channel::Sender;
+use async_channel::Receiver;
+use async_channel::unbounded;
 
 fn create_swift_script_if_missing(path: PathBuf) -> std::io::Result<()> {
     if path.exists() {
@@ -129,7 +129,7 @@ pub fn spawn_mediacontrol_daemon(sender: Sender<MediaPacket>, path: PathBuf) {
 impl MediaControl {
     pub fn new(basedir: PathBuf) -> (Self, Receiver<MediaPacket>) {
         let swift_file = basedir.join("media.swift");
-        create_swift_script_if_missing(swift_file.clone());
+        let _ = create_swift_script_if_missing(swift_file.clone());
         let (sender, receiver) = unbounded();
         (Self {
             _joinhandle: spawn(move || spawn_mediacontrol_daemon(sender, swift_file))

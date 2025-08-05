@@ -22,9 +22,9 @@ use tokio::process::Command;
 use tokio::io::BufReader;
 use tokio::io::AsyncBufReadExt;
 
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-use crossbeam_channel::unbounded;
+use async_channel::Receiver;
+use async_channel::Sender;
+use async_channel::unbounded;
 
 use super::error::ResonateError;
 use super::music::Song;
@@ -240,7 +240,7 @@ impl Stream for SpotifySongStream {
                         println!("[SPOTIFY] Received useless message.");
                     }
                 },
-                Err(crossbeam_channel::TryRecvError::Disconnected) => return Poll::Ready(None),
+                Err(async_channel::TryRecvError::Disconnected) => return Poll::Ready(None),
                 _ => {
                     break;
                 }

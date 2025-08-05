@@ -7,7 +7,6 @@ edition = "2021"
 rspotify = "*"
 anyhow = "1.0.98"
 async-channel = "2.3.1"
-crossbeam-channel = "0.5.15"
 directories = "6.0.0"
 essi-ffmpeg = "0.2.0"
 iced = { version = "0.13.1", features = ["tokio", "image", "advanced", "svg"] }

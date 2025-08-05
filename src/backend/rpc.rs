@@ -3,9 +3,9 @@ const CLIENT_ID: &str = "1383062372746264648";
 use std::thread::JoinHandle;
 use std::thread::spawn;
 
-use crossbeam_channel::Sender;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::unbounded;
+use async_channel::Sender;
+use async_channel::Receiver;
+use async_channel::unbounded;
 
 #[derive(Debug)]
 pub enum RPCError {

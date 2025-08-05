@@ -7,9 +7,9 @@ use std::fs::File;
 use std::time::Duration;
 use std::default::Default;
 
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-use crossbeam_channel::bounded;
+use async_channel::Receiver;
+use async_channel::Sender;
+use async_channel::bounded;
 
 use rodio::Decoder;
 use rodio::OutputStream;

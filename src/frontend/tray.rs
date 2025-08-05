@@ -2,8 +2,8 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem}, TrayIcon, TrayIconBuilder
 };
 
-use crossbeam_channel::unbounded;
-use crossbeam_channel::Receiver;
+use async_channel::unbounded;
+use async_channel::Receiver;
 
 use std::thread;
 use image::GenericImageView;

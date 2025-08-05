@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crossbeam_channel::Receiver;
+use async_channel::Receiver;
 
 use crate::backend::database_manager::DataLink;
 use crate::backend::database_manager::DatabaseParam;
@@ -271,8 +271,7 @@ impl DatabaseInterface {
 
         let mut unique = true;
 
-        while let Ok(item_stream) = handle.recv() {
-            match item_stream {
+        while let Ok(item_stream) = handle.recv_blocking() { match item_stream {
                 ItemStream::End => break,
                 ItemStream::Error => break,
                 ItemStream::Value(_) => unique = false
@@ -289,7 +288,7 @@ impl DatabaseInterface {
             DatabaseParam::String(song.artist),
             DatabaseParam::String(song.album.take().unwrap_or(String::from("none"))),
             DatabaseParam::Usize(song.duration.as_secs() as usize)
-        ])).recv() {
+        ])).recv_blocking() {
             Ok(res) => match res {
                 super::database_manager::InsertMessage::Success(id) => Ok(id),
                 super::database_manager::InsertMessage::Error => Err(())

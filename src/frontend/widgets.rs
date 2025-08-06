@@ -392,13 +392,22 @@ impl ResonateWidget {
                         }).step(0.01f32)
                     )
                 ).push(
-                    Row::new().spacing(10).push(
+                    Row::new().spacing(10).align_y(Vertical::Center).push(
                         Self::button_widget(crate::frontend::assets::settings())
                             .on_press(Message::LoadPage(
                                 PageType::Settings, None
                             ))
                     ).push(
-                        iced::widget::toggler(show_lyrics).on_toggle(Message::ToggleLyrics)
+                        iced::widget::toggler(show_lyrics).size(32f32).on_toggle(Message::ToggleLyrics).style(|_,_|
+                            iced::widget::toggler::Style {
+                                background: ResonateColour::background(),
+                                foreground: ResonateColour::colour(),
+                                background_border_width: 0f32,
+                                background_border_color: ResonateColour::background(),
+                                foreground_border_width: 0f32,
+                                foreground_border_color: ResonateColour::colour()
+                            }
+                        )
                     )
                 )
             )

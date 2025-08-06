@@ -137,8 +137,10 @@ impl Application<'_> {
                                 self.page.view(&self.current_song_downloads, &self.download_queue)
                             } else {
                                 Column::new().push(match self.lyrics.as_ref() {
-                                    Some(lyrics) => iced::widget::text(format!("LYRICS: {lyrics}")),
-                                    None => iced::widget::text("No Lyrics")
+                                    Some(lyrics) => ResonateWidget::padded_scrollable(
+                                        iced::widget::text(format!("LYRICS: {lyrics}")).into()
+                                    ),
+                                    None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into())
                                 })
                             }
                         ).width(Length::FillPortion(3))

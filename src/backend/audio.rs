@@ -300,7 +300,7 @@ fn audio_thread(
             if need_reload { should_audio_be_reloaded = true; }
         }
 
-        if sink.empty() {
+        if sink.empty() && !queue.songs.is_empty() {
             if queue.position < queue.songs.len() - 1 && !queue.repeat && !do_not_skip {
                 if first_song {
                     first_song = false;

@@ -10,4 +10,5 @@ pub mod rpc;
 pub mod database_interface;
 pub mod database_manager;
 pub mod mediacontrol;
+pub mod lyrics;
 mod sql;

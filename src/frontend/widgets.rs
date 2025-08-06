@@ -294,7 +294,8 @@ impl ResonateWidget {
         progress_update: Option<ProgressUpdate>,
         volume: f32,
         default_thumbnail: &'a Path,
-        default_queue: &'a QueueFramework
+        default_queue: &'a QueueFramework,
+        show_lyrics: bool
     ) -> Element<'a, Message> {
 
         let (real, queue_state) = match queue_state {
@@ -391,10 +392,14 @@ impl ResonateWidget {
                         }).step(0.01f32)
                     )
                 ).push(
-                    Self::button_widget(crate::frontend::assets::settings())
-                        .on_press(Message::LoadPage(
-                            PageType::Settings, None
-                        ))
+                    Row::new().spacing(10).push(
+                        Self::button_widget(crate::frontend::assets::settings())
+                            .on_press(Message::LoadPage(
+                                PageType::Settings, None
+                            ))
+                    ).push(
+                        iced::widget::toggler(show_lyrics).on_toggle(Message::ToggleLyrics)
+                    )
                 )
             )
         ).style(|_| ResonateStyle::list_container()).padding(10).into()

@@ -1,5 +1,7 @@
-use std::path::PathBuf;
+pub mod lyric;
 
+use std::path::PathBuf;
+use lyric::LyricMsg;
 use rspotify::model::{FullTrack, PlaylistItem};
 use rspotify::ClientCredsSpotify;
 use rust_fm::auth::WebOAuth;
@@ -14,6 +16,10 @@ use crate::backend::rpc::RPCMessage;
 #[derive(Clone, Debug)]
 #[allow(dead_code, clippy::enum_variant_names)]
 pub enum Message {
+
+    Lyrics(LyricMsg),
+    ToggleLyrics(bool),
+
     Quit,
     None,                                // Empty message for map task
     OpenMain,

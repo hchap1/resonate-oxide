@@ -16,6 +16,7 @@ use rust_fm::token::WebCallback;
 use rust_fm::session::WebSession;
 use rust_fm::playing::NowPlaying;
 
+use crate::backend::lyrics::Lyrics;
 use crate::frontend::tray::SimpleTray;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -77,7 +78,10 @@ pub struct Application<'a> {
     last_fm_auth: Option<WebOAuth>,
     rpc_manager: RPCManager,
     _mediacontroller: Option<MediaControl>,
-    tray: SimpleTray
+    tray: SimpleTray,
+    lyrics_backend: Option<Lyrics>,
+    lyrics: Option<String>,
+    show_lyrics: bool
 }
 
 impl Default for Application<'_> {
@@ -116,7 +120,10 @@ impl Application<'_> {
             last_fm_auth: None,
             rpc_manager: RPCManager::new(),
             _mediacontroller: None,
-            tray: SimpleTray::new()
+            tray: SimpleTray::new(),
+            lyrics_backend: Lyrics::new(),
+            lyrics: None,
+            show_lyrics: false
         }
     }
 
@@ -125,8 +132,16 @@ impl Application<'_> {
             Column::new().spacing(20).push(
                 Row::new().spacing(20).push(
                     Column::new().spacing(20)
-                        .push(self.page.view(&self.current_song_downloads, &self.download_queue))
-                        .width(Length::FillPortion(3))
+                        .push(
+                            if !self.show_lyrics {
+                                self.page.view(&self.current_song_downloads, &self.download_queue)
+                            } else {
+                                Column::new().push(match self.lyrics.as_ref() {
+                                    Some(lyrics) => iced::widget::text(format!("LYRICS: {lyrics}")),
+                                    None => iced::widget::text("No Lyrics")
+                                })
+                            }
+                        ).width(Length::FillPortion(3))
                     ).push(
                         Column::new().spacing(20)
                             .push(
@@ -144,12 +159,14 @@ impl Application<'_> {
                                 )
                             )
                     )
-            ).push(ResonateWidget::control_bar(self.queue_state.as_ref(), 
+            ).push(ResonateWidget::control_bar(
+                self.queue_state.as_ref(), 
                 self.page.back(self.last_page.clone()),
                 self.progress_state,
                 self.volume,
                 self.directories.get_default_thumbnail(),
-                &self.default_queue
+                &self.default_queue,
+                self.show_lyrics
             ))
             .into()
         )
@@ -158,6 +175,38 @@ impl Application<'_> {
     pub fn update(&mut self, message: Message) -> Task<Message> {
 
         match message {
+
+            Message::ToggleLyrics(val) => {
+                self.show_lyrics = val;
+                Task::none()
+            }
+
+            Message::Lyrics(lyric_msg) => {
+                match lyric_msg {
+                    super::message::lyric::LyricMsg::SpawnCollector => {
+                        if let Some(engine) = self.lyrics_backend.as_mut() {
+                            if let Some(receiver) = engine.take_receiver() {
+                                return Task::stream(
+                                    Relay::consume_receiver(
+                                        receiver,
+                                        |string| Some(Message::Lyrics(super::message::lyric::LyricMsg::ReturnLyrics(string)))
+                                    )
+                                );
+                            }
+                        }
+                    },
+                    super::message::lyric::LyricMsg::RequestLyrics(song) => {
+                        if let Some(engine) = self.lyrics_backend.as_ref() {
+                            engine.send(song);
+                        }
+                    },
+                    super::message::lyric::LyricMsg::ReturnLyrics(lyrics) => {
+                        self.lyrics = Some(lyrics);
+                    }
+                }
+
+                Task::none()
+            }
 
             Message::MakeTables => {
                 Task::future(DatabaseInterface::create_tables(self.database.derive())).map(|_| Message::None)
@@ -817,8 +866,12 @@ impl Application<'_> {
                     }
                 );
 
-                let rpc_task = Message::RPCMessage(RPCMessage::SetStatus(song)).task();
-                rpc_task.chain(fm_task)
+                self.lyrics = None;
+                let rpc_task = Message::RPCMessage(RPCMessage::SetStatus(song.clone())).task();
+                Task::batch(vec![
+                    Message::Lyrics(super::message::lyric::LyricMsg::RequestLyrics(song)).task(),
+                    rpc_task.chain(fm_task)
+                ])
             }
 
             Message::FMPushScrobble(song) => {

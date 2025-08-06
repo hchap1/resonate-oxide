@@ -13,6 +13,7 @@ use iced::Task;
 
 use frontend::application::Application;
 use frontend::message::Message;
+use frontend::message::lyric::LyricMsg;
 
 fn main() -> Result<(), iced::Error> {
     let dir = DataDir::create_or_load().expect("FATAL: Could not create directory.");
@@ -29,6 +30,7 @@ fn main() -> Result<(), iced::Error> {
             Message::LoadEverythingIntoQueue.task(),
             Message::OpenMain.task(),
             Message::StartTray.task(),
+            Message::Lyrics(LyricMsg::SpawnCollector).task(),
             Task::stream(
                 Relay::consume_receiver(
                     receiver,

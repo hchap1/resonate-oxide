@@ -23,6 +23,7 @@ discord-rich-presence = "0.2.5"
 pin-project = "*"
 fuzzy-matcher = "*"
 tray-icon = "*"
+chartlyrics = { version = "0.3.1", features = ["blocking"] }
 
 [build-dependencies]
 winres = "*"

@@ -76,11 +76,11 @@ pub struct Application<'a> {
     spotify_secret: Option<String>,
     last_fm_auth: Option<WebOAuth>,
     rpc_manager: RPCManager,
-    mediacontroller: Option<MediaControl>,
+    _mediacontroller: Option<MediaControl>,
     tray: SimpleTray
 }
 
-impl<'a> Default for Application<'a> {
+impl Default for Application<'_> {
     fn default() -> Self {
         let datadir = match DataDir::create_or_load() {
             Ok(datadir) => datadir,
@@ -115,7 +115,7 @@ impl Application<'_> {
             spotify_secret: None,
             last_fm_auth: None,
             rpc_manager: RPCManager::new(),
-            mediacontroller: None,
+            _mediacontroller: None,
             tray: SimpleTray::new()
         }
     }
@@ -146,7 +146,7 @@ impl Application<'_> {
                     )
             ).push(ResonateWidget::control_bar(self.queue_state.as_ref(), 
                 self.page.back(self.last_page.clone()),
-                self.progress_state.clone(),
+                self.progress_state,
                 self.volume,
                 self.directories.get_default_thumbnail(),
                 &self.default_queue
@@ -158,6 +158,10 @@ impl Application<'_> {
     pub fn update(&mut self, message: Message) -> Task<Message> {
 
         match message {
+
+            Message::MakeTables => {
+                Task::future(DatabaseInterface::create_tables(self.database.derive())).map(|_| Message::None)
+            }
 
             Message::StartTray => {
                 match self.tray.take_receiver() {
@@ -194,9 +198,8 @@ impl Application<'_> {
             }
 
             Message::DLPDownloaded(dlp_path) => {
-                match dlp_path {
-                    Some(dlp_path) => self.directories.take_dlp_path(dlp_path),
-                    None => {}
+                if let Some(dlp_path) = dlp_path {
+                    self.directories.take_dlp_path(dlp_path)
                 }
 
                 Task::none()
@@ -243,7 +246,7 @@ impl Application<'_> {
                 self.current_song_downloads.remove(&song.yt_id);
                 let _ = self.page.update(Message::SongDownloaded(song));
 
-                if self.download_queue.len() > 0 {
+                if !self.download_queue.is_empty() {
                     let song = match self.download_queue.iter().nth(0) {
                         Some(song) => song.clone(),
                         None => return Task::none()
@@ -492,7 +495,7 @@ impl Application<'_> {
                     Some(song) => {
                         match &optn {
                             Some(query) => {
-                                if is_song_similar(&song, &query) > 70 { Message::SearchResult(song, false) }
+                                if is_song_similar(&song, query) > 70 { Message::SearchResult(song, false) }
                                 else { Message::None }
                             },
                             None => Message::SearchResult(song, false)
@@ -532,7 +535,7 @@ impl Application<'_> {
                 self.current_song_downloads.remove(&song.yt_id);
                 let _ = self.page.update(Message::DownloadFailed(song));
 
-                if self.download_queue.len() > 0 {
+                if !self.download_queue.is_empty() {
                     let song = match self.download_queue.iter().nth(0) {
                         Some(song) => song.clone(),
                         None => return Task::none()
@@ -563,21 +566,17 @@ impl Application<'_> {
                                 )
                            )
                         )
-                    ).map(|r| Message::SpotifyAuth(r))
+                    ).map(Message::SpotifyAuth)
                 } else {
                     Task::none()
                 }
             }
 
             Message::SpotifyAuth(res) => {
-
-                println!("[SPOTIFY] Authentication received: IS_OK: {}", res.is_ok());
-
                 match res {
                     Ok(creds) => self.spotify_credentials = Some(creds),
                     Err(_) => {
                         let _ = self.page.update(Message::SpotifyAuthenticationFailedAgain);
-                        eprintln!("[SPOTIFY] Authentication Failed");
                         return Task::none();
                     }
                 }
@@ -602,9 +601,9 @@ impl Application<'_> {
                     println!("[SPOTIFY] Received creds, spawning stream");
                     Task::stream(SpotifySongStream::new(id, creds.clone())).map(
                         |item| match item {
-                            SpotifyEmmision::PlaylistItem(item) => Message::SpotifyPlaylistItem(item),
-                            SpotifyEmmision::PlaylistName(name, size) => Message::SpotifyPlaylistName(name, size),
-                            SpotifyEmmision::PlaylistIDFailure => Message::SpotifyInvalidID
+                            SpotifyEmmision::Item(item) => Message::SpotifyPlaylistItem(item),
+                            SpotifyEmmision::Name(name, size) => Message::SpotifyPlaylistName(name, size),
+                            SpotifyEmmision::IDFailure => Message::SpotifyInvalidID
                         }
                     )
                 } else {
@@ -622,11 +621,8 @@ impl Application<'_> {
 
             Message::SpotifyPlaylistItem(item) => {
                 let track = match item.track {
-                    Some(track) => match track {
-                        PlayableItem::Track(track) => track,
-                        _ => return Task::none()
-                    },
-                    None => return Task::none()
+                    Some(PlayableItem::Track(track)) => track,
+                    _ => return Task::none()
                 };
 
                 Task::future(DatabaseInterface::select_song_by_title(
@@ -659,7 +655,7 @@ impl Application<'_> {
             }
 
             Message::DownloadAll(mut songs) => {
-                if songs.len() == 0 { return Task::none(); }
+                if songs.is_empty() { return Task::none(); }
                 let mut task = Message::Download(songs.remove(0)).task();
                 songs.reverse();
 
@@ -692,23 +688,23 @@ impl Application<'_> {
                 let fm_key = secrets.pop().unwrap();
                 let spotify_secret = secrets.pop().unwrap();
                 let spotify_id = secrets.pop().unwrap();
-                let ready = fm_key.is_some() && fm_secret.is_some() && !fm_session.is_some();
+                let ready = fm_key.is_some() && fm_secret.is_some() && fm_session.is_none();
 
-                let fm_key_string = if let Some(fm_key) = fm_key {
-                    if let Secret::FMKey(s) = fm_key { Some(s) } else { None }
+                let fm_key_string = if let Some(Secret::FMKey(fm_key)) = fm_key {
+                    Some(fm_key)
                 } else { None };
-                let fm_secret_string = if let Some(fm_secret) = fm_secret {
-                    if let Secret::FMSecret(s) = fm_secret { Some(s) } else { None }
+                let fm_secret_string = if let Some(Secret::FMSecret(fm_secret)) = fm_secret {
+                    Some(fm_secret)
                 } else { None };
-                let fm_session_string = if let Some(fm_session) = fm_session {
-                    if let Secret::FMSession(s) = fm_session { Some(s) } else { None }
+                let fm_session_string = if let Some(Secret::FMSession(fm_session)) = fm_session {
+                    Some(fm_session)
                 } else { None };
 
-                let spotify_id_string = if let Some(spotify_id) = spotify_id {
-                    if let Secret::SpotifyID(s) = spotify_id { Some(s) } else { None }
+                let spotify_id_string = if let Some(Secret::SpotifyID(spotify_id)) = spotify_id {
+                    Some(spotify_id)
                 } else { None };
-                let spotify_secret_string = if let Some(spotify_secret) = spotify_secret {
-                    if let Secret::SpotifySecret(s) = spotify_secret { Some(s) } else { None }
+                let spotify_secret_string = if let Some(Secret::SpotifySecret(spotify_secret)) = spotify_secret {
+                    Some(spotify_secret)
                 } else { None };
 
                 self.last_fm_auth = Some(
@@ -865,10 +861,7 @@ impl Application<'_> {
                         DatabaseInterface::select_all_playlists(self.database.derive()),
                         |item| match item {
                             crate::backend::database_manager::ItemStream::Value(v) => {
-                                match DatabaseInterface::construct_playlist(v) {
-                                    Some(playlist) => Some(Message::PlaylistLoaded(playlist)),
-                                    None => None
-                                }
+                                DatabaseInterface::construct_playlist(v).map(Message::PlaylistLoaded)
                             },
                             crate::backend::database_manager::ItemStream::End => {
                                 None
@@ -889,7 +882,7 @@ impl Application<'_> {
 
     fn load_page(&mut self, page_type: PageType, playlist_id: Option<usize>) {
         self.last_page = self.current_page.to_owned();
-        self.current_page = (page_type.clone(), playlist_id.clone());
+        self.current_page = (page_type.clone(), playlist_id);
 
         self.page = match page_type {
 
@@ -913,7 +906,7 @@ impl Application<'_> {
             )),
 
             PageType::Settings => {
-                Box::new(SettingsPage::new(self.database.derive()))
+                Box::new(SettingsPage::new())
             }
         };
     }

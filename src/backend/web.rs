@@ -31,29 +31,14 @@ pub async fn flatsearch(
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
                     Some(entries) => Ok(entries.into_iter().filter_map(|entry| {
-                        match entry.title {
-                            Some(_) => {
-                                println!("SEARCH RESULT: {}", entry.title.unwrap());
-                                Some(entry.id.clone())
-                            }
-                            None => None
-                        }
+                        entry.title.map(|_| entry.id.clone())
                     }).collect::<Vec<String>>()),
-                    None => {
-                        println!("Flatsearch failed. Could not take entries.");
-                        Ok(Vec::<String>::new())
-                    }
-                }
-                None => {
-                    println!("Flatsearch failed. Could not convert into playlist.");
-                    Ok(Vec::<String>::new())
-                }
+                    None => Ok(Vec::<String>::new()),
+                },
+                None => Ok(Vec::<String>::new())
             }
         }
-        Err(e) => {
-            println!("{e:?}");
-            return Err(ResonateError::NetworkError)
-        }
+        Err(_) => Err(ResonateError::NetworkError)
     }
 }
 
@@ -75,10 +60,7 @@ pub fn collect_metadata(
             match result.into_single_video() {
                 Some(mut entry) => {
                     if let (Some(title), Some(artist), Some(duration)) = (entry.title, entry.artist, entry.duration) {
-                        let duration = match duration.as_u64() {
-                            Some(duration) => duration,
-                            None => 0u64
-                        };
+                        let duration = duration.as_u64().unwrap_or(0u64);
                         Ok(
                             Song::load(
                                 0,

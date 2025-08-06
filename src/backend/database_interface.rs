@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-
 use async_channel::Receiver;
 
 use crate::backend::database_manager::DataLink;
@@ -9,14 +8,13 @@ use crate::backend::sql::*;
 use crate::backend::music::Song;
 use crate::backend::database_manager::ItemStream;
 use crate::backend::music::Playlist;
-use crate::backend::error::ResonateError;
 use crate::backend::settings::Secret;
 
 pub struct DatabaseInterface;
 impl DatabaseInterface {
     
     /// Create the tables
-    pub fn create_tables(database: DataLink) {
+    pub async fn create_tables(database: DataLink) {
         let _ = database.execute(CREATE_SONG_TABLE, DatabaseParams::empty());
         let _ = database.execute(CREATE_PLAYLIST_TABLE, DatabaseParams::empty());
         let _ = database.execute(CREATE_PLAYLIST_ENTRIES_TABLE, DatabaseParams::empty());
@@ -81,34 +79,9 @@ impl DatabaseInterface {
         songs
     }
 
-    /// Get an async future to produce song by sql ID (not youtube ID)
-    pub async fn get_song_by_id(
-        database: DataLink, song_id: usize, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> Option<Song> {
-        let rows = match database.query_map(
-            SELECT_SONG_BY_SQL_ID, DatabaseParams::single(DatabaseParam::Usize(song_id))
-        ).await {
-            Ok(rows) => rows,
-            Err(_) => return None
-        };
-        Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
-    }
-
     /// Yield a receiver where database results will come through
     pub fn select_all_songs( database: DataLink) -> Receiver<ItemStream> {
         database.query_stream(SELECT_ALL_SONGS, DatabaseParams::empty())
-    }
-
-    pub async fn select_song_by_youtube_id(
-        database: DataLink, youtube_id: String, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> Option<Song> {
-        let rows = match database.query_map(
-            SELECT_SONG_BY_YOUTUBE_ID, DatabaseParams::single(DatabaseParam::String(youtube_id))
-        ).await {
-            Ok(rows) => rows,
-            Err(_) => return None
-        };
-        Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
     }
 
     /// Inserts a song into the database, returning the new ID of the song.
@@ -189,25 +162,6 @@ impl DatabaseInterface {
             Err(_) => return None
         };
         Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
-    }
-
-    /// Returns (number of downloaded songs, number of songs)
-    pub async fn get_download_statistics(
-        database: DataLink, playlist_id: usize, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> Result<(usize, usize), ResonateError> {
-
-        let rows = match database.query_map(
-            SELECT_ALL_SONGS_IN_PLAYLIST, DatabaseParams::single(DatabaseParam::Usize(playlist_id))
-        ).await {
-            Ok(rows) => rows,
-            Err(_) => return Err(ResonateError::GenericError)
-        };
-
-        let songs = Self::construct_songs(rows, music_path, thumbnail_path).await;
-        Ok((
-            songs.iter().filter(|x| x.music_path.is_some()).count(),
-            songs.len()
-        ))
     }
 
     /// Batch load secrets

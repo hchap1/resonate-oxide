@@ -1,5 +1,3 @@
-use rusqlite::{Connection, Statement};
-
 pub const CREATE_SONG_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS Songs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +63,6 @@ pub const INSERT_SECRET: &str = "
 pub const REMOVE_SONG_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE song_id = ? AND playlist_id = ?";
 pub const REMOVE_ALL_FROM_PLAYLIST: &str = "DELETE FROM Entries WHERE playlist_id = ?";
 pub const REMOVE_PLAYLIST: &str = "DELETE FROM Playlists WHERE id = ?";
-pub const SELECT_SONG_BY_SQL_ID: &str = "SELECT * FROM Songs WHERE id = ?";
 pub const SELECT_SONG_BY_YOUTUBE_ID: &str = "SELECT * FROM Songs WHERE yt_id = ?";
 pub const SELECT_ALL_SONGS: &str = "SELECT * FROM Songs";
 pub const UPDATE_PLAYLIST_NAME: &str = "UPDATE Playlists SET title = ? WHERE id = ?";

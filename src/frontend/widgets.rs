@@ -23,18 +23,18 @@ const B: u8 = 116;
 #[allow(dead_code)]
 pub struct ResonateColour;
 impl ResonateColour {
-    pub fn new(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
+    pub fn tc(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
     pub fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
 
     pub fn background()     -> Color { Self::hex("#1f2335") }
     pub fn foreground()     -> Color { Self::hex("#24283b") }
     pub fn accent()         -> Color { Self::hex("#292e42") }
-    pub fn colour()         -> Color { Self::new(R, G, B) } // { Self::hex("#9d7cd8") }
-    pub fn lighter_colour() -> Color { Self::new(
-        (R as f32 * 1.1 as f32).round() as u8,
-        (G as f32 * 1.1 as f32).round() as u8,
-        (B as f32 * 1.1 as f32).round() as u8,
-    )} // { Self::hex("#b992ff") }
+    pub fn colour()         -> Color { Self::tc(R, G, B) }
+    pub fn lighter_colour() -> Color { Self::tc(
+        (R as f32 * 1.1f32).round() as u8,
+        (G as f32 * 1.1f32).round() as u8,
+        (B as f32 * 1.1f32).round() as u8,
+    )}
     pub fn text()           -> Color { Self::hex("#c0caf5") }
     pub fn darker()         -> Color { Self::hex("#565f89") }
     pub fn yellow()         -> Color { Self::hex("#e0cf7e") }
@@ -88,7 +88,7 @@ impl ResonateStyle {
     pub fn thumbnail_container() -> container::Style {
         container::Style {
             text_color: None,
-            background: None,//Some(iced::Background::Color(ResonateColour::accent())),
+            background: None,
             border: Border::default().rounded(15),
             shadow: Shadow::default()
         }
@@ -192,7 +192,7 @@ impl ResonateWidget {
             .into()
     }
 
-    pub fn hover_area<'a>(element: Element<'a, Message>, id: usize) -> Element<'a, Message> {
+    pub fn hover_area(element: Element<'_, Message>, id: usize) -> Element<'_, Message> {
         iced::widget::MouseArea::new(element)
             .on_enter(Message::Hover(id, true))
             .on_exit(Message::Hover(id, false))
@@ -350,7 +350,7 @@ impl ResonateWidget {
                     ProgressBar::new(0f32..=1000f32, match progress_update {
                         Some(update) => match update {
                             ProgressUpdate::Nothing => 0f32,
-                            ProgressUpdate::Seconds(current, length) => (current as f32 / length as f32) * 1000f32
+                            ProgressUpdate::Seconds(current, length) => (current / length) * 1000f32
                         },
                         None => 0f32
                     }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
@@ -416,11 +416,11 @@ impl ResonateWidget {
         ).style(move |_,status| ResonateStyle::icon_button_with_background(status, state))
     }
 
-    pub fn header<'a>(value: &'a str) -> Element<'a, Message> {
+    pub fn header(value: &str) -> Element<'_, Message> {
         text(value).size(30).color(ResonateColour::colour()).width(Length::Fill).into()
     }
 
-    pub fn inline_button<'a>(text: &'a str) -> Button<'a, Message> {
+    pub fn inline_button(text: &str) -> Button<'_, Message> {
         button(text).style(|_, _| button::Style {
             background: None,
             text_color: ResonateColour::darker(),
@@ -444,7 +444,7 @@ impl ResonateWidget {
     ) -> Button<'a, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(
-                text(&playlist.id).size(32).width(Length::FillPortion(1))
+                text(playlist.id).size(32).width(Length::FillPortion(1))
             ).push({
                 let element: Element<'_, Message> = match input_field {
                     Some(current_value) => text_input("Name...", current_value)
@@ -484,7 +484,7 @@ impl ResonateWidget {
         ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
-    pub fn dummy_song<'a>(default_thumbnail: &'a Path) -> Button<'a, Message> {
+    pub fn dummy_song(default_thumbnail: &Path) -> Button<'_, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(Container::new(image(default_thumbnail)).style(|_|
                 ResonateStyle::thumbnail_container()).padding(10)
@@ -598,7 +598,7 @@ impl ResonateWidget {
         ).padding(10).width(Length::Fill)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
-    pub fn padded_scrollable<'a>(element: Element<'a, Message>) -> Scrollable<'a, Message> {
+    pub fn padded_scrollable(element: Element<'_, Message>) -> Scrollable<'_, Message> {
             Scrollable::new(
                 element
             )
@@ -608,7 +608,7 @@ impl ResonateWidget {
                 .spacing(20)
     }
 
-    pub fn window<'a>(element: Element<'a, Message>) -> Element<'a, Message> {
+    pub fn window(element: Element<'_, Message>) -> Element<'_, Message> {
         Container::new(element).padding(20).width(Length::Fill).height(Length::Fill).style(|_| ResonateStyle::background_wrapper()).into()
     }
 }

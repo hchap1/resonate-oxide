@@ -86,7 +86,7 @@ pub fn spawn_mediacontrol_daemon(sender: Sender<MediaPacket>, path: PathBuf) {
             match path.canonicalize() {
                 Ok(path) => path.to_string_lossy().to_string(),
                 Err(_) => {
-                    let _ = sender.send(MediaPacket::Failure);
+                    let _ = sender.send_blocking(MediaPacket::Failure);
                     return;
                 }
             }
@@ -96,7 +96,7 @@ pub fn spawn_mediacontrol_daemon(sender: Sender<MediaPacket>, path: PathBuf) {
     {
         Ok(child) => child,
         Err(_) => {
-            let _ = sender.send(MediaPacket::Failure);
+            let _ = sender.send_blocking(MediaPacket::Failure);
             return;
         }
     };
@@ -104,7 +104,7 @@ pub fn spawn_mediacontrol_daemon(sender: Sender<MediaPacket>, path: PathBuf) {
     let stdout = match child.stdout.take() {
         Some(stdout) => stdout,
         None => {
-            let _ = sender.send(MediaPacket::Failure);
+            let _ = sender.send_blocking(MediaPacket::Failure);
             return;
         }
     };
@@ -112,7 +112,7 @@ pub fn spawn_mediacontrol_daemon(sender: Sender<MediaPacket>, path: PathBuf) {
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
-        let _ = sender.send(match line {
+        let _ = sender.send_blocking(match line {
             Ok(l) => match l.as_str() {
                 "0" => MediaPacket::TogglePlayback,
                 "1" => MediaPacket::SkipForward,

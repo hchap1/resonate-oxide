@@ -84,7 +84,7 @@ impl Page for PlaylistsPage {
                 };
 
                 Task::future(DatabaseInterface::insert_playlist(self.database.clone(), playlist))
-                    .map(|playlist| Message::PlaylistCreated(playlist))
+                    .map(Message::PlaylistCreated)
             }
 
             Message::PlaylistCreated(playlist) => {
@@ -93,14 +93,8 @@ impl Page for PlaylistsPage {
             }
 
             Message::TextInput(text) => {
-                match self.editing.as_ref() {
-                    Some(playlist_idx) => {
-                        match self.playlists.get_mut(*playlist_idx) {
-                            Some(playlist) => playlist.0.name = text,
-                            None => {}
-                        }
-                    }
-                    None => {}
+                if let Some(playlist_idx) = self.editing.as_ref() {
+                    if let Some(playlist) = self.playlists.get_mut(*playlist_idx) { playlist.0.name = text }
                 }
                 Task::none()
             }
@@ -111,14 +105,11 @@ impl Page for PlaylistsPage {
             }
 
             Message::StopEditing => {
-                match self.editing.take() {
-                    Some(idx) => {
-                        DatabaseInterface::update_playlist_name(
-                            self.database.clone(),
-                            self.playlists[idx].0.clone()
-                        )
-                    },
-                    None => {}
+                if let Some(idx) = self.editing.take() {
+                    DatabaseInterface::update_playlist_name(
+                        self.database.clone(),
+                        self.playlists[idx].0.clone()
+                    )
                 };
                 Task::none()
             }

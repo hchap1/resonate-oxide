@@ -39,7 +39,6 @@ pub enum DatabaseParam {
     Usize(usize),
     Null,
     F64(f64),
-    Like(String)
 }
 
 impl DatabaseParam {
@@ -49,7 +48,6 @@ impl DatabaseParam {
             Self::Usize(v) => Value::from(*v as isize),
             Self::Null => Value::Null,
             Self::F64(v) => Value::Real(*v),
-            Self::Like(v) => Value::from(format!("%{v}%"))
         }
     }
     
@@ -61,11 +59,6 @@ impl DatabaseParam {
     pub fn string(&self) -> String {
         if let Self::String(v) = self { return v.clone(); }
         panic!("Attempted to get a STRING from a non-string value");
-    }
-
-    pub fn f64(&self) -> f64 {
-        if let Self::F64(v) = self { return *v; }
-        panic!("Attempted to get a F64 from a non-f64 value");
     }
 }
 
@@ -85,7 +78,7 @@ impl DatabaseParams {
 }
 
 pub struct Database {
-    handle: JoinHandle<()>,
+    _handle: JoinHandle<()>,
     datalink: DataLink
 }
 
@@ -100,13 +93,13 @@ impl DataLink {
     }
 
     pub fn execute(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
-        self.task_sender.send(DatabaseTask::Execute(query, params)).map_err(|_| ())
+        self.task_sender.send_blocking(DatabaseTask::Execute(query, params)).map_err(|_| ())
     }
 
     pub async fn execute_and_wait(&self, query: &'static str, params: DatabaseParams) -> Result<(), ()> {
         let (sender, receiver) = unbounded();
-        let _ = self.task_sender.send(DatabaseTask::WaitExecute(query, params, sender));
-        match tokio::task::spawn_blocking(move || receiver.recv()).await {
+        let _ = self.task_sender.send_blocking(DatabaseTask::WaitExecute(query, params, sender));
+        match receiver.recv().await {
             Ok(_) => Ok(()),
             Err(_) => Err(())
         }
@@ -115,28 +108,25 @@ impl DataLink {
     /// Execute function with receiver callback intended for insert commands (returns row id)
     pub async fn insert(&self, query: &'static str, params: DatabaseParams) -> Option<usize> {
         let (sender, receiver) = unbounded();
-        let _ = self.task_sender.send(DatabaseTask::Insert(query, params, sender));
-        let result = match tokio::task::spawn_blocking(move || receiver.recv()).await {
+        let _ = self.task_sender.send_blocking(DatabaseTask::Insert(query, params, sender));
+        let result = match receiver.recv().await {
             Ok(result) => result,
             Err(_) => return None
         };
 
-        match result {
-            Ok(message) => match message { InsertMessage::Success(v) => Some(v), InsertMessage::Error => None },
-            Err(_) => None
-        }
+        match result { InsertMessage::Success(v) => Some(v), InsertMessage::Error => None }
     }
 
     pub fn insert_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<InsertMessage> {
         let (sender, receiver) = unbounded();
-        let _ = self.task_sender.send(DatabaseTask::Insert(query, params, sender));
+        let _ = self.task_sender.send_blocking(DatabaseTask::Insert(query, params, sender));
         receiver
     }
 
     /// Return a receiver that receives the rows
     pub fn query_stream(&self, query: &'static str, params: DatabaseParams) -> Receiver<ItemStream> {
         let (sender, receiver) = unbounded();
-        let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
+        let _ = self.task_sender.send_blocking(DatabaseTask::Query(query, params, sender));
         receiver
     }
 
@@ -145,25 +135,17 @@ impl DataLink {
         &self, query: &'static str, params: DatabaseParams
     ) -> Result<Vec<Vec<DatabaseParam>>, ResonateError> {
         let (sender, receiver) = unbounded();
-        let _ = self.task_sender.send(DatabaseTask::Query(query, params, sender));
-        let handle = tokio::task::spawn_blocking(move || {
-            let mut values = Vec::new();
-            let mut error = false;
-            while let Ok(item) = receiver.recv() {
-                match item {
-                    ItemStream::End => break,
-                    ItemStream::Error => { error = true; break },
-                    ItemStream::Value(v) => values.push(v)
-                };
-            }
+        let _ = self.task_sender.send_blocking(DatabaseTask::Query(query, params, sender));
 
-            (values, error)
-        });
-
-        let (values, error) = match handle.await {
-            Ok(data) => data,
-            Err(_) => return Err(ResonateError::GenericError)
-        };
+        let mut values = Vec::new();
+        let mut error = false;
+        while let Ok(item) = receiver.recv().await {
+            match item {
+                ItemStream::End => break,
+                ItemStream::Error => { error = true; break },
+                ItemStream::Value(v) => values.push(v)
+            };
+        }
 
         match error {
             false => Ok(values),
@@ -178,7 +160,7 @@ impl Database {
         let (task_sender, task_receiver) = unbounded();
 
         Database {
-            handle: spawn(move || database_thread(root_dir, task_receiver)),
+            _handle: spawn(move || database_thread(root_dir, task_receiver)),
             datalink: DataLink::new(task_sender)
         }
     }
@@ -196,7 +178,7 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
     };
 
     'mainloop: loop {
-        let current_task = match task_receiver.recv() {
+        let current_task = match task_receiver.recv_blocking() {
             Ok(task) => task,
             Err(_) => return
         };
@@ -210,24 +192,24 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
             DatabaseTask::WaitExecute(query, params, sender) => {
                 if let Ok(mut statement) = connection.prepare(query) {
                     let _ = statement.execute(params.to_params());
-                    let _ = sender.send(());
+                    let _ = sender.send_blocking(());
                 } else {
-                    let _ = sender.send(());
+                    let _ = sender.send_blocking(());
                 }
             },
             DatabaseTask::Insert(query, params, sender) => {
                 if let Ok(mut statement) = connection.prepare(query) {
                     let _ = statement.execute(params.to_params());
-                    let _ = sender.send(InsertMessage::Success(connection.last_insert_rowid() as usize));
+                    let _ = sender.send_blocking(InsertMessage::Success(connection.last_insert_rowid() as usize));
                 } else {
-                    let _ = sender.send(InsertMessage::Error);
+                    let _ = sender.send_blocking(InsertMessage::Error);
                 }
             }
             DatabaseTask::Query(query, params, sender) => {
                 let mut statement = match connection.prepare(query) {
                     Ok(statement) => statement,
                     Err(_) => {
-                        let _ = sender.send(ItemStream::Error);
+                        let _ = sender.send_blocking(ItemStream::Error);
                         continue
                     }
                 };
@@ -258,15 +240,15 @@ fn database_thread(root_dir: PathBuf, task_receiver: Receiver<DatabaseTask>) {
                 }) {
                     Ok(rows) => rows.filter_map(|x| x.ok()).collect::<Vec<Vec<DatabaseParam>>>(),
                     Err(_) => {
-                        let _ = sender.send(ItemStream::Error);
+                        let _ = sender.send_blocking(ItemStream::Error);
                         continue 'mainloop
                     }
                 };
 
                 for row in rows {
-                    let _ = sender.send(ItemStream::Value(row));
+                    let _ = sender.send_blocking(ItemStream::Value(row));
                 }
-                let _ = sender.send(ItemStream::End);
+                let _ = sender.send_blocking(ItemStream::End);
             }
         }
     }

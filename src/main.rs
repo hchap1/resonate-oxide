@@ -18,9 +18,10 @@ fn main() -> Result<(), iced::Error> {
     let dir = DataDir::create_or_load().expect("FATAL: Could not create directory.");
     let database = Database::new(dir.get_root_ref().to_path_buf());
     let (_media_control, receiver) = MediaControl::new(dir.get_root_ref().to_path_buf());
-    
+
     iced::daemon("Resonate-Oxide", Application::update, Application::view)
         .run_with(|| (Application::new(dir, database), Task::batch(vec![
+            Message::MakeTables.task(),
             Message::LoadAudio.task(),
             Message::DownloadDLP.task(),
             Message::LoadSecrets.task(),

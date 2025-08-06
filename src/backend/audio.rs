@@ -19,23 +19,12 @@ use rodio::Sink;
 use crate::backend::music::Song;
 use crate::backend::error::ResonateError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct QueueFramework {
     pub songs: Vec<Song>,
     pub position: usize,
     pub playing: bool,
     pub repeat: bool,
-}
-
-impl Default for QueueFramework {
-    fn default() -> QueueFramework {
-        QueueFramework {
-            songs: vec![],
-            position: 0,
-            playing: false,
-            repeat: false,
-        }
-    }
 }
 
 pub struct QueueItem {
@@ -124,7 +113,7 @@ pub enum AudioTask {
 }
 
 fn update_queue(sink: &Sink, queue: &Queue, queue_upstream: &Sender<QueueFramework>) {
-    let _ = queue_upstream.send(
+    let _ = queue_upstream.send_blocking(
         QueueFramework {
             songs: queue.songs.iter().map(|qi| qi.song.clone()).collect(),
             position: queue.position,
@@ -159,7 +148,7 @@ fn load_audio(
         sink.append(decoder);
         sink.play();
 
-        let _ = scrobble_upstream.send(ScrobbleRequest::NowPlaying(queue_item.song.clone()));
+        let _ = scrobble_upstream.send_blocking(ScrobbleRequest::NowPlaying(queue_item.song.clone()));
 
         Some(queue_item.song.id)
     } else { None };
@@ -183,7 +172,7 @@ fn audio_thread(
     loop {
         sleep(Duration::from_millis(200));
 
-        let _ = progress_upstream.send(match queue.songs.get(queue.position) {
+        let _ = progress_upstream.send_blocking(match queue.songs.get(queue.position) {
             Some(song) => ProgressUpdate::Seconds(
                 sink.get_pos().as_secs_f32(),
                 song.song.duration.as_secs_f32()
@@ -257,7 +246,7 @@ fn audio_thread(
                 AudioTask::SetQueue(songs) => {
                     sink.clear();
                     queue.position = 0;
-                    queue.songs = songs.into_iter().filter_map(|song| QueueItem::new(song)).collect();
+                    queue.songs = songs.into_iter().filter_map(QueueItem::new).collect();
                     sink.play();
                     do_not_skip = true;
                     true
@@ -311,7 +300,7 @@ fn audio_thread(
             if need_reload { should_audio_be_reloaded = true; }
         }
 
-        if sink.empty() && queue.songs.len() != 0 {
+        if sink.empty() {
             if queue.position < queue.songs.len() - 1 && !queue.repeat && !do_not_skip {
                 if first_song {
                     first_song = false;
@@ -337,7 +326,7 @@ fn audio_thread(
 
             if !scrobble_applied && ratio > 0.2f32 {
                 scrobble_applied = true;
-                let _ = scrobble_upstream.send(ScrobbleRequest::Scrobble(song.song.clone()));
+                let _ = scrobble_upstream.send_blocking(ScrobbleRequest::Scrobble(song.song.clone()));
             }
         }
         
@@ -359,11 +348,15 @@ pub struct AudioPlayer {
     task_upstream: Sender<AudioTask>,
 }
 
-impl AudioPlayer {
-    pub fn new() -> Result<(
-        AudioPlayer, Receiver<QueueFramework>, Receiver<ProgressUpdate>, Receiver<ScrobbleRequest>
-    ), ResonateError> {
+type AudioChannels = (
+    AudioPlayer,
+    Receiver<QueueFramework>,
+    Receiver<ProgressUpdate>,
+    Receiver<ScrobbleRequest>
+);
 
+impl AudioPlayer {
+    pub fn new() -> Result<AudioChannels, ResonateError> {
         let (task_upstream, task_downstream) = bounded::<AudioTask>(256);
         let (queue_upstream, queue_downstream) = bounded::<QueueFramework>(256);
         let (progress_upstream, progress_downstream) = bounded::<ProgressUpdate>(256);
@@ -398,7 +391,7 @@ impl AudioPlayer {
     }
 
     pub fn send_task(&self, task: AudioTask) -> Result<(), ()> {
-        match self.task_upstream.send(task) {
+        match self.task_upstream.send_blocking(task) {
             Ok(_) => Ok(()),
             Err(e) => {
                 println!("[AUDIO] Error sending task: {e:?}");

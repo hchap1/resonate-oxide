@@ -33,7 +33,7 @@ impl RPCManager {
     }
 
     pub fn send(&self, message: RPCMessage) {
-        let _ = self.sender.send(message);
+        let _ = self.sender.send_blocking(message);
     }
 }
 
@@ -51,7 +51,7 @@ fn rpc_thread(receiver: Receiver<RPCMessage>) -> Result<(), RPCError> {
     if drpc.connect().is_err() { return Err(RPCError::Failed) }
 
     loop {
-        let message = match receiver.recv() {
+        let message = match receiver.recv_blocking() {
             Ok(message) => message,
             Err(_) => return Err(RPCError::ChannelDied)
         };

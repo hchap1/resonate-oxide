@@ -7,6 +7,7 @@ use iced::Color;
 
 use crate::frontend::widgets::ResonateColour;
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Clone, Debug)]
 pub enum Secret {
     SpotifyID(String),
@@ -28,7 +29,7 @@ enum Setting {
 }
 
 impl Setting {
-    fn from_string(string: &String) -> Option<Setting> {
+    fn from_string(string: &str) -> Option<Setting> {
         match string.to_lowercase().as_str() {
             "colour" => Some(Setting::Colour),
             "max_download_concurrency" => Some(Setting::MaxDownloadConcurrency),
@@ -49,24 +50,18 @@ impl Settings {
             let lines: Vec<ConfigLine> = match read_to_string(config_path) {
                 Ok(lines) => lines
                     .lines()
-                    .into_iter()
                     .filter_map(
                         |x| {
                             let mut args = x
-                                .to_string()
                                 .split("=")
-                                .into_iter()
                                 .map(|b| b.to_string().trim().to_string())
                                 .collect::<Vec<String>>();
 
                             if args.len() == 2 {
-                                match Setting::from_string(&args[0]) {
-                                    Some(setting) => Some(ConfigLine {
-                                        target_setting: setting,
-                                        value: args.pop().unwrap()
-                                    }),
-                                    None => None
-                                }
+                                Setting::from_string(&args[0]).map(
+                                    |setting| ConfigLine { target_setting: setting, value: args.pop().unwrap() }
+                                )
+                                
                             } else {
                                 None
                             }
@@ -81,9 +76,8 @@ impl Settings {
             lines.into_iter().for_each(
                 |line| match line.target_setting {
                     Setting::Colour => settings.colour = ResonateColour::hex(&line.value),
-                    Setting::MaxDownloadConcurrency => match line.value.parse::<usize>() {
-                        Ok(value) => settings.max_download_concurrency = value,
-                        Err(_) => {}
+                    Setting::MaxDownloadConcurrency => if let Ok(value) = line.value.parse::<usize>() {
+                        settings.max_download_concurrency = value
                     }
                 }
             );

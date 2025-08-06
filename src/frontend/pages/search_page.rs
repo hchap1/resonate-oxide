@@ -71,22 +71,14 @@ impl Page for SearchPage {
 
         let mut column = Column::new().spacing(20)
             .push_maybe(
-                match self.search_notify.as_ref() {
-                    Some(notify) => {
-                        if let Some(playlist) = self.playlist.as_ref() {
-                            Some(ResonateWidget::search_notify(
-                                notify,
-                                self.directories.get_default_thumbnail(),
-                                playlist.id,
-                                self.search_task_finished,
-                                &self.existing_songs
-                            ))
-                        } else {
-                            None
-                        }
-                    },
-                    None => None
-                }
+                self.search_notify.as_ref().and_then(
+                    |notify| self.playlist.as_ref().map(
+                        |playlist| ResonateWidget::search_notify(
+                            notify, self.directories.get_default_thumbnail(),
+                            playlist.id, self.search_task_finished, &self.existing_songs
+                        )
+                    )
+                )
             );
 
 
@@ -98,7 +90,7 @@ impl Page for SearchPage {
                 }
 
                 let is_downloading = current_song_downloads.contains(&song.yt_id);
-                let is_queued = queued_downloads.contains(&song);
+                let is_queued = queued_downloads.contains(song);
 
                 column = column.push(
                     ResonateWidget::song(
@@ -132,7 +124,7 @@ impl Page for SearchPage {
             .push(search_bar)
     }
 
-    fn update(self: &mut Self, message: Message) -> Task<Message> {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
 
             Message::SongStream(song) => {
@@ -247,17 +239,11 @@ impl Page for SearchPage {
             }
             
             Message::DLPWarning => {
-                match self.search_notify.as_mut() {
-                    Some(notify) => match notify {
-                        SearchState::Received(songs) => {
-                            match self.search_results.as_mut() {
-                                Some(search_results) => search_results.append(songs),
-                                None => self.search_results = Some(songs.to_vec())
-                            }
-                        },
-                        _ => {}
-                    }
-                    None => {}
+                if let Some(SearchState::Received(songs)) = self.search_notify.as_mut() {
+                        match self.search_results.as_mut() {
+                            Some(search_results) => search_results.append(songs),
+                            None => self.search_results = Some(songs.to_vec())
+                        }
                 }
 
                 self.search_notify = Some(SearchState::SearchFailed);
@@ -272,15 +258,13 @@ impl Page for SearchPage {
                         );
                 }
 
-                if let Some(notify) = self.search_notify.as_mut() {
-                    if let SearchState::Received(songs) = notify {
-                        songs.iter_mut()
-                            .for_each(|song|
-                                song.load_paths(
-                                    self.directories.get_music_ref(),
-                                    self.directories.get_thumbnails_ref())
-                            );
-                    }
+                if let Some(SearchState::Received(songs)) = self.search_notify.as_mut() {
+                    songs.iter_mut()
+                        .for_each(|song|
+                            song.load_paths(
+                                self.directories.get_music_ref(),
+                                self.directories.get_thumbnails_ref())
+                        );
                 }
 
                 Task::none()
@@ -297,19 +281,12 @@ impl Page for SearchPage {
             }
 
             Message::RemoveSearchStatus => {
-                match self.search_notify.as_mut() {
-                    Some(notify) => match notify {
-                        SearchState::Received(songs) => {
-                            match self.search_results.as_mut() {
-                                Some(search_results) => search_results.append(songs),
-                                None => self.search_results = Some(songs.to_vec())
-                            }
-                        },
-                        _ => {}
+                if let Some(SearchState::Received(songs)) = self.search_notify.as_mut() {
+                    match self.search_results.as_mut() {
+                        Some(search_results) => search_results.append(songs),
+                        None => self.search_results = Some(songs.to_vec())
                     }
-                    None => {}
                 }
-
                 self.search_notify = None;
                 Task::none()
             }

@@ -69,7 +69,7 @@ impl SimpleTray {
                     } else {
                         None
                     } {
-                        let _ = sender.send(message);
+                        let _ = sender.send_blocking(message);
                         println!("TRAY MESSAGE SENT");
                     }
                 }

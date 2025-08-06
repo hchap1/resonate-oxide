@@ -80,7 +80,7 @@ impl Page for ImportPage {
         for song in &self.songs {
 
             let is_downloading = current_song_downloads.contains(&song.yt_id);
-            let is_queued = download_queue.contains(&song);
+            let is_queued = download_queue.contains(song);
 
             let widget = ResonateWidget::song(
                 song,
@@ -201,10 +201,7 @@ impl Page for ImportPage {
         Column::new().spacing(20)
             .push(ResonateWidget::header("Spotify Playlist Import"))
             .push_maybe(
-                match self.playlist_name.as_ref() {
-                    Some(name) => Some(ResonateWidget::header(&name)),
-                    None => None
-                }
+                self.playlist_name.as_ref().map(|name| ResonateWidget::header(name))
             )
             .push_maybe(notification_widget)
             .push(ResonateWidget::padded_scrollable(column.into()))
@@ -306,7 +303,7 @@ impl Page for ImportPage {
                 };
 
                 return Task::future(DatabaseInterface::insert_playlist(self.database.clone(), playlist))
-                    .map(|playlist| Message::PlaylistCreated(playlist));
+                    .map(Message::PlaylistCreated);
             }
 
             Message::PlaylistCreated(playlist) => {

@@ -17,6 +17,7 @@ pub struct Song {
     pub thumbnail_path: Option<PathBuf>
 }
 
+#[allow(clippy::too_many_arguments)]
 impl Song {
     pub fn new(
         id: usize,
@@ -91,12 +92,12 @@ impl std::fmt::Display for Song {
         };
 
         let music_path = match self.music_path.as_ref() {
-            Some(music_path) => format!("Downloaded to {}.", music_path.to_string_lossy().to_string()),
+            Some(music_path) => format!("Downloaded to {}.", music_path.to_string_lossy()),
             None => String::from("Not downloaded.")
         };
 
         let thumbnail_path = match self.thumbnail_path.as_ref() {
-            Some(thumbnail_path) => format!("Thumbnail downloaded to {}.", thumbnail_path.to_string_lossy().to_string()),
+            Some(thumbnail_path) => format!("Thumbnail downloaded to {}.", thumbnail_path.to_string_lossy()),
             None => String::from("No thumbnail downloaded.")
         };
 

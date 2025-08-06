@@ -76,7 +76,7 @@ impl Page for PlaylistPage {
         for song in &self.songs {
 
             let is_downloading = current_song_downloads.contains(&song.yt_id);
-            let is_queued = queued_downloads.contains(&song);
+            let is_queued = queued_downloads.contains(song);
 
             if is_downloading && is_queued {
                 println!("[ALERT] Queue / Download collision.");
@@ -179,7 +179,7 @@ impl Page for PlaylistPage {
             Message::DownloadFailed(_) => {},
 
             Message::RemoveSongFromPlaylist(song_id, _) => {
-                match self.songs.iter().enumerate().find_map(|song|
+                if let Some(idx) = self.songs.iter().enumerate().find_map(|song|
                     if song.1.id == song_id {
                         if song.1.music_path.is_some() {
                             self.downloaded -= 1;
@@ -189,10 +189,7 @@ impl Page for PlaylistPage {
                         }
                         Some(song.0)
                     } else { None }
-                ) {
-                    Some(idx) => { self.songs.remove(idx); },
-                    None => {}
-                }
+                ) { self.songs.remove(idx); }
             }
 
             Message::Hover(id, hover) => {
@@ -213,7 +210,8 @@ impl Page for PlaylistPage {
             }
 
             _ => ()
-        }.into()
+        };
+        ().into()
     }
 
     fn back(&self, _: (PageType, Option<usize>)) -> (PageType, Option<usize>) {

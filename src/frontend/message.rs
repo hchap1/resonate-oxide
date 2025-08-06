@@ -12,7 +12,7 @@ use crate::backend::music::{Playlist, Song};
 use crate::backend::rpc::RPCMessage;
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::enum_variant_names)]
 pub enum Message {
     Quit,
     None,                                // Empty message for map task
@@ -36,55 +36,44 @@ pub enum Message {
     DownloadDLP,                         // Spawns a task to check if DLP is downloaded, and if it isn't, download it
     DLPDownloaded(Option<PathBuf>),      // <- Obvious
     DownloadFailed(Song),
-
     AddSongToPlaylist(Song, usize),      // This also downloads the song
     SongAddedToPlaylist(usize),          // For updating the GUI
     RemoveSongFromPlaylist(usize, usize),// Song id, playlist id
     DeletePlaylist(usize),
-    
     AudioTask(AudioTask),
     QueueUpdate(QueueFramework),         // Queue change
     ProgressUpdate(ProgressUpdate),
     LoadAudio,
     LoadEntirePlaylist(usize, bool),     // Id, whether to shuffle
-
     RemoveSearchStatus,
-
     SpotifyCreds(Option<String>, Option<String>),
     SpotifyAuth(Result<ClientCredsSpotify, ()>),
     SpotifyPlaylist(String),
-    SpotifyPlaylistItem(PlaylistItem),
+    SpotifyPlaylistItem(Box<PlaylistItem>),
     SpotifySongToYoutube(FullTrack),    // Search youtube to find the id of this song before pushing to stack
     SpotifyAuthFailed,
     ClearNotification,
     SavePlaylist,
     SpotifyPlaylistName(String, usize),
     SpotifyInvalidID,
-
     SpotifyAuthenticationSuccess,
     SpotifyAuthenticationFailedAgain,
-
     LoadSecrets,
     ChangeSecret(Secret),
     SaveSecret(Secret),
     SubmitSecrets,
-
     FMAuthenticate,
     FMGetSession(WebOAuth),
     FMAuthFailed(Option<WebOAuth>),
     FMAuthSuccess(WebOAuth),
     FMSaveSecrets,
-
     FMSetNowPlaying(Song),
     FMPushScrobble(Song),
     FMScrobbleSuccess,
     FMScrobbleFailure,
     ScrobbleRequest(ScrobbleRequest),
-
     RPCMessage(RPCMessage),
-
     Hover(usize, bool),
-
     LoadAllPlaylists,
     PlaylistData(Playlist),
     RowIntoSongForQueue(Vec<DatabaseParam>),
@@ -98,7 +87,8 @@ pub enum Message {
     RowIntoSongQuery(Vec<DatabaseParam>, String),
     RowIntoSearchResult(Vec<DatabaseParam>, Option<String>),
     OnlineSearchFinished,
-    StartTray
+    StartTray,
+    MakeTables
 }
 
 #[derive(Clone, Debug)]

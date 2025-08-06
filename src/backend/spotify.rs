@@ -8,6 +8,8 @@ use std::task::Poll;
 use std::task::Context;
 use std::task::Waker;
 
+use pin_project::pin_project;
+
 use iced::futures::Stream;
 use iced::futures::StreamExt;
 use rspotify::model::FullTrack;
@@ -38,6 +40,7 @@ pub async fn try_auth(credentials: ClientCredsSpotify) -> Result<ClientCredsSpot
     }
 }
 
+#[pin_project]
 pub struct SpotifySongStream {
     handle: JoinHandle<Result<(), ()>>,
     sender: Sender<InterThreadMessage>,
@@ -82,7 +85,7 @@ impl SpotifySongStream {
 
 enum InterThreadMessage {
     Done,
-    Result(PlaylistItem),
+    Result(Box<PlaylistItem>),
     Waker(Waker),
     WakerReceived,
     PlaylistName(String, usize),
@@ -96,17 +99,13 @@ async fn consume_stream(
     sender: Sender<InterThreadMessage>
 ) -> Result<(), ()> {
     let duration = Duration::from_millis(100);
-    println!("[SPOTIFY] Stream consuming async thread spawned");
-
     let waker = 'outer: loop {
-        println!("[SPOTIFY] Async thread polling for waker");
-        let _ = tokio::time::sleep(duration);
+        let _ = tokio::time::sleep(duration).await;
 
         while let Ok(message) = receiver.try_recv() {
             match message {
                 InterThreadMessage::Done => return Err(()), // shouldnt happen
                 InterThreadMessage::Waker(waker) => {
-                    println!("[SPOTIFY] Async thread has found waker");
                     break 'outer waker
                 }
                 _ => continue
@@ -116,15 +115,12 @@ async fn consume_stream(
 
     let playlist_id = match PlaylistId::from_id_or_uri(playlist_link.as_str()) {
         Ok(playlist_id) => playlist_id,
-        Err(e) => {
-            println!("[SPOTIFY] Failed to parse ID: {e:?}");
-            let _ = sender.send(InterThreadMessage::InvalidID);
+        Err(_) => {
+            let _ = sender.send(InterThreadMessage::InvalidID).await;
             waker.wake_by_ref();
             return Err(())
         }
     };
-
-    println!("[SPOTIFY] Async thread has valid ID");
 
     let mut stream = credentials.playlist_items(
         playlist_id.clone(),
@@ -132,14 +128,9 @@ async fn consume_stream(
         Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
     );
 
-
-
-    println!("[SPOTIFY] Async thread starting to drain stream");
-
-    match sender.send(InterThreadMessage::WakerReceived) {
+    match sender.send_blocking(InterThreadMessage::WakerReceived) {
         Ok(_) => {},
         Err(_) => {
-            println!("[SPOTIFY] Failed to send message confirming waker received");
             waker.wake_by_ref();
             return Err(())
         }
@@ -151,17 +142,16 @@ async fn consume_stream(
         Some(rspotify::model::Market::Country(rspotify::model::Country::UnitedStates)),
     ).await;
 
-    match playlist {
-        Ok(playlist) => {
-            let _ = sender.send(InterThreadMessage::PlaylistName(playlist.name, playlist.tracks.items.len()));
-        },
-        Err(_) => {}
+    if let Ok(playlist) = playlist {
+        let _ = sender.send_blocking(InterThreadMessage::PlaylistName(playlist.name, playlist.tracks.items.len()));
     }
 
     loop {
         match stream.next().await {
             Some(playlist_item) => match playlist_item {
-                Ok(playlist_item) => match sender.send(InterThreadMessage::Result(playlist_item)) {
+                Ok(playlist_item) => match sender.send_blocking(
+                        InterThreadMessage::Result(Box::new(playlist_item))
+                    ) {
                     Ok(_) => {
                         println!("[SPOTIFY] Async thread, pushing a new result.");
                     },
@@ -172,14 +162,14 @@ async fn consume_stream(
                     }
                 },
                 Err(_) => {
-                    let _ = sender.send(InterThreadMessage::Done);
+                    let _ = sender.send_blocking(InterThreadMessage::Done);
                     println!("[SPOTIFY] Async thread exiting because Paginator stream failed to produce item");
                     waker.wake_by_ref();
                     return Err(())
                 }
             }   
             None => {
-                let _ = sender.send(InterThreadMessage::Done);
+                let _ = sender.send_blocking(InterThreadMessage::Done);
                 println!("[SPOTIFY] Async thread exiting because Paginator stream failed");
                 waker.wake_by_ref();
                 return Err(())
@@ -191,56 +181,49 @@ async fn consume_stream(
 }
 
 pub enum SpotifyEmmision {
-    PlaylistItem(PlaylistItem),
-    PlaylistName(String, usize),
-    PlaylistIDFailure
+    Item(Box<PlaylistItem>),
+    Name(String, usize),
+    IDFailure
 }
 
 impl Stream for SpotifySongStream {
     type Item = SpotifyEmmision;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<SpotifyEmmision>> {
-        println!("[SPOTIFY] Polling: Polled");
         if !self.waker_received {
-            let _ = self.sender.send(InterThreadMessage::Waker(context.waker().to_owned()));
-            println!("[SPOTIFY] Sending WAKER");
+            let _ = self.sender.send_blocking(InterThreadMessage::Waker(context.waker().to_owned()));
         }
 
         loop {
             match self.receiver.try_recv() {
                 Ok(message) => match message {
                     InterThreadMessage::Done => {
-                        println!("[SPOTIFY] Polling finished from receiving done.");
                         if self.has_streamed_result_count {
                             return Poll::Ready(None) // done
                         } else {
                             self.has_streamed_result_count = true;
-                            return Poll::Ready(Some(SpotifyEmmision::PlaylistName(
+                            return Poll::Ready(Some(SpotifyEmmision::Name(
                                 self.playlist_name.clone(), self.result_count
                             )));
                         }
                     }
                     InterThreadMessage::Result(res) => {
-                        println!("[SPOTIFY] Result!");
                         self.result_count += 1;
-                        return Poll::Ready(Some(SpotifyEmmision::PlaylistItem(res)))
+                        return Poll::Ready(Some(SpotifyEmmision::Item(res)))
                     },
                     InterThreadMessage::WakerReceived => {
-                        println!("[IMPORTANT] [SPOTIFY] Waker received and acknowledged");
                         self.waker_received = true;
                     }
                     InterThreadMessage::PlaylistName(name, size) => {
                         self.playlist_name = name.clone();
-                        return Poll::Ready(Some(SpotifyEmmision::PlaylistName(name, size)))
+                        return Poll::Ready(Some(SpotifyEmmision::Name(name, size)))
                     }
                     InterThreadMessage::InvalidID => {
-                        return Poll::Ready(Some(SpotifyEmmision::PlaylistIDFailure))
+                        return Poll::Ready(Some(SpotifyEmmision::IDFailure))
                     }
-                    _ => {
-                        println!("[SPOTIFY] Received useless message.");
-                    }
+                    _ => {}
                 },
-                Err(async_channel::TryRecvError::Disconnected) => return Poll::Ready(None),
+                Err(async_channel::TryRecvError::Closed) => return Poll::Ready(None),
                 _ => {
                     break;
                 }

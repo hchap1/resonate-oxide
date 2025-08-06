@@ -4,8 +4,6 @@ pub enum ResonateError {
     NetworkError,
     ExecNotFound,
     DirectoryNotFound,
-    DatabaseCreationError,
-    TableCreationError,
     UnrecognisedHomeDir,
     SQLError,
     AudioStreamError,

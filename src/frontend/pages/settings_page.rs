@@ -9,12 +9,10 @@ use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
 
-use crate::backend::database_manager::DataLink;
 use crate::backend::music::Song;
 use crate::backend::settings::Secret;
 
 pub struct SettingsPage {
-    database: DataLink,
     spotify_id: Option<String>,
     spotify_secret: Option<String>,
     fm_key: Option<String>,
@@ -23,9 +21,8 @@ pub struct SettingsPage {
 }
 
 impl SettingsPage {
-    pub fn new(database: DataLink) -> Self {
+    pub fn new() -> Self {
         Self {
-            database,
             spotify_id: None,
             spotify_secret: None,
             fm_key: None,
@@ -112,18 +109,14 @@ impl Page for SettingsPage {
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
-        match message {
-            Message::ChangeSecret(secret) => {
-                match secret {
-                    Secret::FMKey(new_val) => self.fm_key = Some(new_val),
-                    Secret::FMSecret(new_val) => self.fm_secret = Some(new_val),
-                    Secret::FMSession(new_val) => self.fm_session = Some(new_val),
-                    Secret::SpotifyID(new_val) => self.spotify_id = Some(new_val),
-                    Secret::SpotifySecret(new_val) => self.spotify_secret = Some(new_val),
-                }
+        if let Message::ChangeSecret(secret) = message {
+            match secret {
+                Secret::FMKey(new_val) => self.fm_key = Some(new_val),
+                Secret::FMSecret(new_val) => self.fm_secret = Some(new_val),
+                Secret::FMSession(new_val) => self.fm_session = Some(new_val),
+                Secret::SpotifyID(new_val) => self.spotify_id = Some(new_val),
+                Secret::SpotifySecret(new_val) => self.spotify_secret = Some(new_val),
             }
-
-            _ => {}
         }
         Task::none()
     }

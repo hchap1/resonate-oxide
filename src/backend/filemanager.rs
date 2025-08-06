@@ -67,25 +67,17 @@ impl DataDir {
             panic!("COULDN'T CREATE DEFAULT THUMBNAIL");
         };
 
-        let mut matching_entry = match read_dir(&dependencies) {
+        let matching_entry = match read_dir(&dependencies) {
             Ok(entries) => entries,
             Err(_) => return Err(ResonateError::DirectoryNotFound)
         }.find(|entry| match entry {
                 Err(_) => false,
                 Ok(entry) => {
-                    if entry.path().to_string_lossy().to_string().contains("yt-dlp") {
-                        true
-                    } else {
-                        false
-                    }
+                    entry.path().to_string_lossy().to_string().contains("yt-dlp")
                 }
             });
 
-        let dlp_path = match matching_entry.take() {
-            Some(entry) => Some(entry.unwrap().path().to_path_buf()),
-            None => None
-        };
-
+        let dlp_path = matching_entry.map(|entry| entry.unwrap().path().to_path_buf());
         Ok(Self { music, dependencies, thumbnails, root, dlp_path, default_thumbnail })
     }
 
@@ -112,10 +104,7 @@ pub async fn install_dlp(target: PathBuf) -> Result<PathBuf, ResonateError> {
     println!("[DIRECTORIES] Attempting to download yt-dlp to {target:?}");
     // Check if some yt-dlp file already exists in the dependencies
     let existing_path_option = match read_dir(&target) {
-        Ok(contents) => contents.into_iter().filter_map(|item| match item {
-            Ok(item) => Some(item),
-            Err(_) => None
-        }).find(|entry| {
+        Ok(contents) => contents.into_iter().filter_map(|item| item.ok()).find(|entry| {
             match entry.path().is_file() {
                 true => {
                     entry.path().to_string_lossy().to_string().contains("yt-dlp")

@@ -1,4 +1,3 @@
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::fmt::Formatter;
 
@@ -13,24 +12,9 @@ pub struct Song {
     pub duration: Duration
 }
 
-#[allow(clippy::too_many_arguments)]
 impl Song {
-    pub fn new(
-        id: usize,
-        yt_id: String,
-        title: String,
-        artist: String,
-        album: Option<String>,
-        duration: Duration,
-    ) -> Self {
-        Self {
-            id,
-            yt_id,
-            title,
-            artist,
-            album,
-            duration,
-        }
+    pub fn new( id: usize, yt_id: String, title: String, artist: String, album: Option<String>, duration: Duration) -> Self {
+        Self { id, yt_id, title, artist, album, duration }
     }
 
     pub fn display_duration(&self) -> String {
@@ -40,6 +24,12 @@ impl Song {
         )
     }
 
+    /// Convenience method
+    pub fn get_music_identifier(&self) -> String {
+        self.yt_id.clone()
+    }
+
+    /// This is what is always used to produce the album
     pub fn get_thumbnail_identifier(&self) -> String {
         match self.album.as_ref() {
             Some(album) => album.replace(" ", "_"),

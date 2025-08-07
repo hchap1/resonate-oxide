@@ -182,6 +182,16 @@ impl Application<'_> {
 
         match message {
 
+            Message::RequestThumbnail(song) => {
+                println!("[UPDATE] Thumbnail download requested for {}", song.title);
+                Task::future(self.thumbnail_manager.download_thumbnail(song.clone())).map(
+                    move |res| match res {
+                        Ok(_) => Message::ThumbnailDownloaded(song.clone()),
+                        Err(_) => Message::None
+                    }
+                )
+            }
+
             Message::SetNewSong(song) => {
                 self.current_song = Some(song.clone());
                 self.lyrics = None;
@@ -916,7 +926,7 @@ impl Application<'_> {
             PageType::Playlists => Box::new(PlaylistsPage::new(self.database.derive())),
 
             PageType::ViewPlaylist => Box::new(
-                match PlaylistPage::new(playlist_id, self.database.derive(), self.directories.clone()) {
+                match PlaylistPage::new(playlist_id, self.database.derive()) {
                     Ok(page) => page,
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }

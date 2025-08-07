@@ -61,7 +61,7 @@ impl ThumbnailManager {
         let paths = (dlp_path.to_path_buf(), thumbnail_dir.to_path_buf());
         Self {
             _handle: std::thread::spawn(
-                 move || Self::download_thread(passoff_tx, rx, paths)
+                 move || Self::run_thread(passoff_tx, rx, paths)
              ),
              task_sender: tx,
              default_thumbnail: thumbnail_dir.join("default_thumbnail.png")
@@ -78,17 +78,16 @@ impl ThumbnailManager {
 
     pub fn download_thumbnail(&self, song: Song) -> impl std::future::Future<Output = Result<Thumbnail, ThumbnailError>> {
         let (tx, rx) = unbounded();
-        let _ = self.task_sender.send(ThumbnailMessage::RequestDownload(song, tx));
+        let _ = self.task_sender.send_blocking(ThumbnailMessage::RequestDownload(song, tx));
 
         async move {
-            let res = rx.recv().await.map_err(ThumbnailError::from)?;
-            res.map_err(ThumbnailError::from)
+            rx.recv().await.map_err(ThumbnailError::from)?
         }
     }
 
     pub fn get_thumbnail_path_blocking(&self, song: Song) -> Thumbnail {
         let (tx, rx) = unbounded();
-        let _ = self.task_sender.send(ThumbnailMessage::RequestPath(song, tx));
+        let _ = self.task_sender.send_blocking(ThumbnailMessage::RequestPath(song, tx));
         match rx.recv_blocking().ok() {
             Some(Some(t)) => t,
             _ => self.get_default()
@@ -129,7 +128,7 @@ impl ThumbnailManager {
                     }
 
                     // If not already exists, then send it off to the downloader thread
-                    download_sender.send_blocking(
+                    let _ = download_sender.send_blocking(
                         ThumbnailMessage::RequestDownload(song, callback)
                     );
                 },

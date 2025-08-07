@@ -29,15 +29,13 @@ pub struct PlaylistPage {
     songs: Vec<Song>,
     query: String,
     database: DataLink,
-    directories: DataDir,
     hovered_song: Option<usize>,
-    
     total_songs: usize,
     downloaded: usize
 }
 
 impl PlaylistPage {
-    pub fn new(playlist: Option<usize>, database: DataLink, directories: DataDir) -> Result<PlaylistPage, ()> {
+    pub fn new(playlist: Option<usize>, database: DataLink) -> Result<PlaylistPage, ()> {
 
         if playlist.is_none() {
             return Err(());
@@ -51,7 +49,6 @@ impl PlaylistPage {
             songs: Vec::new(),
             query: String::new(),
             database,
-            directories,
             hovered_song: None,
             total_songs: 0,
             downloaded: 0
@@ -94,7 +91,7 @@ impl Page for PlaylistPage {
             column = column.push(
                 ResonateWidget::hover_area(
                     if song.music_path.is_none() {
-                        widget.on_press(Message::Download(song.clone()))
+                        widget.on_press(Message::RequestThumbnail(song.clone()))
                     } else {
                         widget.on_press(Message::AudioTask(crate::backend::audio::AudioTask::Push(song.clone())))
                     }.into(),

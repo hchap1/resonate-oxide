@@ -5,7 +5,6 @@ use std::task::Waker;
 use std::pin::Pin;
 
 use iced::futures::Stream;
-use image::imageops::FilterType;
 use youtube_dl::YoutubeDl;
 use tokio::process::Command;
 
@@ -81,51 +80,6 @@ pub fn collect_metadata(
             }
         }
         Err(_) => Err(ResonateError::NetworkError)
-    }
-}
-
-pub async fn download_thumbnail(dlp_path: PathBuf, thumbnail_dir: PathBuf, id: String, album_name: String) -> Result<PathBuf, ()> {
-    let album = album_name.replace(" ", "_");
-    let path = thumbnail_dir.join(&album).to_string_lossy().to_string();
-
-    let mut ytdlp = Command::new(dlp_path);
-    ytdlp.arg("--write-thumbnail")
-        .arg("--skip-download")
-        .arg("--no-check-certificate")
-        .arg(format!("https://music.youtube.com/watch?v={}", id))
-        .arg("-o")
-        .arg(path.clone());
-
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        ytdlp = ytdlp.creation_flags(0x08000000);
-    }
-
-    ytdlp.spawn().unwrap();
-
-    let raw = match image::open(thumbnail_dir.join(format!("{album}.webp"))) {
-        Ok(image) => image,
-        Err(_) => return Err(())
-    };
-
-    let original_width = raw.width();
-    let original_height = raw.height();
-    let new_height = 64;
-    let new_width = (original_width as f64 * (new_height as f64 / original_height as f64)) as u32;
-    let scaled = raw.resize(new_width, new_height, FilterType::Gaussian);
-
-    let result: PathBuf = thumbnail_dir.join(format!("{album}.png"));
-
-    let height = scaled.height();
-    let padding = (scaled.width() - height)/2;
-    let cropped = scaled.crop_imm(padding, 0, height, height);
-    let _ = cropped.save(&result);
-    let _ = std::fs::remove_file(thumbnail_dir.join(format!("{album}.webp")));
-
-    match result.exists() {
-        true => Ok(result),
-        false => Err(())
     }
 }
 

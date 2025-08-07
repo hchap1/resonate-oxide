@@ -11,4 +11,5 @@ pub mod database_interface;
 pub mod database_manager;
 pub mod mediacontrol;
 pub mod lyrics;
+pub mod thumbnail;
 mod sql;

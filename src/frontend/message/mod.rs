@@ -14,12 +14,10 @@ use crate::backend::music::{Playlist, Song};
 use crate::backend::rpc::RPCMessage;
 
 #[derive(Clone, Debug)]
-#[allow(dead_code, clippy::enum_variant_names)]
+#[allow(dead_code, clippy::enum_variant_names, clippy::large_enum_variant)]
 pub enum Message {
-
     Lyrics(LyricMsg),
     ToggleLyrics(bool),
-
     Quit,
     None,                                // Empty message for map task
     OpenMain,
@@ -32,7 +30,6 @@ pub enum Message {
     CollectMetadata(String),             // Task created by LoadSearchResults
     SearchResult(Song, bool),            // Final task in the search process - actually adds a finished song to the buffer
     MultiSearchResult(Vec<Song>, bool),        // ^ Option extension allowing for parallel metadata collection in batches or all at once
-    UpdateThumbnails,                    // On any page that contains thumbnails, update them
     Download(Song),                      // Download a song asynchronously. Relies on the frontend to manage concurrency
     DownloadAll(Vec<Song>),              // Downloads every single song
     SongDownloaded(Song),
@@ -94,7 +91,12 @@ pub enum Message {
     RowIntoSearchResult(Vec<DatabaseParam>, Option<String>),
     OnlineSearchFinished,
     StartTray,
-    MakeTables
+    MakeTables,
+
+    SetNewSong(Song),
+
+    RequestThumbnail(Song),
+    UpdateThumbnails,
 }
 
 #[derive(Clone, Debug)]

@@ -61,7 +61,6 @@ pub struct Application<'a> {
     page: Box<dyn Page + 'a>,
     directories: DataDir,
     database: Database,
-    current_thumbnail_downloads: HashSet<String>,
     current_song_downloads: HashSet<String>,
     download_queue: HashSet<Song>,
     audio_player: Option<AudioPlayer>,
@@ -80,7 +79,9 @@ pub struct Application<'a> {
     tray: SimpleTray,
     lyrics_backend: Option<Lyrics>,
     lyrics: Option<String>,
-    show_lyrics: bool
+    show_lyrics: bool,
+
+    current_song: Option<Song>
 }
 
 impl Default for Application<'_> {
@@ -99,11 +100,11 @@ impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
 
         Self {
+            current_song: None,
             settings: Settings::default(),
             page: Box::new(PlaylistsPage::new(database.derive())),
             directories,
             database,
-            current_thumbnail_downloads: HashSet::new(),
             current_song_downloads: HashSet::new(),
             download_queue: HashSet::new(),
             audio_player: None,
@@ -174,6 +175,12 @@ impl Application<'_> {
     pub fn update(&mut self, message: Message) -> Task<Message> {
 
         match message {
+
+            Message::SetNewSong(song) => {
+                self.current_song = Some(song.clone());
+                self.lyrics = None;
+                Message::Lyrics(super::message::lyric::LyricMsg::RequestLyrics(song)).task()
+            }
 
             Message::ToggleLyrics(val) => {
                 self.show_lyrics = val;
@@ -868,7 +875,12 @@ impl Application<'_> {
 
             Message::ScrobbleRequest(scrobble_request) => {
                 match scrobble_request {
-                    ScrobbleRequest::NowPlaying(song) => Message::FMSetNowPlaying(song).task(),
+                    ScrobbleRequest::NowPlaying(song) => Message::SetNewSong(song.clone())
+                        .task()
+                        .chain(
+                            Message::FMSetNowPlaying(song)
+                            .task()
+                        ),
                     ScrobbleRequest::Scrobble(song) => Message::FMPushScrobble(song).task()
                 }
             }

@@ -9,6 +9,8 @@ use iced::Length;
 use iced::Task;
 
 use crate::backend::database_interface::DatabaseInterface;
+use crate::backend::thumbnail;
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::PageType;
 use crate::frontend::widgets::ResonateWidget;
@@ -60,7 +62,7 @@ impl SearchPage {
 
 impl Page for SearchPage {
     fn view(
-        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>
+        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>, thumbnail_manager: &ThumbnailManager
     ) -> Column<'_, Message> {
         let search_bar = Row::new()
             .push(
@@ -74,8 +76,7 @@ impl Page for SearchPage {
                 self.search_notify.as_ref().and_then(
                     |notify| self.playlist.as_ref().map(
                         |playlist| ResonateWidget::search_notify(
-                            notify, self.directories.get_default_thumbnail(),
-                            playlist.id, self.search_task_finished, &self.existing_songs
+                            notify, thumbnail_manager, playlist.id, self.search_task_finished, &self.existing_songs
                         )
                     )
                 )
@@ -95,7 +96,7 @@ impl Page for SearchPage {
                 column = column.push(
                     ResonateWidget::song(
                         song,
-                        self.directories.get_default_thumbnail(),
+                        thumbnail_manager,
                         is_downloading,
                         is_queued,
                         None,
@@ -247,26 +248,6 @@ impl Page for SearchPage {
                 }
 
                 self.search_notify = Some(SearchState::SearchFailed);
-                Task::none()
-            }
-
-            Message::UpdateThumbnails => {
-                if let Some(search_results) = self.search_results.as_mut() {
-                    search_results.iter_mut()
-                        .for_each(|song|
-                            song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref())
-                        );
-                }
-
-                if let Some(SearchState::Received(songs)) = self.search_notify.as_mut() {
-                    songs.iter_mut()
-                        .for_each(|song|
-                            song.load_paths(
-                                self.directories.get_music_ref(),
-                                self.directories.get_thumbnails_ref())
-                        );
-                }
-
                 Task::none()
             }
 

@@ -44,9 +44,14 @@ pub struct Thumbnail {
     blurred: PathBuf
 }
 
+impl Thumbnail {
+    pub fn small(&self) -> &Path { &self.thumbnail }
+}
+
 pub struct ThumbnailManager {
     _handle: std::thread::JoinHandle<()>,
-    task_sender: TnTx
+    task_sender: TnTx,
+    default_thumbnail: PathBuf
 }
 
 impl ThumbnailManager {
@@ -58,7 +63,16 @@ impl ThumbnailManager {
             _handle: std::thread::spawn(
                  move || Self::download_thread(passoff_tx, rx, paths)
              ),
-             task_sender: tx
+             task_sender: tx,
+             default_thumbnail: thumbnail_dir.join("default_thumbnail.png")
+        }
+    }
+
+    pub fn get_default(&self) -> Thumbnail {
+        Thumbnail { 
+            thumbnail: self.default_thumbnail.to_path_buf(),
+            fullsize: self.default_thumbnail.to_path_buf(),
+            blurred: self.default_thumbnail.to_path_buf(),
         }
     }
 
@@ -72,10 +86,13 @@ impl ThumbnailManager {
         }
     }
 
-    pub fn get_thumbnail_path_blocking(&self, song: Song) -> Option<Thumbnail> {
+    pub fn get_thumbnail_path_blocking(&self, song: Song) -> Thumbnail {
         let (tx, rx) = unbounded();
         let _ = self.task_sender.send(ThumbnailMessage::RequestPath(song, tx));
-        rx.recv_blocking().ok()?
+        match rx.recv_blocking().ok() {
+            Some(Some(t)) => t,
+            _ => self.get_default()
+        }
     }
 
     pub fn download_thread(task_sender: TnTx, task_receiver: TnRx, paths: TnPaths) {

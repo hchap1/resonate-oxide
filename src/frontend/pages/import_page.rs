@@ -11,6 +11,7 @@ use iced::Task;
 
 use crate::backend::database_interface::DatabaseInterface;
 use crate::backend::music::Playlist;
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -37,15 +38,11 @@ pub struct ImportPage {
     songs: Vec<Song>,
     input: String,
     notification: Option<SpotifyNotification>,
-
     spotify_id: Option<String>,
     spotify_client: Option<String>,
-    
     playlist_name: Option<String>,
     playlist_size: Option<usize>,
-
     saved: bool,
-
     failed_again: bool
 }
 
@@ -73,7 +70,9 @@ impl ImportPage {
 }
 
 impl Page for ImportPage {
-    fn view(&self, current_song_downloads: &HashSet<String>, download_queue: &HashSet<Song>) -> Column<'_, Message> {
+    fn view(
+        &self, current_song_downloads: &HashSet<String>, download_queue: &HashSet<Song>, thumbnail_manager: &ThumbnailManager
+    ) -> Column<'_, Message> {
 
         let mut column = Column::new().spacing(20);
 
@@ -84,7 +83,7 @@ impl Page for ImportPage {
 
             let widget = ResonateWidget::song(
                 song,
-                self.directories.get_default_thumbnail(),
+                thumbnail_manager,
                 is_downloading,
                 is_queued,
                 None,
@@ -310,13 +309,6 @@ impl Page for ImportPage {
                 for song in self.songs.iter() {
                     DatabaseInterface::insert_playlist_entry(self.database.clone(), song.id, playlist.id)
                 }
-            }
-
-            Message::UpdateThumbnails => {
-                self.songs.iter_mut()
-                    .for_each(|song|
-                        song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref())
-                    );
             }
 
             _ => {}

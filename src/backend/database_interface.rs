@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use async_channel::Receiver;
 
 use crate::backend::database_manager::DataLink;
@@ -36,22 +35,20 @@ impl DatabaseInterface {
 
     /// Make song from a single row
     pub async fn construct_song(
-        row: Vec<DatabaseParam>, music_path: PathBuf, thumbnail_path: PathBuf
+        row: Vec<DatabaseParam>
     ) -> Option<Song> {
         if row.len() != 6 {
             return None;
         }
 
         tokio::task::spawn_blocking(move || 
-            Song::load(
+            Song::new(
                 row[0].usize(),
                 row[1].string(),
                 row[2].string(),
                 row[3].string(),
                 Some(row[4].string()),
                 std::time::Duration::from_secs(row[5].usize() as u64),
-                music_path,
-                thumbnail_path
             )
         ).await.ok()
     }
@@ -67,12 +64,10 @@ impl DatabaseInterface {
     }
 
     /// Make a song out of the rows
-    pub async fn construct_songs(
-        rows: Vec<Vec<DatabaseParam>>, music_path: PathBuf, thumbnail_path: PathBuf
-    ) -> Vec<Song> {
+    pub async fn construct_songs(rows: Vec<Vec<DatabaseParam>>) -> Vec<Song> {
         let mut songs = Vec::new();
         for row in rows {
-            if let Some(song) = Self::construct_song(row, music_path.clone(), thumbnail_path.clone()).await {
+            if let Some(song) = Self::construct_song(row).await {
                 songs.push(song);
             }
         }
@@ -153,7 +148,7 @@ impl DatabaseInterface {
 
     /// Exact string matching
     pub async fn select_song_by_title(
-        database: DataLink, title: String, music_path: PathBuf, thumbnail_path: PathBuf
+        database: DataLink, title: String
     ) -> Option<Song> {
         let rows = match database.query_map(
             SELECT_SONG_BY_TITLE, DatabaseParams::single(DatabaseParam::String(title))
@@ -161,7 +156,7 @@ impl DatabaseInterface {
             Ok(rows) => rows,
             Err(_) => return None
         };
-        Self::construct_songs(rows, music_path, thumbnail_path).await.pop()
+        Self::construct_songs(rows).await.pop()
     }
 
     /// Batch load secrets

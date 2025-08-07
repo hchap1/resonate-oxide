@@ -18,7 +18,6 @@ pub struct DataDir {
     music: PathBuf,
     dependencies: PathBuf,
     thumbnails: PathBuf,
-    default_thumbnail: PathBuf,
     dlp_path: Option<PathBuf>
 }
 
@@ -56,7 +55,7 @@ impl DataDir {
             Err(_) => return Err(error)
         };
 
-        let default_thumbnail = if thumbnails.exists() {
+        let _ = if thumbnails.exists() {
             let default_thumbnail = thumbnails.join("default_thumbnail.png");
             if !default_thumbnail.exists() {
                 let img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(64, 64, |_, _| Luma([100]));
@@ -78,7 +77,7 @@ impl DataDir {
             });
 
         let dlp_path = matching_entry.map(|entry| entry.unwrap().path().to_path_buf());
-        Ok(Self { music, dependencies, thumbnails, root, dlp_path, default_thumbnail })
+        Ok(Self { music, dependencies, thumbnails, root, dlp_path })
     }
 
     pub fn take_dlp_path(&mut self, dlp_path: PathBuf) {
@@ -95,8 +94,6 @@ impl DataDir {
             None => None
         }
     }
-    pub fn get_default_thumbnail(&self) -> &Path { self.default_thumbnail.as_path() }
-
 }
 
 /// Attempt to install yt-dlp. If it is already installed, return the path

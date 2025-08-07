@@ -94,9 +94,7 @@ pub enum Message {
     MakeTables,
 
     SetNewSong(Song),
-
     RequestThumbnail(Song),
-    UpdateThumbnails,
 }
 
 #[derive(Clone, Debug)]

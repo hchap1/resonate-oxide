@@ -4,6 +4,7 @@ use iced::widget::Column;
 use iced::Task;
 
 use crate::backend::database_interface::DatabaseInterface;
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
@@ -30,7 +31,7 @@ impl PlaylistsPage {
 
 impl Page for PlaylistsPage {
     fn view(
-        &self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>
+        &self, _current_song_downloads: &HashSet<String>, _queued_downloads: &HashSet<Song>, _: &ThumbnailManager
     ) -> Column<'_, Message> {
         let mut column = Column::new().spacing(20);
         for (i, value) in self.playlists.iter().enumerate() {

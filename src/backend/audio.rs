@@ -42,7 +42,6 @@ impl QueueItem {
     }
 
     pub fn load(&mut self) {
-
         let path = match self.song.music_path.as_ref() {
             Some(path) => path.as_path(),
             None => return

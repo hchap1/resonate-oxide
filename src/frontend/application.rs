@@ -17,6 +17,7 @@ use rust_fm::session::WebSession;
 use rust_fm::playing::NowPlaying;
 
 use crate::backend::lyrics::Lyrics;
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::tray::SimpleTray;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -52,7 +53,9 @@ use crate::backend::mediacontrol::MediaControl;
 
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
-    fn view(&self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>) -> Column<'_, Message>;
+    fn view(
+        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>, thumbnail_manager: &ThumbnailManager
+    ) -> Column<'_, Message>;
     fn back(&self, previous_page: (PageType, Option<usize>)) -> (PageType, Option<usize>);
 }
 
@@ -81,7 +84,8 @@ pub struct Application<'a> {
     lyrics: Option<String>,
     show_lyrics: bool,
 
-    current_song: Option<Song>
+    current_song: Option<Song>,
+    thumbnail_manager: ThumbnailManager
 }
 
 impl Default for Application<'_> {
@@ -98,12 +102,13 @@ impl Default for Application<'_> {
 
 impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
+        let (dlp, thumb) = (directories.get_dlp_ref().expect("DLP not installed"), directories.get_thumbnails_ref());
 
         Self {
             current_song: None,
             settings: Settings::default(),
             page: Box::new(PlaylistsPage::new(database.derive())),
-            directories,
+            directories: directories.clone(),
             database,
             current_song_downloads: HashSet::new(),
             download_queue: HashSet::new(),
@@ -123,7 +128,8 @@ impl Application<'_> {
             tray: SimpleTray::new(),
             lyrics_backend: Lyrics::new(),
             lyrics: None,
-            show_lyrics: false
+            show_lyrics: false,
+            thumbnail_manager: ThumbnailManager::new(dlp, thumb)
         }
     }
 
@@ -134,7 +140,7 @@ impl Application<'_> {
                     Column::new().spacing(20)
                         .push(
                             if !self.show_lyrics {
-                                self.page.view(&self.current_song_downloads, &self.download_queue)
+                                self.page.view(&self.current_song_downloads, &self.download_queue, &self.thumbnail_manager)
                             } else {
                                 Column::new().push(match self.lyrics.as_ref() {
                                     Some(lyrics) => ResonateWidget::lyrics(lyrics),
@@ -155,16 +161,16 @@ impl Application<'_> {
                             .push(
                                 ResonateWidget::queue_bar(
                                     self.queue_state.as_ref(),
-                                    self.directories.get_default_thumbnail()
+                                    &self.thumbnail_manager
                                 )
                             )
                     )
             ).push(ResonateWidget::control_bar(
                 self.queue_state.as_ref(), 
+                &self.thumbnail_manager,
                 self.page.back(self.last_page.clone()),
                 self.progress_state,
                 self.volume,
-                self.directories.get_default_thumbnail(),
                 &self.default_queue,
                 self.show_lyrics
             ))
@@ -479,9 +485,7 @@ impl Application<'_> {
             }
 
             Message::RowIntoSongForQueue(row) => {
-                let music_path = self.directories.get_music_ref().to_path_buf();
-                let thumbnail_path = self.directories.get_thumbnails_ref().to_path_buf();
-                Task::future(DatabaseInterface::construct_song(row, music_path, thumbnail_path))
+                Task::future(DatabaseInterface::construct_song(row))
                     .map(|option| match option {
                         Some(song) => Message::AudioTask(AudioTask::Push(song)),
                         None => Message::None
@@ -489,22 +493,14 @@ impl Application<'_> {
             }
 
             Message::RowIntoSong(row) => {
-                Task::future(DatabaseInterface::construct_song(
-                    row,
-                    self.directories.get_music_ref().to_path_buf(),
-                    self.directories.get_thumbnails_ref().to_path_buf()
-                )).map(|song| match song {
+                Task::future(DatabaseInterface::construct_song(row)).map(|song| match song {
                     Some(song) => Message::SongStream(song),
                     None => Message::None
                 })
             }
 
             Message::RowIntoSongQuery(row, query) => {
-                Task::future(DatabaseInterface::construct_song(
-                    row,
-                    self.directories.get_music_ref().to_path_buf(),
-                    self.directories.get_thumbnails_ref().to_path_buf()
-                )).map(move |option| match option {
+                Task::future(DatabaseInterface::construct_song(row)).map(move |option| match option {
                     Some(song) => {
                         if is_song_similar(&song, &query) > 70 { Message::SongStream(song) }
                         else { Message::None }
@@ -513,11 +509,8 @@ impl Application<'_> {
                 })
             }
 
-            Message::RowIntoSearchResult(row, optn) => { Task::future(DatabaseInterface::construct_song(
-                    row,
-                    self.directories.get_music_ref().to_path_buf(),
-                    self.directories.get_thumbnails_ref().to_path_buf()
-                )).map(move |option| match option {
+            Message::RowIntoSearchResult(row, optn) => { Task::future(DatabaseInterface::construct_song(row))
+                .map(move |option| match option {
                     Some(song) => {
                         match &optn {
                             Some(query) => {
@@ -654,8 +647,6 @@ impl Application<'_> {
                 Task::future(DatabaseInterface::select_song_by_title(
                     self.database.derive(),
                     track.name.clone(),
-                    self.directories.get_music_ref().to_path_buf(),
-                    self.directories.get_thumbnails_ref().to_path_buf()
                 )).map(move |option| match option {
                     Some(song) => Message::GetSongByTitleForSpotify(Some(song), track.clone()),
                     None => Message::GetSongByTitleForSpotify(None, track.clone())
@@ -669,8 +660,6 @@ impl Application<'_> {
                             track,
                             dlp_path.to_path_buf(),
                             self.database.derive(),
-                            self.directories.get_music_ref().to_owned(),
-                            self.directories.get_thumbnails_ref().to_owned()
                         )
                     ).map(|res| match res {
                         Ok(song) => Message::SearchResult(song, true),

@@ -244,8 +244,6 @@ pub async fn load_spotify_song(
     item: FullTrack,
     dlp_path: PathBuf,
     database: DataLink,
-    music_path: PathBuf,
-    thumbnail_path: PathBuf
 ) -> Result<Song, ResonateError> {
 
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
@@ -276,13 +274,12 @@ pub async fn load_spotify_song(
         return Err(ResonateError::STDOUTError);
     }
 
-    let mut base_song = Song::load(0, id,
+    let mut base_song = Song::new(
+        0, id,
         item.name,
         artist,
         Some(item.album.name),
         item.duration.to_std().unwrap_or(Duration::from_secs(0)),
-        music_path,
-        thumbnail_path
     );
 
     let id = match DatabaseInterface::insert_song(database, base_song.clone()).await {

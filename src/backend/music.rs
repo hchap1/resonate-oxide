@@ -9,12 +9,13 @@ pub struct Song {
     pub title: String,
     pub artist: String,
     pub album: Option<String>,
-    pub duration: Duration
+    pub duration: Duration,
+    pub music_path: Option<std::path::PathBuf>
 }
 
 impl Song {
     pub fn new( id: usize, yt_id: String, title: String, artist: String, album: Option<String>, duration: Duration) -> Self {
-        Self { id, yt_id, title, artist, album, duration }
+        Self { id, yt_id, title, artist, album, duration, music_path: None }
     }
 
     pub fn display_duration(&self) -> String {

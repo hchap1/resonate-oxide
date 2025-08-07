@@ -4,6 +4,7 @@ use iced::widget::Column;
 use iced::widget::Row;
 use iced::Task;
 
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
@@ -33,7 +34,7 @@ impl SettingsPage {
 }
 
 impl Page for SettingsPage {
-    fn view(&self, _: &HashSet<String>, _: &HashSet<Song>) -> Column<Message> {
+    fn view(&self, _: &HashSet<String>, _: &HashSet<Song>, _: &ThumbnailManager) -> Column<Message> {
         Column::new().push(
             Row::new().spacing(10).push(
                 Column::new().spacing(20)

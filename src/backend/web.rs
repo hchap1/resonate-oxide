@@ -43,8 +43,6 @@ pub async fn flatsearch(
 
 pub fn collect_metadata(
         executable_path: &Path,
-        music_path: &Path,
-        thumbnail_path: &Path,
         id: &String
     ) -> Result<Song, ResonateError> {
 
@@ -61,15 +59,13 @@ pub fn collect_metadata(
                     if let (Some(title), Some(artist), Some(duration)) = (entry.title, entry.artist, entry.duration) {
                         let duration = duration.as_u64().unwrap_or(0u64);
                         Ok(
-                            Song::load(
+                            Song::new(
                                 0,
                                 entry.id,
                                 title,
                                 artist,
                                 entry.album.take(),
                                 Duration::from_secs(duration),
-                                music_path.to_owned(),
-                                thumbnail_path.to_owned()
                             )
                         )
                     } else {
@@ -148,14 +144,13 @@ impl AsyncMetadataCollectionPool {
 
 fn populate(
     waker: Waker, id: String, database: DataLink, dlp_path: PathBuf,
-    music_path: PathBuf, thumbnail_dir: PathBuf
 ) -> Result<Song, ResonateError> {
 
     if !DatabaseInterface::blocking_is_unique(database.clone(), id.clone()) {
         return Err(ResonateError::AlreadyExists);
     }
 
-    let mut song = match collect_metadata(dlp_path.as_path(), music_path.as_path(), thumbnail_dir.as_path(), &id) {
+    let mut song = match collect_metadata(dlp_path.as_path(), &id) {
         Ok(song) => song,
         error => return error
     };
@@ -184,16 +179,11 @@ impl Stream for AsyncMetadataCollectionPool {
 
                     let database = self.database.clone();
                     let dlp_path = self.dlp_path.clone();
-                    let music_path = self.music_path.clone();
-                    let thumbnail_path = self.thumbnail_path.clone();
 
                     let waker = context.waker().to_owned();
 
                     self.handle = Some(std::thread::spawn(
-                        move || populate(
-                            waker, id, database, dlp_path,
-                            music_path, thumbnail_path
-                        )
+                        move || populate(waker, id, database, dlp_path)
                     ))
                 },
 

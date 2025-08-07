@@ -9,6 +9,7 @@ use iced::Length;
 use iced::Task;
 
 use crate::backend::database_interface::DatabaseInterface;
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
 use crate::frontend::widgets::ResonateWidget;
@@ -60,7 +61,7 @@ impl PlaylistPage {
 
 impl Page for PlaylistPage {
     fn view(
-        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>
+        &self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>, thumbnail_manager: &ThumbnailManager
     ) -> Column<'_, Message> {
         let search_bar = Row::new().spacing(20).align_y(Vertical::Center).push(
             ResonateWidget::search_bar("Search...", &self.query)
@@ -84,7 +85,7 @@ impl Page for PlaylistPage {
 
             let widget = ResonateWidget::song(
                 song,
-                self.directories.get_default_thumbnail(),
+                thumbnail_manager,
                 is_downloading,
                 is_queued,
                 Some(self.playlist.id),
@@ -167,10 +168,6 @@ impl Page for PlaylistPage {
             Message::SongDownloaded(song) => {
                 for s in &mut self.songs {
                     if s.id == song.id {
-                        s.load_paths(
-                            self.directories.get_music_ref(),
-                            self.directories.get_thumbnails_ref()
-                        );
                         self.downloaded += 1;
                     }
                 }
@@ -195,13 +192,6 @@ impl Page for PlaylistPage {
             Message::Hover(id, hover) => {
                 if hover { self.hovered_song = Some(id) }
                 else { self.hovered_song = None; }
-            }
-
-            Message::UpdateThumbnails => {
-                self.songs.iter_mut()
-                    .for_each(|song|
-                        song.load_paths(self.directories.get_music_ref(), self.directories.get_thumbnails_ref())
-                    );
             }
 
             Message::PlaylistData(playlist) => {

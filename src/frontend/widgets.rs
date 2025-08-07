@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::collections::HashSet;
 
 use iced::alignment::{Horizontal, Vertical};
@@ -9,6 +8,7 @@ use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
 
+use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::message::Message;
 use crate::frontend::message::PageType;
 use crate::frontend::pages::search_page::SearchState;
@@ -200,7 +200,7 @@ impl ResonateWidget {
     }
 
     pub fn search_notify<'a>(
-        notify: &'a SearchState, default_thumbnail: &'a Path, playlist_id: usize,
+        notify: &'a SearchState, thumbnail_manager: &ThumbnailManager, playlist_id: usize,
         finished: bool, existing_songs: &HashSet<usize>
     ) -> Element<'a, Message> {
         Container::new(
@@ -253,7 +253,7 @@ impl ResonateWidget {
                     for song in songs.iter() {
                         if existing_songs.contains(&song.id) { continue; }
                         column = column.push(
-                            Self::song(song, default_thumbnail, false, false, None, false)
+                            Self::song(song, thumbnail_manager, false, false, None, false)
                                 .on_press(Message::AddSongToPlaylist(song.clone(), playlist_id))
                         )
                     }
@@ -265,7 +265,7 @@ impl ResonateWidget {
     }
 
     pub fn queue_bar<'a>(
-        queue_state: Option<&'a QueueFramework>, default_thumbnail: &'a Path
+        queue_state: Option<&'a QueueFramework>, thumbnail_manager: &ThumbnailManager
     ) -> Element<'a, Message> {
         Container::new(
             Self::padded_scrollable({
@@ -274,7 +274,7 @@ impl ResonateWidget {
                     Some(queue_state) => {
                         for (idx, song) in queue_state.songs.iter().enumerate() {
                             column = column.push(
-                                Self::simple_song(song, default_thumbnail, idx == queue_state.position)
+                                Self::simple_song(song, thumbnail_manager, idx == queue_state.position)
                                     .on_press(Message::AudioTask(AudioTask::Move(idx)))
                             )
                         }
@@ -290,10 +290,10 @@ impl ResonateWidget {
 
     pub fn control_bar<'a>(
         queue_state: Option<&'a QueueFramework>,
+        thumbnail_manager: &'a ThumbnailManager,
         last_page: (PageType, Option<usize>),
         progress_update: Option<ProgressUpdate>,
         volume: f32,
-        default_thumbnail: &'a Path,
         default_queue: &'a QueueFramework,
         show_lyrics: bool
     ) -> Element<'a, Message> {
@@ -307,10 +307,10 @@ impl ResonateWidget {
             Row::new().spacing(20).push(
                 match real {
                     true => match queue_state.songs.get(queue_state.position) {
-                        Some(song) => Self::simple_song(song, default_thumbnail, false),
-                        None => Self::dummy_song(default_thumbnail)
+                        Some(song) => Self::simple_song(song, thumbnail_manager, false),
+                        None => Self::dummy_song(thumbnail_manager)
                     }
-                    false => Self::dummy_song(default_thumbnail)
+                    false => Self::dummy_song(thumbnail_manager)
                 }.width(Length::FillPortion(1))
             ).push(
                 Column::new().width(Length::FillPortion(2)).spacing(10).push(
@@ -498,9 +498,9 @@ impl ResonateWidget {
         ).padding(5)).style(|_, state| ResonateStyle::button_wrapper(state))
     }
 
-    pub fn dummy_song(default_thumbnail: &Path) -> Button<'_, Message> {
+    pub fn dummy_song(thumbnail_manager: &ThumbnailManager) -> Button<'_, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
-            .push(Container::new(image(default_thumbnail)).style(|_|
+            .push(Container::new(image(thumbnail_manager.get_default().small())).style(|_|
                 ResonateStyle::thumbnail_container()).padding(10)
             ).push(
                 Column::new().spacing(10)
@@ -523,13 +523,12 @@ impl ResonateWidget {
         )
     }
 
-    pub fn simple_song<'a>(song: &'a Song, default_thumbnail: &'a Path, selected: bool) -> Button<'a, Message> {
+    pub fn simple_song<'a>(song: &'a Song, thumbnail_manager: &ThumbnailManager, selected: bool) -> Button<'a, Message> {
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(
-                Container::new(image(match song.thumbnail_path.as_ref() {
-                    Some(thumbnail) => thumbnail.as_path(),
-                    None => default_thumbnail
-                })).style(|_| ResonateStyle::thumbnail_container()).padding(10)
+                Container::new(image(
+                        thumbnail_manager.get_thumbnail_path_blocking(song.clone()).small()
+                )).style(|_| ResonateStyle::thumbnail_container()).padding(10)
             )
             .push(
                 Column::new().spacing(10)
@@ -552,7 +551,7 @@ impl ResonateWidget {
 
     pub fn song<'a>(
         song: &'a Song,
-        default_thumbnail: &'a Path,
+        thumbnail_manager: &ThumbnailManager,
         is_downloading: bool,
         is_queued: bool,
         playlist_id: Option<usize>,
@@ -563,10 +562,11 @@ impl ResonateWidget {
 
         button(Container::new(Row::new().spacing(20).align_y(Vertical::Center)
             .push(
-                Container::new(image(match song.thumbnail_path.as_ref() {
-                    Some(thumbnail) => thumbnail.as_path(),
-                    None => default_thumbnail
-                })).style(|_| ResonateStyle::thumbnail_container()).padding(10)
+                Container::new(
+                    image(
+                        thumbnail_manager.get_thumbnail_path_blocking(song.clone()).small()
+                    )
+                ).style(|_| ResonateStyle::thumbnail_container()).padding(10)
             )
             .push(
                 Column::new().spacing(10)

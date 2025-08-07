@@ -179,7 +179,9 @@ impl ThumbnailManager {
             ytdlp = ytdlp.creation_flags(0x08000000);
         }
 
-        if ytdlp.spawn().is_err() {
+        if let Ok(mut child) = ytdlp.spawn() {
+            let _ = child.wait();
+        } else {
             println!("[THUMBNAIL DOWNLOADER] Failed to spawn yt-dlp");
             return Err(ThumbnailError::FailedToSpawnDLP);
         }

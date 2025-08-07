@@ -51,6 +51,8 @@ use crate::backend::database_manager::Database;
 use crate::backend::audio::AudioPlayer;
 use crate::backend::mediacontrol::MediaControl;
 
+use super::widgets::ResonateColour;
+
 pub trait Page {
     fn update(&mut self, message: Message) -> Task<Message>;
     fn view(&self, current_song_downloads: &HashSet<String>, queued_downloads: &HashSet<Song>) -> Column<'_, Message>;
@@ -137,10 +139,8 @@ impl Application<'_> {
                                 self.page.view(&self.current_song_downloads, &self.download_queue)
                             } else {
                                 Column::new().push(match self.lyrics.as_ref() {
-                                    Some(lyrics) => ResonateWidget::padded_scrollable(
-                                        iced::widget::text(format!("LYRICS: {lyrics}")).into()
-                                    ),
-                                    None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into())
+                                    Some(lyrics) => ResonateWidget::lyrics(lyrics),
+                                    None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into()).into()
                                 })
                             }
                         ).width(Length::FillPortion(3))

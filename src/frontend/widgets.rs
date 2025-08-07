@@ -623,6 +623,30 @@ impl ResonateWidget {
     }
 
     pub fn window(element: Element<'_, Message>) -> Element<'_, Message> {
-        Container::new(element).padding(20).width(Length::Fill).height(Length::Fill).style(|_| ResonateStyle::background_wrapper()).into()
+        Container::new(element)
+            .padding(20)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(|_| ResonateStyle::background_wrapper())
+            .into()
+    }
+
+    pub fn lyrics(lyrics: &str) -> Element<'_, Message> {
+        let lyrics_list: Vec<&str> = lyrics.split('\n').collect();
+        let mut column = Column::new().align_x(Horizontal::Center).spacing(10).width(Length::Fill);
+
+        for lyric in lyrics_list {
+            column = column.push(
+                iced::widget::text(lyric).style(
+                    |_| iced::widget::text::Style {
+                        color: Some(ResonateColour::text())
+                    }
+                ).size(32f32)
+            );
+        }
+
+        ResonateWidget::padded_scrollable(
+            column.into()
+        ).width(Length::Fill).into()
     }
 }

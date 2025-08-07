@@ -45,7 +45,6 @@ use crate::backend::spotify::try_auth;
 use crate::backend::spotify::load_spotify_song;
 use crate::backend::spotify::SpotifyEmmision;
 use crate::backend::web::download_song;
-use crate::backend::thumbnail::ThumbnailManager;
 use crate::backend::filemanager::DataDir;
 use crate::backend::database_manager::Database;
 use crate::backend::audio::AudioPlayer;
@@ -305,27 +304,6 @@ impl Application<'_> {
                 } else {
                     Task::none()
                 }
-            }
-
-            Message::SearchResult(song, from_online) => {
-
-                let search_string = song.album.as_ref().unwrap_or(&song.yt_id);
-                let require_thumbnail_download = song.thumbnail_path.is_none()
-                    && !self.current_thumbnail_downloads.contains(search_string);
-                let _ = self.page.update(Message::SearchResult(song.clone(), from_online));
-
-                if require_thumbnail_download {
-                    self.current_thumbnail_downloads.insert(search_string.clone());
-                    Task::future(
-                        ThumbnailManager::download_thumbnail(
-                            self.directories.get_dlp_ref().expect("DLP not installed").to_path_buf(),
-                            self.directories.get_thumbnails_ref().to_path_buf(),
-                            song
-                        )
-                    ).map(|res| match res {
-                            Ok(_) => Message::UpdateThumbnails, _ => Message::None
-                    })
-                } else { Task::none() }
             }
 
             Message::MultiSearchResult(songs, is_online) => {

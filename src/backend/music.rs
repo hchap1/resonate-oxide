@@ -10,14 +10,7 @@ pub struct Song {
     pub title: String,
     pub artist: String,
     pub album: Option<String>,
-    pub duration: Duration,
-
-    // Derived upon retrieval from database
-    pub music_path: Option<PathBuf>,
-
-    pub thumbnail_path: Option<PathBuf>,
-    pub full_image_path: Option<PathBuf>,
-    pub blurred_image_path: Option<PathBuf>,
+    pub duration: Duration
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -29,10 +22,6 @@ impl Song {
         artist: String,
         album: Option<String>,
         duration: Duration,
-        music_path: Option<PathBuf>,
-        thumbnail_path: Option<PathBuf>,
-        full_image_path: Option<PathBuf>,
-        blurred_image_path: Option<PathBuf>,
     ) -> Self {
         Self {
             id,
@@ -41,81 +30,21 @@ impl Song {
             artist,
             album,
             duration,
-            music_path,
-            thumbnail_path,
-            full_image_path,
-            blurred_image_path
         }
     }
 
-    pub fn load_thumbnail_paths(&mut self, thumbnail_path: &Path) {
-        let thumbnail = match self.album.as_ref() {
-            Some(album) => {
-                let path = thumbnail_path.join(format!("{}.png", album.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-            None => {
-                let path = thumbnail_path.join(format!("{}.png", self.yt_id.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-        };
-
-        let full = match self.album.as_ref() {
-            Some(album) => {
-                let path = thumbnail_path.join(format!("{}_fullsize.png", album.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-            None => {
-                let path = thumbnail_path.join(format!("{}_fullsize.png", self.yt_id.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-        };
-
-        let blurred = match self.album.as_ref() {
-            Some(album) => {
-                let path = thumbnail_path.join(format!("{}_blurred.png", album.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-            None => {
-                let path = thumbnail_path.join(format!("{}_blurred.png", self.yt_id.replace(' ', "_")));
-                if path.exists() { Some(path) } else { None }
-            }
-        };
-
-        self.thumbnail_path = thumbnail;
-        self.full_image_path = full;
-        self.blurred_image_path = blurred;
-    }
-
-    pub fn load_paths(&mut self, music_path: &Path, thumbnail_path: &Path) {
-        let music = music_path.join(format!("{}.mp3", self.yt_id));
-        let music = if music.exists() { Some(music) } else { None };
-        self.music_path = music;
-        self.load_thumbnail_paths(thumbnail_path);
-    }
-
-    pub fn load(
-        id: usize,
-        yt_id: String,
-        title: String,
-        artist: String,
-        album: Option<String>,
-        duration: Duration,
-        music_path: PathBuf,
-        thumbnail_path: PathBuf
-    ) -> Self {
-        let mut song = Self::new(id, yt_id, title, artist, album, duration, None, None, None, None);
-        song.load_paths(&music_path, &thumbnail_path);
-        song
-    }
-}
-
-impl Song {
     pub fn display_duration(&self) -> String {
         format!("{:02}:{:02}", 
             self.duration.as_secs() / 60,
             self.duration.as_secs() % 60
         )
+    }
+
+    pub fn get_thumbnail_identifier(&self) -> String {
+        match self.album.as_ref() {
+            Some(album) => album.replace(" ", "_"),
+            None => self.yt_id.replace(" ", "_")
+        }
     }
 }
 
@@ -125,26 +54,13 @@ impl std::fmt::Display for Song {
             Some(album) => format!(" in {}", album),
             None => String::new()
         };
-
-        let music_path = match self.music_path.as_ref() {
-            Some(music_path) => format!("Downloaded to {}.", music_path.to_string_lossy()),
-            None => String::from("Not downloaded.")
-        };
-
-        let thumbnail_path = match self.thumbnail_path.as_ref() {
-            Some(thumbnail_path) => format!("Thumbnail downloaded to {}.", thumbnail_path.to_string_lossy()),
-            None => String::from("No thumbnail downloaded.")
-        };
-
-        write!(f, "{} by {}{album_string}. {:02}{:02}. SQL: {}. YT: {}. {} {}",
+        write!(f, "{} by {}{album_string}. {:02}{:02}. SQL: {}. YT: {}.",
             self.title,
             self.artist,
             self.duration.as_secs() / 60,
             self.duration.as_secs() % 60,
             self.id,
             self.yt_id,
-            music_path,
-            thumbnail_path
         )
     }
 }

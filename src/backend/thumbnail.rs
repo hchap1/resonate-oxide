@@ -1,12 +1,24 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::path::Path;
 use std::process::Command;
+use std::collections::HashSet;
 
 use image::imageops::FilterType;
 
 use crate::backend::music::Song;
 
-pub struct ThumbnailManager;
+pub struct Thumbnail {
+    thumbnail: PathBuf,
+    fullsize: PathBuf,
+    blurred: PathBuf
+}
+
+pub struct ThumbnailManager {
+    thumbnails: HashMap<String, Thumbnail>,
+    downloading: HashSet<String>
+}
+
 impl ThumbnailManager {
 
     pub fn do_all_exist(song: &mut Song, thumbnail_dir: &Path) -> bool {

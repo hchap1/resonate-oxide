@@ -105,8 +105,7 @@ pub async fn download_song(dlp_path: Option<PathBuf>, music_path: PathBuf, song:
 
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        cmd = cmd.creation_flags(0x08000000);
+        cmd.creation_flags(0x08000000);
     }
     
     let mut ytdlp = cmd.spawn().unwrap();

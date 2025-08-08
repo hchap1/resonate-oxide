@@ -258,8 +258,7 @@ pub async fn load_spotify_song(
 
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        ytdlp = ytdlp.creation_flags(0x08000000);
+        process.creation_flags(0x08000000);
     }
         
     let mut process = process.spawn().map_err(|_| ResonateError::ExecNotFound)?;

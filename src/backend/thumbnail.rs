@@ -209,7 +209,7 @@ impl ThumbnailManager {
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            ytdlp = ytdlp.creation_flags(0x08000000);
+            ytdlp.creation_flags(0x08000000);
         }
 
         if let Ok(mut child) = ytdlp.spawn() {

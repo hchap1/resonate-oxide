@@ -158,6 +158,7 @@ impl ThumbnailManager {
                     }
 
                     // If not already exists, then send it off to the downloader thread
+                    let _ = downloading.insert(identifier);
                     let _ = download_sender.send_blocking(
                         ThumbnailMessage::RequestDownload(song, callback)
                     );

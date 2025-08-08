@@ -93,7 +93,8 @@ pub struct Application<'a> {
     mode: Mode,
 
     current_song: Option<Song>,
-    thumbnail_manager: ThumbnailManager
+    thumbnail_manager: ThumbnailManager,
+    show_queue: bool
 }
 
 impl Default for Application<'_> {
@@ -137,7 +138,8 @@ impl Application<'_> {
             lyrics_backend: Lyrics::new(),
             lyrics: None,
             mode: Mode::Normal,
-            thumbnail_manager: ThumbnailManager::new(dlp, thumb)
+            thumbnail_manager: ThumbnailManager::new(dlp, thumb),
+            show_queue: true
         }
     }
 
@@ -146,6 +148,13 @@ impl Application<'_> {
             &self.thumbnail_manager,
             self.current_song.clone(),
             self.mode,
+            self.queue_state.as_ref(),
+            self.show_queue,
+            self.page.back(self.last_page.clone()),
+            self.progress_state,
+            self.volume,
+            &self.default_queue,
+
             Column::new().spacing(20).push(
                 Row::new().spacing(20).push(
                     Column::new().spacing(20)
@@ -166,38 +175,19 @@ impl Application<'_> {
                                 }
                             }
                         ).width(Length::FillPortion(3))
-                    ).push(
-                        Column::new().spacing(20)
-                            .push(
-                                Row::new().align_y(Vertical::Center)
-                                    .push(ResonateWidget::header("Queue"))
-                                    .push(
-                                        ResonateWidget::inline_button("Clear")
-                                            .on_press(Message::AudioTask(AudioTask::ClearQueue))
-                                    )
-                            )
-                            .push(
-                                ResonateWidget::queue_bar(
-                                    self.queue_state.as_ref(),
-                                    &self.thumbnail_manager
-                                )
-                            )
                     )
-            ).push(ResonateWidget::control_bar(
-                self.queue_state.as_ref(), 
-                &self.thumbnail_manager,
-                self.page.back(self.last_page.clone()),
-                self.progress_state,
-                self.volume,
-                &self.default_queue,
-                self.mode
-            )).into()
+                ).into()
         )
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
 
         match message {
+
+            Message::ToggleQueue(v) => {
+                self.show_queue = v;
+                Task::none()
+            }
 
             Message::SetMode(mode) => {
                 self.mode = mode;

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, progress_bar, slider, text_input, vertical_space, Button, Slider, Stack};
+use iced::widget::{button, progress_bar, slider, text_input, toggler, vertical_space, Button, Slider, Space, Stack};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
@@ -294,8 +294,8 @@ impl ResonateWidget {
                 };
 
                 queue_items
-            })
-        ).into()
+            }).width(Length::FillPortion(1))
+        ).width(Length::FillPortion(1)).height(Length::FillPortion(45)).into()
     }
 
     pub fn control_bar<'a>(
@@ -305,7 +305,8 @@ impl ResonateWidget {
         progress_update: Option<ProgressUpdate>,
         volume: f32,
         default_queue: &'a QueueFramework,
-        mode: Mode
+        mode: Mode,
+        show_queue: bool
     ) -> Element<'a, Message> {
 
         let (real, queue_state) = match queue_state {
@@ -419,6 +420,8 @@ impl ResonateWidget {
                         button("Current")
                             .on_press(Message::SetMode(Mode::Current))
                             .style(|_, status| ResonateStyle::hightlighted_button_wrapper(status))
+                    ).push(
+                        toggler(show_queue).on_toggle(Message::ToggleQueue)
                     )
                 )
             )
@@ -442,7 +445,7 @@ impl ResonateWidget {
     }
 
     pub fn header(value: &str) -> Element<'_, Message> {
-        text(value).size(30).color(ResonateColour::colour()).width(Length::Fill).into()
+        text(value).size(30).color(ResonateColour::colour()).width(Length::Shrink).into()
     }
 
     pub fn inline_button(text: &str) -> Button<'_, Message> {
@@ -633,8 +636,18 @@ impl ResonateWidget {
                 .spacing(20)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn window<'a>(
-        thumbnail_manager: &'a ThumbnailManager, current: Option<Song>, mode: Mode, element: Element<'a, Message>
+        thumbnail_manager: &'a ThumbnailManager,
+        current: Option<Song>,
+        mode: Mode,
+        queue_state: Option<&'a QueueFramework>,
+        show_queue: bool,
+        back: (PageType, Option<usize>),
+        progress: Option<ProgressUpdate>,
+        volume: f32,
+        default_queue: &'a QueueFramework,
+        element: Element<'a, Message>,
     ) -> Element<'a, Message> {
         Stack::new()
         .push_maybe(
@@ -645,11 +658,47 @@ impl ResonateWidget {
                     .content_fit(iced::ContentFit::Cover)
             )
         ).push(
-            Container::new(element)
-                .padding(20)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                //.style(|_| ResonateStyle::background_wrapper())
+            Column::new().push(Row::new().push(
+                Container::new(element)
+                    .padding(20)
+                    .width(Length::FillPortion(3))
+                    .height(Length::Fill)
+                    //.style(|_| ResonateStyle::background_wrapper())
+                ).push_maybe(
+                    match mode {
+                        Mode::Normal => if show_queue { Some(Space::with_width(Length::FillPortion(1))) } else { None },
+                        _ => None
+                    }
+                ))
+            .push(
+                ResonateWidget::control_bar(
+                    queue_state,
+                    thumbnail_manager,
+                    back,
+                    progress,
+                    volume,
+                    default_queue,
+                    mode,
+                    show_queue
+                )
+            )
+        ).push_maybe(
+            if show_queue { Some(Row::new().push(Space::with_width(Length::FillPortion(3))).push(
+            Column::new().spacing(20).align_x(Horizontal::Right)
+            .push(
+                Row::new().align_y(Vertical::Center)
+                .push(ResonateWidget::header("Queue"))
+                .push(
+                    ResonateWidget::inline_button("Clear")
+                    .on_press(Message::AudioTask(AudioTask::ClearQueue))
+                )
+            )
+            .push(
+                ResonateWidget::queue_bar(
+                    queue_state,
+                    thumbnail_manager
+                )
+            ).push(Space::with_height(Length::FillPortion(10))))) } else { None }
         ).into()
     }
 

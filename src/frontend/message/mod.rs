@@ -97,7 +97,8 @@ pub enum Message {
 
     SetNewSong(Song),
     RequestThumbnail(Song),
-    ThumbnailDownloaded(Song)
+    ThumbnailDownloaded(Song),
+    ToggleQueue(bool)
 }
 
 #[derive(Clone, Debug)]

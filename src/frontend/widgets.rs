@@ -718,10 +718,11 @@ impl ResonateWidget {
             )
         ).push_maybe(
             if show_queue { Some(Row::new().push(Space::with_width(Length::FillPortion(3))).push(
-            Column::new().spacing(20).align_x(Horizontal::Right)
+            Column::new().spacing(20).align_x(Horizontal::Left)
             .push(
                 Row::new().align_y(Vertical::Center)
                 .push(ResonateWidget::header("Queue"))
+                .push(Space::with_width(Length::Fill))
                 .push(
                     ResonateWidget::inline_button("Clear")
                     .on_press(Message::AudioTask(AudioTask::ClearQueue))

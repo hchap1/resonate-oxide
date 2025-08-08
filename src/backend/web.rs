@@ -129,10 +129,11 @@ pub struct AsyncMetadataCollectionPool {
 impl AsyncMetadataCollectionPool {
     pub fn new(
         database: DataLink,
-        ids: Vec<String>,
+        mut ids: Vec<String>,
         dlp_path: PathBuf,
         music_path: PathBuf,
     ) -> Self {
+        ids.reverse();
         Self {
             handle: None,
             dlp_path,

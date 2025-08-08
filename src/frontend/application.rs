@@ -59,7 +59,7 @@ pub trait Page {
     fn back(&self, previous_page: (PageType, Option<usize>)) -> (PageType, Option<usize>);
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum Mode {
     Normal,
     Lyrics,
@@ -143,60 +143,55 @@ impl Application<'_> {
 
     pub fn view(&self, _: iced::window::Id) -> Element<'_, Message> {
         ResonateWidget::window(
-            iced::widget::Stack::new()
-            .push_maybe(
-                self.current_song.as_ref().map(|song| iced::widget::image(
-                    self.thumbnail_manager.get_thumbnail_path_blocking(song.clone()).blurred()
-                ).width(Length::Fill).height(Length::Fill)
-                )
-            ).push(
-                Column::new().spacing(20).push(
-                    Row::new().spacing(20).push(
+            &self.thumbnail_manager,
+            self.current_song.clone(),
+            self.mode,
+            Column::new().spacing(20).push(
+                Row::new().spacing(20).push(
+                    Column::new().spacing(20)
+                        .push(
+                            match self.mode {
+                                Mode::Normal => self.page.view(
+                                    &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
+                                ),
+                                Mode::Lyrics => Column::new().push(match self.lyrics.as_ref() {
+                                    Some(lyrics) => ResonateWidget::lyrics(lyrics),
+                                    None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into()).into()
+                                }),
+                                Mode::Current => match self.current_song.as_ref() {
+                                    Some(song) => ResonateWidget::now_playing_view(&self.thumbnail_manager, song),
+                                    None => self.page.view(
+                                        &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
+                                    )
+                                }
+                            }
+                        ).width(Length::FillPortion(3))
+                    ).push(
                         Column::new().spacing(20)
                             .push(
-                                match self.mode {
-                                    Mode::Normal => self.page.view(
-                                        &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
-                                    ),
-                                    Mode::Lyrics => Column::new().push(match self.lyrics.as_ref() {
-                                        Some(lyrics) => ResonateWidget::lyrics(lyrics),
-                                        None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into()).into()
-                                    }),
-                                    Mode::Current => match self.current_song.as_ref() {
-                                        Some(song) => ResonateWidget::now_playing_view(&self.thumbnail_manager, song),
-                                        None => self.page.view(
-                                            &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
-                                        )
-                                    }
-                                }
-                            ).width(Length::FillPortion(3))
-                        ).push(
-                            Column::new().spacing(20)
-                                .push(
-                                    Row::new().align_y(Vertical::Center)
-                                        .push(ResonateWidget::header("Queue"))
-                                        .push(
-                                            ResonateWidget::inline_button("Clear")
-                                                .on_press(Message::AudioTask(AudioTask::ClearQueue))
-                                        )
-                                )
-                                .push(
-                                    ResonateWidget::queue_bar(
-                                        self.queue_state.as_ref(),
-                                        &self.thumbnail_manager
+                                Row::new().align_y(Vertical::Center)
+                                    .push(ResonateWidget::header("Queue"))
+                                    .push(
+                                        ResonateWidget::inline_button("Clear")
+                                            .on_press(Message::AudioTask(AudioTask::ClearQueue))
                                     )
+                            )
+                            .push(
+                                ResonateWidget::queue_bar(
+                                    self.queue_state.as_ref(),
+                                    &self.thumbnail_manager
                                 )
-                        )
-                ).push(ResonateWidget::control_bar(
-                    self.queue_state.as_ref(), 
-                    &self.thumbnail_manager,
-                    self.page.back(self.last_page.clone()),
-                    self.progress_state,
-                    self.volume,
-                    &self.default_queue,
-                    self.mode
-                ))
-            ).into()
+                            )
+                    )
+            ).push(ResonateWidget::control_bar(
+                self.queue_state.as_ref(), 
+                &self.thumbnail_manager,
+                self.page.back(self.last_page.clone()),
+                self.progress_state,
+                self.volume,
+                &self.default_queue,
+                self.mode
+            )).into()
         )
     }
 

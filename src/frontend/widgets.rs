@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, progress_bar, slider, text_input, vertical_space, Button, Slider};
+use iced::widget::{button, progress_bar, slider, text_input, vertical_space, Button, Slider, Stack};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
@@ -28,9 +28,17 @@ impl ResonateColour {
     pub fn tc(r: u8, g: u8, b: u8) -> Color { Color::from_rgb8(r, g, b) }
     pub fn hex(hex: &str) -> Color { Color::parse(hex).unwrap() }
 
-    pub fn background()     -> Color { Self::hex("#1f2335") }
-    pub fn foreground()     -> Color { Self::hex("#24283b") }
-    pub fn accent()         -> Color { Self::hex("#292e42") }
+    pub fn background() -> Color {
+        iced::color!(0x1f2335, 0.3f32)
+    }
+
+    pub fn foreground() -> Color {
+        iced::color!(0x000000, 0.3f32)
+    }
+    pub fn accent() -> Color {
+        iced::color!(0x292e42, 0.3f32)
+    }
+
     pub fn colour()         -> Color { Self::tc(R, G, B) }
     pub fn lighter_colour() -> Color { Self::tc(
         (R as f32 * 1.1f32).round() as u8,
@@ -48,7 +56,7 @@ pub struct ResonateStyle;
 impl ResonateStyle {
     pub fn background_wrapper() -> container::Style {
         container::Style {
-            background: Some(iced::Background::Color(ResonateColour::background())),
+            background: None,
             border: Border::default(),
             shadow: Shadow::default(),
             text_color: Some(ResonateColour::text())
@@ -625,13 +633,24 @@ impl ResonateWidget {
                 .spacing(20)
     }
 
-    pub fn window(element: Element<'_, Message>) -> Element<'_, Message> {
-        Container::new(element)
-            .padding(20)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(|_| ResonateStyle::background_wrapper())
-            .into()
+    pub fn window<'a>(
+        thumbnail_manager: &'a ThumbnailManager, current: Option<Song>, mode: Mode, element: Element<'a, Message>
+    ) -> Element<'a, Message> {
+        Stack::new()
+        .push_maybe(
+            current.map(|song|
+                image(thumbnail_manager.get_thumbnail_path_blocking(song).blurred())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .content_fit(iced::ContentFit::Cover)
+            )
+        ).push(
+            Container::new(element)
+                .padding(20)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                //.style(|_| ResonateStyle::background_wrapper())
+        ).into()
     }
 
     pub fn lyrics(lyrics: &str) -> Element<'_, Message> {

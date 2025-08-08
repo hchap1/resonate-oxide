@@ -102,7 +102,7 @@ impl ResonateStyle {
                 background: None,
                 border: Border::default().rounded(10),
                 scroller: Scroller {
-                    color: ResonateColour::text(),
+                    color: iced::color!(0x000000, 0.0f32),
                     border: Border::default().rounded(10)
                 }
             },
@@ -761,7 +761,7 @@ impl ResonateWidget {
             }
         }
 
-        ResonateWidget::padded_scrollable(
+        ResonateWidget::padded_scrollable_no_bar(
             column.into()
         ).into()
     }

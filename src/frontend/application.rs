@@ -59,6 +59,13 @@ pub trait Page {
     fn back(&self, previous_page: (PageType, Option<usize>)) -> (PageType, Option<usize>);
 }
 
+#[derive(Clone, Debug, Copy)]
+pub enum Mode {
+    Normal,
+    Lyrics,
+    Current
+}
+
 pub struct Application<'a> {
     settings: Settings,
     page: Box<dyn Page + 'a>,
@@ -82,7 +89,8 @@ pub struct Application<'a> {
     tray: SimpleTray,
     lyrics_backend: Option<Lyrics>,
     lyrics: Option<String>,
-    show_lyrics: bool,
+
+    mode: Mode,
 
     current_song: Option<Song>,
     thumbnail_manager: ThumbnailManager
@@ -128,59 +136,78 @@ impl Application<'_> {
             tray: SimpleTray::new(),
             lyrics_backend: Lyrics::new(),
             lyrics: None,
-            show_lyrics: false,
+            mode: Mode::Normal,
             thumbnail_manager: ThumbnailManager::new(dlp, thumb)
         }
     }
 
     pub fn view(&self, _: iced::window::Id) -> Element<'_, Message> {
         ResonateWidget::window(
-            Column::new().spacing(20).push(
-                Row::new().spacing(20).push(
-                    Column::new().spacing(20)
-                        .push(
-                            if !self.show_lyrics {
-                                self.page.view(&self.current_song_downloads, &self.download_queue, &self.thumbnail_manager)
-                            } else {
-                                Column::new().push(match self.lyrics.as_ref() {
-                                    Some(lyrics) => ResonateWidget::lyrics(lyrics),
-                                    None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into()).into()
-                                })
-                            }
-                        ).width(Length::FillPortion(3))
-                    ).push(
+            iced::widget::Stack::new()
+            .push_maybe(
+                self.current_song.as_ref().map(|song| iced::widget::image(
+                    self.thumbnail_manager.get_thumbnail_path_blocking(song.clone()).blurred()
+                ).width(Length::Fill).height(Length::Fill)
+                )
+            ).push(
+                Column::new().spacing(20).push(
+                    Row::new().spacing(20).push(
                         Column::new().spacing(20)
                             .push(
-                                Row::new().align_y(Vertical::Center)
-                                    .push(ResonateWidget::header("Queue"))
-                                    .push(
-                                        ResonateWidget::inline_button("Clear")
-                                            .on_press(Message::AudioTask(AudioTask::ClearQueue))
-                                    )
-                            )
-                            .push(
-                                ResonateWidget::queue_bar(
-                                    self.queue_state.as_ref(),
-                                    &self.thumbnail_manager
+                                match self.mode {
+                                    Mode::Normal => self.page.view(
+                                        &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
+                                    ),
+                                    Mode::Lyrics => Column::new().push(match self.lyrics.as_ref() {
+                                        Some(lyrics) => ResonateWidget::lyrics(lyrics),
+                                        None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into()).into()
+                                    }),
+                                    Mode::Current => match self.current_song.as_ref() {
+                                        Some(song) => ResonateWidget::now_playing_view(&self.thumbnail_manager, song),
+                                        None => self.page.view(
+                                            &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
+                                        )
+                                    }
+                                }
+                            ).width(Length::FillPortion(3))
+                        ).push(
+                            Column::new().spacing(20)
+                                .push(
+                                    Row::new().align_y(Vertical::Center)
+                                        .push(ResonateWidget::header("Queue"))
+                                        .push(
+                                            ResonateWidget::inline_button("Clear")
+                                                .on_press(Message::AudioTask(AudioTask::ClearQueue))
+                                        )
                                 )
-                            )
-                    )
-            ).push(ResonateWidget::control_bar(
-                self.queue_state.as_ref(), 
-                &self.thumbnail_manager,
-                self.page.back(self.last_page.clone()),
-                self.progress_state,
-                self.volume,
-                &self.default_queue,
-                self.show_lyrics
-            ))
-            .into()
+                                .push(
+                                    ResonateWidget::queue_bar(
+                                        self.queue_state.as_ref(),
+                                        &self.thumbnail_manager
+                                    )
+                                )
+                        )
+                ).push(ResonateWidget::control_bar(
+                    self.queue_state.as_ref(), 
+                    &self.thumbnail_manager,
+                    self.page.back(self.last_page.clone()),
+                    self.progress_state,
+                    self.volume,
+                    &self.default_queue,
+                    self.mode
+                ))
+            ).into()
         )
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
 
         match message {
+
+            Message::SetMode(mode) => {
+                self.mode = mode;
+                Task::none()
+            }
 
             Message::RequestThumbnail(song) => {
                 println!("[UPDATE] Thumbnail download requested for {}", song.title);
@@ -196,11 +223,6 @@ impl Application<'_> {
                 self.current_song = Some(song.clone());
                 self.lyrics = None;
                 Message::Lyrics(super::message::lyric::LyricMsg::RequestLyrics(song)).task()
-            }
-
-            Message::ToggleLyrics(val) => {
-                self.show_lyrics = val;
-                Task::none()
             }
 
             Message::Lyrics(lyric_msg) => {

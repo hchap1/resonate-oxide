@@ -48,6 +48,8 @@ pub struct Thumbnail {
 
 impl Thumbnail {
     pub fn small(&self) -> &Path { &self.thumbnail }
+    pub fn large(&self) -> &Path { &self.fullsize }
+    pub fn blurred(&self) -> &Path { &self.blurred }
 }
 
 pub struct ThumbnailManager {

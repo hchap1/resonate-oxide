@@ -31,7 +31,7 @@ pub async fn flatsearch(
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
                     Some(entries) => Ok(entries.into_iter().filter_map(|entry| {
-                        println!("ENTRYID: {}", entry.id);
+                        println!("ENTRY ID: {} ENTRY TITLE: {:?}", entry.id, entry.title);
                         entry.title.map(|_| entry.id.clone())
                     }).collect::<Vec<String>>()),
                     None => Ok(Vec::<String>::new()),

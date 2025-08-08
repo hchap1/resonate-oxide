@@ -13,11 +13,13 @@ use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework, ScrobbleR
 use crate::backend::music::{Playlist, Song};
 use crate::backend::rpc::RPCMessage;
 
+use super::application::Mode;
+
 #[derive(Clone, Debug)]
 #[allow(dead_code, clippy::enum_variant_names, clippy::large_enum_variant)]
 pub enum Message {
     Lyrics(LyricMsg),
-    ToggleLyrics(bool),
+    SetMode(Mode),
     Quit,
     None,                                // Empty message for map task
     OpenMain,

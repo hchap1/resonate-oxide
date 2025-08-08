@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, progress_bar, slider, text_input, Button, Slider};
+use iced::widget::{button, progress_bar, slider, text_input, vertical_space, Button, Slider};
 use iced::widget::scrollable::Scroller;
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
@@ -15,6 +15,8 @@ use crate::frontend::pages::search_page::SearchState;
 
 use crate::backend::music::{Playlist, Song};
 use crate::backend::audio::{AudioTask, ProgressUpdate, QueueFramework};
+
+use super::application::Mode;
 
 const R: u8 = 78;
 const G: u8 = 62;
@@ -295,7 +297,7 @@ impl ResonateWidget {
         progress_update: Option<ProgressUpdate>,
         volume: f32,
         default_queue: &'a QueueFramework,
-        show_lyrics: bool
+        mode: Mode
     ) -> Element<'a, Message> {
 
         let (real, queue_state) = match queue_state {
@@ -398,16 +400,17 @@ impl ResonateWidget {
                                 PageType::Settings, None
                             ))
                     ).push(
-                        iced::widget::toggler(show_lyrics).size(32f32).on_toggle(Message::ToggleLyrics).style(|_,_|
-                            iced::widget::toggler::Style {
-                                background: ResonateColour::background(),
-                                foreground: ResonateColour::colour(),
-                                background_border_width: 0f32,
-                                background_border_color: ResonateColour::background(),
-                                foreground_border_width: 0f32,
-                                foreground_border_color: ResonateColour::colour()
-                            }
-                        )
+                        button("Normal")
+                            .on_press(Message::SetMode(Mode::Normal))
+                            .style(|_, status| ResonateStyle::hightlighted_button_wrapper(status))
+                    ).push(
+                        button("Lyrics")
+                            .on_press(Message::SetMode(Mode::Lyrics))
+                            .style(|_, status| ResonateStyle::hightlighted_button_wrapper(status))
+                    ).push(
+                        button("Current")
+                            .on_press(Message::SetMode(Mode::Current))
+                            .style(|_, status| ResonateStyle::hightlighted_button_wrapper(status))
                     )
                 )
             )
@@ -648,5 +651,13 @@ impl ResonateWidget {
         ResonateWidget::padded_scrollable(
             column.into()
         ).width(Length::Fill).into()
+    }
+
+    pub fn now_playing_view<'a>(thumbnail_manager: &'a ThumbnailManager, now_playing: &'a Song) -> Column<'a, Message> {
+        Column::new().align_x(Horizontal::Center).height(Length::Fill).width(Length::Fill)
+        .push(
+            image(thumbnail_manager.get_thumbnail_path_blocking(now_playing.clone()).large())
+                .width(Length::FillPortion(1)).height(Length::Fixed(400f32))
+        )
     }
 }

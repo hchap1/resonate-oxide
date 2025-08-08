@@ -1,5 +1,6 @@
 use std::time::Duration;
 use std::fmt::Formatter;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Song {
@@ -10,12 +11,15 @@ pub struct Song {
     pub artist: String,
     pub album: Option<String>,
     pub duration: Duration,
-    pub music_path: Option<std::path::PathBuf>
+    pub music_path: Option<PathBuf>
 }
 
 impl Song {
-    pub fn new( id: usize, yt_id: String, title: String, artist: String, album: Option<String>, duration: Duration) -> Self {
-        Self { id, yt_id, title, artist, album, duration, music_path: None }
+    pub fn new(
+        id: usize, yt_id: String, title: String, artist: String, album: Option<String>, duration: Duration, music_dir: PathBuf
+    ) -> Self {
+        let music_path = music_dir.join(format!("{}.mp3", yt_id));
+        Self { id, yt_id, title, artist, album, duration, music_path: if music_path.exists() { Some(music_path) } else { None } }
     }
 
     pub fn display_duration(&self) -> String {
@@ -23,11 +27,6 @@ impl Song {
             self.duration.as_secs() / 60,
             self.duration.as_secs() % 60
         )
-    }
-
-    /// Convenience method
-    pub fn get_music_identifier(&self) -> String {
-        self.yt_id.clone()
     }
 
     /// This is what is always used to produce the album

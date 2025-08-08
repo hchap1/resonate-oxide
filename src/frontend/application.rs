@@ -495,7 +495,7 @@ impl Application<'_> {
             }
 
             Message::RowIntoSongForQueue(row) => {
-                Task::future(DatabaseInterface::construct_song(row))
+                Task::future(DatabaseInterface::construct_song(row, self.directories.get_music_ref().to_path_buf()))
                     .map(|option| match option {
                         Some(song) => Message::AudioTask(AudioTask::Push(song)),
                         None => Message::None
@@ -503,14 +503,16 @@ impl Application<'_> {
             }
 
             Message::RowIntoSong(row) => {
-                Task::future(DatabaseInterface::construct_song(row)).map(|song| match song {
+                Task::future(DatabaseInterface::construct_song(row, self.directories.get_music_ref().to_path_buf()))
+                    .map(|song| match song {
                     Some(song) => Message::SongStream(song),
                     None => Message::None
                 })
             }
 
             Message::RowIntoSongQuery(row, query) => {
-                Task::future(DatabaseInterface::construct_song(row)).map(move |option| match option {
+                Task::future(DatabaseInterface::construct_song(row, self.directories.get_music_ref().to_path_buf()))
+                    .map(move |option| match option {
                     Some(song) => {
                         if is_song_similar(&song, &query) > 70 { Message::SongStream(song) }
                         else { Message::None }
@@ -519,7 +521,10 @@ impl Application<'_> {
                 })
             }
 
-            Message::RowIntoSearchResult(row, optn) => { Task::future(DatabaseInterface::construct_song(row))
+            Message::RowIntoSearchResult(row, optn) => {
+                Task::future(
+                    DatabaseInterface::construct_song(row, self.directories.get_music_ref().to_path_buf())
+                )
                 .map(move |option| match option {
                     Some(song) => {
                         match &optn {
@@ -657,6 +662,7 @@ impl Application<'_> {
                 Task::future(DatabaseInterface::select_song_by_title(
                     self.database.derive(),
                     track.name.clone(),
+                    self.directories.get_music_ref().to_path_buf()
                 )).map(move |option| match option {
                     Some(song) => Message::GetSongByTitleForSpotify(Some(song), track.clone()),
                     None => Message::GetSongByTitleForSpotify(None, track.clone())
@@ -670,6 +676,7 @@ impl Application<'_> {
                             track,
                             dlp_path.to_path_buf(),
                             self.database.derive(),
+                            self.directories.get_music_ref().to_path_buf()
                         )
                     ).map(|res| match res {
                         Ok(song) => Message::SearchResult(song, true),
@@ -933,7 +940,6 @@ impl Application<'_> {
             ),
 
             PageType::ImportSpotify => Box::new(ImportPage::new(
-                self.directories.clone(),
                 self.database.derive(),
                 self.spotify_id.clone(),
                 self.spotify_secret.clone()

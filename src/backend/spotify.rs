@@ -244,6 +244,7 @@ pub async fn load_spotify_song(
     item: FullTrack,
     dlp_path: PathBuf,
     database: DataLink,
+    music_path: PathBuf
 ) -> Result<Song, ResonateError> {
 
     let artist = item.artists.into_iter().map(|artist| artist.name).collect::<Vec<String>>().join(" ");
@@ -280,6 +281,7 @@ pub async fn load_spotify_song(
         artist,
         Some(item.album.name),
         item.duration.to_std().unwrap_or(Duration::from_secs(0)),
+        music_path
     );
 
     let id = match DatabaseInterface::insert_song(database, base_song.clone()).await {

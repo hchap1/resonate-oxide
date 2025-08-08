@@ -9,7 +9,6 @@ use iced::Length;
 use iced::Task;
 
 use crate::backend::database_interface::DatabaseInterface;
-use crate::backend::thumbnail;
 use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::PageType;
@@ -197,7 +196,6 @@ impl Page for SearchPage {
                                 self.database.clone(), ids, 
                                 dlp_ref.to_path_buf(),
                                 self.directories.get_music_ref().to_path_buf(),
-                                self.directories.get_thumbnails_ref().to_path_buf()
                             )
                         ).abortable();
 

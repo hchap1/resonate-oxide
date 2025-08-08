@@ -35,7 +35,7 @@ impl DatabaseInterface {
 
     /// Make song from a single row
     pub async fn construct_song(
-        row: Vec<DatabaseParam>
+        row: Vec<DatabaseParam>, music_path: std::path::PathBuf
     ) -> Option<Song> {
         if row.len() != 6 {
             return None;
@@ -49,6 +49,7 @@ impl DatabaseInterface {
                 row[3].string(),
                 Some(row[4].string()),
                 std::time::Duration::from_secs(row[5].usize() as u64),
+                music_path
             )
         ).await.ok()
     }
@@ -64,10 +65,10 @@ impl DatabaseInterface {
     }
 
     /// Make a song out of the rows
-    pub async fn construct_songs(rows: Vec<Vec<DatabaseParam>>) -> Vec<Song> {
+    pub async fn construct_songs(rows: Vec<Vec<DatabaseParam>>, music_path: std::path::PathBuf) -> Vec<Song> {
         let mut songs = Vec::new();
         for row in rows {
-            if let Some(song) = Self::construct_song(row).await {
+            if let Some(song) = Self::construct_song(row, music_path.clone()).await {
                 songs.push(song);
             }
         }
@@ -148,7 +149,7 @@ impl DatabaseInterface {
 
     /// Exact string matching
     pub async fn select_song_by_title(
-        database: DataLink, title: String
+        database: DataLink, title: String, music_path: std::path::PathBuf
     ) -> Option<Song> {
         let rows = match database.query_map(
             SELECT_SONG_BY_TITLE, DatabaseParams::single(DatabaseParam::String(title))
@@ -156,7 +157,7 @@ impl DatabaseInterface {
             Ok(rows) => rows,
             Err(_) => return None
         };
-        Self::construct_songs(rows).await.pop()
+        Self::construct_songs(rows, music_path).await.pop()
     }
 
     /// Batch load secrets

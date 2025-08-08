@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+
 use std::path::PathBuf;
 use std::path::Path;
 use std::process::Command;
 use std::collections::HashSet;
+use std::fs::read_dir;
 
 use async_channel::Sender;
 use async_channel::Receiver;
@@ -114,6 +116,34 @@ impl ThumbnailManager {
     pub fn run_thread(task_sender: TnTx, task_receiver: TnRx, paths: TnPaths) {
         let mut downloaded: HashMap<String, Thumbnail> = HashMap::new();
         let mut downloading: HashSet<String> = HashSet::new();
+        let mut saved_paths: Vec<PathBuf> = Vec::new();
+
+        if let Ok(contents) = read_dir(&paths.1) {
+            for item in contents.flatten() {
+                let path = item.path();
+                if path.is_dir() {
+                    saved_paths.push(path);
+                }
+            }
+        }
+
+        for path in saved_paths {
+            let thumbnail = path.join("thumbnail.png");
+            let fullsize = path.join("fullsize.png");
+            let blurred = path.join("blurred.png");
+
+            if !(thumbnail.exists() && fullsize.exists() && blurred.exists()) {
+                continue;
+            }
+
+            let identifier = if let Some(identifier) = path.file_name() { identifier } else { continue };
+
+            let thumbnail_struct = Thumbnail {
+                thumbnail, fullsize, blurred
+            };
+            
+            downloaded.insert(identifier.to_string_lossy().to_string(), thumbnail_struct);
+        }
 
         let (download_sender, download_receiver) = unbounded();
         let _handle = std::thread::spawn(move || Self::download_thread(task_sender, download_receiver, paths));
@@ -191,6 +221,12 @@ impl ThumbnailManager {
             Err(_) => return Err(ThumbnailError::FailedToDownload)
         };
 
+        let full_path = thumbnail_dir.join(&identifier);
+        if !full_path.exists() {
+            let res = std::fs::create_dir_all(&full_path);
+            if res.is_err() { return Err(ThumbnailError::FailedToSave); }
+        }
+
         let original_width = raw.width();
         let original_height = raw.height();
 
@@ -202,7 +238,7 @@ impl ThumbnailManager {
         let height = scaled.height();
         let padding = (scaled.width() - height) / 2;
         let cropped = scaled.crop_imm(padding, 0, height, height);
-        let result = thumbnail_dir.join(format!("{identifier}.png"));
+        let result = full_path.join("thumbnail.png");
         let _ = cropped.save(&result);
 
         // full size
@@ -210,12 +246,12 @@ impl ThumbnailManager {
         let x_offset = (original_width - size) / 2;
         let y_offset = (original_height - size) / 2;
         let square_cropped = raw.crop_imm(x_offset, y_offset, size, size);
-        let fullsize_path = thumbnail_dir.join(format!("{identifier}_fullsize.png"));
+        let fullsize_path = full_path.join("fullsize.png");
         let _ = square_cropped.save(&fullsize_path);
 
         // blurred
         let blurred = square_cropped.blur(25.0);
-        let blurred_path = thumbnail_dir.join(format!("{identifier}_blurred.png"));
+        let blurred_path = full_path.join("blurred.png");
         let _ = blurred.save(&blurred_path);
 
         // delete webp

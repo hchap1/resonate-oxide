@@ -34,7 +34,6 @@ pub enum SpotifyNotification {
 
 pub struct ImportPage {
     database: DataLink,
-    directories: DataDir,
     songs: Vec<Song>,
     input: String,
     notification: Option<SpotifyNotification>,
@@ -48,14 +47,12 @@ pub struct ImportPage {
 
 impl ImportPage {
     pub fn new(
-        directories: DataDir,
         database: DataLink,
         spotify_id: Option<String>,
         spotify_client: Option<String>,
     ) -> ImportPage {
         ImportPage {
             database,
-            directories,
             songs: Vec::new(),
             input: String::new(),
             notification: None,

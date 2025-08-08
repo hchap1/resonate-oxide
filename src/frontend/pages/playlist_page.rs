@@ -17,7 +17,6 @@ use crate::frontend::widgets::ResonateStyle;
 use crate::frontend::widgets::ResonateColour;
 use crate::frontend::message::PageType;
 
-use crate::backend::filemanager::DataDir;
 use crate::backend::music::Playlist;
 use crate::backend::music::Song;
 use crate::backend::database_manager::DataLink;

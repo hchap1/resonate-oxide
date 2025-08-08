@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+
 use std::path::Path;
 use std::time::Duration;
 use std::task::Waker;
@@ -30,6 +31,7 @@ pub async fn flatsearch(
             match result.into_playlist() {
                 Some(mut playlist) => match playlist.entries.take() {
                     Some(entries) => Ok(entries.into_iter().filter_map(|entry| {
+                        println!("ENTRYID: {}", entry.id);
                         entry.title.map(|_| entry.id.clone())
                     }).collect::<Vec<String>>()),
                     None => Ok(Vec::<String>::new()),
@@ -43,7 +45,8 @@ pub async fn flatsearch(
 
 pub fn collect_metadata(
         executable_path: &Path,
-        id: &String
+        id: &String,
+        music_path: PathBuf
     ) -> Result<Song, ResonateError> {
 
     let ytdl = YoutubeDl::new(id)
@@ -66,6 +69,7 @@ pub fn collect_metadata(
                                 artist,
                                 entry.album.take(),
                                 Duration::from_secs(duration),
+                                music_path
                             )
                         )
                     } else {
@@ -118,7 +122,6 @@ pub struct AsyncMetadataCollectionPool {
     handle: Option<std::thread::JoinHandle<Result<Song, ResonateError>>>,
     dlp_path: PathBuf,
     music_path: PathBuf,
-    thumbnail_path: PathBuf,
     database: DataLink,
     ids: Vec<String>
 }
@@ -129,13 +132,11 @@ impl AsyncMetadataCollectionPool {
         ids: Vec<String>,
         dlp_path: PathBuf,
         music_path: PathBuf,
-        thumbnail_path: PathBuf
     ) -> Self {
         Self {
             handle: None,
             dlp_path,
             music_path,
-            thumbnail_path,
             database,
             ids
         }
@@ -143,14 +144,14 @@ impl AsyncMetadataCollectionPool {
 }
 
 fn populate(
-    waker: Waker, id: String, database: DataLink, dlp_path: PathBuf,
+    waker: Waker, id: String, database: DataLink, dlp_path: PathBuf, music_path: PathBuf
 ) -> Result<Song, ResonateError> {
 
     if !DatabaseInterface::blocking_is_unique(database.clone(), id.clone()) {
         return Err(ResonateError::AlreadyExists);
     }
 
-    let mut song = match collect_metadata(dlp_path.as_path(), &id) {
+    let mut song = match collect_metadata(dlp_path.as_path(), &id, music_path) {
         Ok(song) => song,
         error => return error
     };
@@ -179,11 +180,12 @@ impl Stream for AsyncMetadataCollectionPool {
 
                     let database = self.database.clone();
                     let dlp_path = self.dlp_path.clone();
+                    let music_path = self.music_path.clone();
 
                     let waker = context.waker().to_owned();
 
                     self.handle = Some(std::thread::spawn(
-                        move || populate(waker, id, database, dlp_path)
+                        move || populate(waker, id, database, dlp_path, music_path)
                     ))
                 },
 

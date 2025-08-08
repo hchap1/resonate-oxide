@@ -923,6 +923,14 @@ impl Application<'_> {
                 ])
             }
 
+            Message::SearchResult(song, from_web) => {
+                let song_clone = song.clone();
+                Task::batch(vec![
+                    if from_web { Message::RequestThumbnail(song_clone).task() } else { Message::None.task() },
+                    self.page.update(Message::SearchResult(song, from_web)),
+                ])
+            }
+
             other => {
                 self.page.update(other)
             }

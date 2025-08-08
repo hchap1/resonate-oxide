@@ -18,8 +18,14 @@ impl Song {
     pub fn new(
         id: usize, yt_id: String, title: String, artist: String, album: Option<String>, duration: Duration, music_dir: PathBuf
     ) -> Self {
-        let music_path = music_dir.join(format!("{}.mp3", yt_id));
-        Self { id, yt_id, title, artist, album, duration, music_path: if music_path.exists() { Some(music_path) } else { None } }
+        let mut s = Self { id, yt_id, title, artist, album, duration, music_path: None };
+        s.load_music_path(music_dir);
+        s
+    }
+
+    pub fn load_music_path(&mut self, music_dir: PathBuf) {
+        let music_path = music_dir.join(format!("{}.mp3", self.yt_id));
+        self.music_path = if music_path.exists() { Some(music_path) } else { None }
     }
 
     pub fn display_duration(&self) -> String {

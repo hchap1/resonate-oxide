@@ -4,7 +4,7 @@ use iced::alignment::{Horizontal, Vertical};
 use iced::advanced::svg::Handle;
 use iced::widget::text::LineHeight;
 use iced::widget::{button, progress_bar, slider, text_input, toggler, vertical_space, Button, Slider, Space, Stack};
-use iced::widget::scrollable::Scroller;
+use iced::widget::scrollable::{Direction, Scroller};
 use iced::widget::{container, image, scrollable, text, Column, Container, Row, Scrollable, TextInput, svg, ProgressBar};
 use iced::{Background, Border, Color, Element, Length, Pixels, Shadow};
 
@@ -92,6 +92,29 @@ impl ResonateStyle {
                 }
             },
             gap: Some(iced::Background::Color(ResonateColour::text()))
+        }
+    }
+
+    pub fn scrollable_list_no_bar() -> scrollable::Style {
+        scrollable::Style {
+            container: ResonateStyle::background_wrapper(),
+            vertical_rail: scrollable::Rail {
+                background: None,
+                border: Border::default().rounded(10),
+                scroller: Scroller {
+                    color: ResonateColour::text(),
+                    border: Border::default().rounded(10)
+                }
+            },
+            horizontal_rail: scrollable::Rail {
+                background: None,
+                border: Border::default().rounded(10),
+                scroller: Scroller {
+                    color: ResonateColour::colour(),
+                    border: Border::default().rounded(10)
+                }
+            },
+            gap: None
         }
     }
 
@@ -636,6 +659,16 @@ impl ResonateWidget {
                 .spacing(20)
     }
 
+    pub fn padded_scrollable_no_bar(element: Element<'_, Message>) -> Scrollable<'_, Message> {
+            Scrollable::new(
+                element
+            )
+                .style(|_,_| ResonateStyle::scrollable_list_no_bar())
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .spacing(20)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn window<'a>(
         thumbnail_manager: &'a ThumbnailManager,
@@ -704,28 +737,61 @@ impl ResonateWidget {
 
     pub fn lyrics(lyrics: &str) -> Element<'_, Message> {
         let lyrics_list: Vec<&str> = lyrics.split('\n').collect();
-        let mut column = Column::new().align_x(Horizontal::Center).spacing(10).width(Length::Fill);
+        let mut column = Column::new().align_x(Horizontal::Center).spacing(0).width(Length::Shrink);
 
         for lyric in lyrics_list {
-            column = column.push(
-                iced::widget::text(lyric).style(
-                    |_| iced::widget::text::Style {
-                        color: Some(ResonateColour::text())
-                    }
-                ).size(32f32)
-            );
+            if lyric != "\r" {
+                column = column.push(
+                    Row::new().push(Space::with_width(Length::Fill)).push(
+                        Container::new(
+                        iced::widget::text(lyric).style(
+                            |_| iced::widget::text::Style {
+                                color: Some(ResonateColour::text())
+                            }
+                        ).size(32f32))
+                        .style(|_| container::Style::default()
+                            .background(Background::Color(iced::color!(0x000000, 0.5)))
+                            .border(Border::default().rounded(10))
+                        )
+                    .padding(10).width(Length::Shrink)).push(Space::with_width(Length::Fill))
+                );
+            } else {
+                column = column.push(Space::with_height(Length::Fixed(32f32)));
+            }
         }
 
         ResonateWidget::padded_scrollable(
             column.into()
-        ).width(Length::Fill).into()
+        ).into()
     }
 
-    pub fn now_playing_view<'a>(thumbnail_manager: &'a ThumbnailManager, now_playing: &'a Song) -> Column<'a, Message> {
+    pub fn now_playing_view<'a>(
+        thumbnail_manager: &'a ThumbnailManager, now_playing: &'a Song, progress_update: Option<ProgressUpdate>
+    ) -> Column<'a, Message> {
         Column::new().align_x(Horizontal::Center).height(Length::Fill).width(Length::Fill)
         .push(
-            image(thumbnail_manager.get_thumbnail_path_blocking(now_playing.clone()).large())
-                .width(Length::FillPortion(1)).height(Length::Fixed(400f32))
+            Row::new().spacing(10).align_y(Vertical::Center).height(Length::Fill)
+            .push(
+                image(thumbnail_manager.get_thumbnail_path_blocking(now_playing.clone()).large())
+                    .width(Length::Shrink).height(Length::Fixed(400f32))
+            ).push(
+                Column::new().push(
+                    text(&now_playing.title).size(32f32).color(ResonateColour::text())
+                ).push(
+                    text(&now_playing.artist).size(20f32).color(ResonateColour::text())
+                ).push(
+                    ProgressBar::new(0f32..=1000f32, match progress_update {
+                        Some(update) => match update {
+                            ProgressUpdate::Nothing => 0f32,
+                            ProgressUpdate::Seconds(current, length) => (current / length) * 1000f32
+                        },
+                        None => 0f32
+                    }).width(Length::FillPortion(1)).style(|_| ResonateStyle::progress_bar())
+                            .height(Length::Fixed(45f32))
+                )
+
+                .align_x(Horizontal::Left).width(Length::Shrink)
+            )
         )
     }
 }

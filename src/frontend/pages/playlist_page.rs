@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use iced::alignment::Vertical;
 use iced::widget::Column;
@@ -9,6 +10,7 @@ use iced::Length;
 use iced::Task;
 
 use crate::backend::database_interface::DatabaseInterface;
+use crate::backend::music;
 use crate::backend::thumbnail::ThumbnailManager;
 use crate::frontend::application::Page;
 use crate::frontend::message::Message;
@@ -30,11 +32,12 @@ pub struct PlaylistPage {
     database: DataLink,
     hovered_song: Option<usize>,
     total_songs: usize,
-    downloaded: usize
+    downloaded: usize,
+    music_path: PathBuf
 }
 
 impl PlaylistPage {
-    pub fn new(playlist: Option<usize>, database: DataLink) -> Result<PlaylistPage, ()> {
+    pub fn new(playlist: Option<usize>, database: DataLink, music_path: PathBuf) -> Result<PlaylistPage, ()> {
 
         if playlist.is_none() {
             return Err(());
@@ -50,7 +53,8 @@ impl PlaylistPage {
             database,
             hovered_song: None,
             total_songs: 0,
-            downloaded: 0
+            downloaded: 0,
+            music_path
         })
     }
 }
@@ -165,6 +169,7 @@ impl Page for PlaylistPage {
                 for s in &mut self.songs {
                     if s.id == song.id {
                         self.downloaded += 1;
+                        s.load_music_path(self.music_path.clone());
                     }
                 }
             }

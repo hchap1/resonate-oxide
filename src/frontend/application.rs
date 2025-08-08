@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use iced::Element;
 use iced::futures::FutureExt;
-use iced::alignment::Vertical;
 use iced::widget::Column;
 use iced::widget::Row;
 use iced::Length;
@@ -165,10 +164,13 @@ impl Application<'_> {
                                 ),
                                 Mode::Lyrics => Column::new().push(match self.lyrics.as_ref() {
                                     Some(lyrics) => ResonateWidget::lyrics(lyrics),
-                                    None => ResonateWidget::padded_scrollable(iced::widget::text("No Lyrics").into()).into()
+                                    None => ResonateWidget::padded_scrollable_no_bar(
+                                        iced::widget::text("No Lyrics").into()).into()
                                 }),
                                 Mode::Current => match self.current_song.as_ref() {
-                                    Some(song) => ResonateWidget::now_playing_view(&self.thumbnail_manager, song),
+                                    Some(song) => ResonateWidget::now_playing_view(
+                                        &self.thumbnail_manager, song, self.progress_state
+                                    ),
                                     None => self.page.view(
                                         &self.current_song_downloads, &self.download_queue, &self.thumbnail_manager
                                     )
@@ -956,7 +958,7 @@ impl Application<'_> {
             PageType::Playlists => Box::new(PlaylistsPage::new(self.database.derive())),
 
             PageType::ViewPlaylist => Box::new(
-                match PlaylistPage::new(playlist_id, self.database.derive()) {
+                match PlaylistPage::new(playlist_id, self.database.derive(), self.directories.get_music_ref().to_path_buf()) {
                     Ok(page) => page,
                     Err(_) => return // THIS SHOULD BE AN ERROR NOTIFICATION
                 }

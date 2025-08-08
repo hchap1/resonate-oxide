@@ -343,6 +343,7 @@ impl Application<'_> {
             }
 
             Message::LoadPage(page_type, playlist_id) => {
+                self.mode = Mode::Normal;
                 let task = match &page_type {
                     PageType::Playlists => Task::batch(vec![
                         Message::LoadAllPlaylists.task()

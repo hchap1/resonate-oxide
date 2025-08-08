@@ -321,6 +321,7 @@ impl ResonateWidget {
         ).width(Length::FillPortion(1)).height(Length::FillPortion(45)).into()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn control_bar<'a>(
         queue_state: Option<&'a QueueFramework>,
         thumbnail_manager: &'a ThumbnailManager,

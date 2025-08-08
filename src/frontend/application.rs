@@ -915,6 +915,14 @@ impl Application<'_> {
                 )
             }
 
+            Message::SongStream(song) => {
+                let song_clone = song.clone();
+                Task::batch(vec![
+                    Message::RequestThumbnail(song_clone).task(),
+                    self.page.update(Message::SongStream(song)),
+                ])
+            }
+
             other => {
                 self.page.update(other)
             }

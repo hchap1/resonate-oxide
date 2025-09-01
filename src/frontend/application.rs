@@ -110,6 +110,7 @@ impl Default for Application<'_> {
 
 impl Application<'_> {
     pub fn new(directories: DataDir, database: Database) -> Self {
+        println!("NEW RUNNING");
         let (dlp, thumb) = (directories.get_dlp_ref().expect("DLP not installed"), directories.get_thumbnails_ref());
 
         Self {
@@ -183,7 +184,6 @@ impl Application<'_> {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
-
         match message {
 
             Message::ToggleQueue(v) => {
@@ -197,7 +197,6 @@ impl Application<'_> {
             }
 
             Message::RequestThumbnail(song) => {
-                println!("[UPDATE] Thumbnail download requested for {}", song.title);
                 Task::future(self.thumbnail_manager.download_thumbnail(song.clone())).map(
                     move |res| match res {
                         Ok(_) => Message::ThumbnailDownloaded(song.clone()),
@@ -343,6 +342,7 @@ impl Application<'_> {
             }
 
             Message::LoadPage(page_type, playlist_id) => {
+                if self.current_page.0 == page_type { return Task::none(); }
                 self.mode = Mode::Normal;
                 let task = match &page_type {
                     PageType::Playlists => Task::batch(vec![
@@ -760,6 +760,7 @@ impl Application<'_> {
             }
 
             Message::SaveSecret(secret) => {
+                println!("SAVING SECRET {secret:?}");
                 let (n, v) = match secret {
                     Secret::SpotifyID(x) => ("SPOTIFY_ID", x),
                     Secret::SpotifySecret(x) => ("SPOTIFY_SECRET", x),

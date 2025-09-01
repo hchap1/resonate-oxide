@@ -45,11 +45,13 @@ impl SimpleTray {
     let close_item = MenuItem::new("Quit", true, None);
     menu.append(&close_item).expect("Failed to append menu item");
 
+    println!("trayicon starting");
     let tray_icon = TrayIconBuilder::new()
-        .with_icon(icon)
+        //.with_icon(icon)
         .with_menu(Box::new(menu))
         .build()
         .expect("Failed to build tray icon");
+    println!("trayicon finishing");
 
     let open_item_id = open_item.id().clone();
     let close_item_id = close_item.id().clone();
@@ -60,9 +62,7 @@ impl SimpleTray {
         let receiver = MenuEvent::receiver();
             loop {
                 if let Ok(evt) = receiver.recv() {
-                    println!("RECEIVED TRAY EVENT");
                     if let Some(message) = if evt.id == open_item_id {
-                        println!("TRAY EVEN WAS OPENMAIN");
                         Some(TrayMessage::OpenMain)
                     } else if evt.id == close_item_id {
                         Some(TrayMessage::Quit)
@@ -70,7 +70,6 @@ impl SimpleTray {
                         None
                     } {
                         let _ = sender.send_blocking(message);
-                        println!("TRAY MESSAGE SENT");
                     }
                 }
             }

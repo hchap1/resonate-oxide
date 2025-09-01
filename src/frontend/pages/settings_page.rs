@@ -34,7 +34,7 @@ impl SettingsPage {
 }
 
 impl Page for SettingsPage {
-    fn view(&self, _: &HashSet<String>, _: &HashSet<Song>, _: &ThumbnailManager) -> Column<Message> {
+    fn view(&self, _: &HashSet<String>, _: &HashSet<Song>, _: &ThumbnailManager) -> Column<'_, Message> {
         Column::new().push(
             Row::new().spacing(10).push(
                 Column::new().spacing(20)

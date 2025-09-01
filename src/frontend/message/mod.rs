@@ -101,7 +101,7 @@ pub enum Message {
     ToggleQueue(bool)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PageType {
     SearchSongs,
     Playlists,
